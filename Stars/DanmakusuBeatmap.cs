@@ -1,0 +1,131 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using osu.Framework.Graphics;
+using osu.Framework.Graphics.Sprites;
+using osu.Framework.Logging;
+using osu.Game.Beatmaps;
+using osu.Game.Rulesets.Danmakusu.Bullets;
+using osu.Game.Rulesets.Objects;
+using osu.Game.Rulesets.Osu.Beatmaps;
+
+namespace osu.Game.Rulesets.Danmakusu.Stars
+{
+    /// <summary>
+    /// A map converted for Danmakusu (<see cref="DanmakusuBeatmapConverter"/> makes these: osu!'s own for everything else). What song select shows of it are not its circles and sliders but how many bullets
+    /// and beams its own objects make (planned without bosses, as the stars are; a spinner's stars are among the bullets, its beams among the beams: spinners are not counted on their own), and how many
+    /// bosses it has room for at most (<see cref="BulletPlanner.MostBosses"/>, as the boss menu's Max).
+    /// From what is kept of the map (<see cref="DanmakusuStars"/>). In osu! a map not rated yet is counted in the background (<see cref="CountsInBackground"/>): it is shown at once with "…" for what is
+    /// still coming, and again when the counts are in. Outside osu! (the tools) it is planned here. How many bosses it has room for is worked out without the song when the map needs it (kept only when it
+    /// did not: the background rating reads the song).
+    /// </summary>
+    public class DanmakusuBeatmap : OsuBeatmap
+    {
+        /// <summary>The name of the first statistic: song select lays the bars out its own way when it shows these (<see cref="SongSelectCounts"/>).</summary>
+        public const string BULLETS_LABEL = "Bullets";
+
+        private readonly object gate = new object();
+        private DanmakusuStars.Rating? shown;
+
+        public override IEnumerable<BeatmapStatistic> GetStatistics()
+        {
+            var rating = ratingOf(out bool coming);
+            double seconds = HitObjects.Count > 0 ? Math.Max((HitObjects.Max(h => h.GetEndTime()) - HitObjects.Min(h => h.StartTime)) / 1000, 1) : 1;
+
+            string count(int value) => value >= 0 ? value.ToString("N0", CultureInfo.InvariantCulture) : coming ? "…" : "?";
+
+            return new[]
+            {
+                new BeatmapStatistic
+                {
+                    Name = BULLETS_LABEL,
+                    Content = count(rating?.Bullets ?? -1),
+                    CreateIcon = () => new SpriteIcon { Icon = FontAwesome.Solid.Circle },
+                    BarDisplayLength = rating is { Bullets: >= 0 } r1 ? (float)Math.Min(r1.Bullets / seconds / DanmakusuBalance.STAT_BULLETS_FULL, 1) : 0,
+                },
+                new BeatmapStatistic
+                {
+                    Name = "Beams",
+                    Content = count(rating?.Beams ?? -1),
+                    CreateIcon = () => new SpriteIcon { Icon = FontAwesome.Solid.Bolt },
+                    BarDisplayLength = rating is { Beams: >= 0 } r2 ? (float)Math.Min(r2.Beams / (seconds / 60) / DanmakusuBalance.STAT_BEAMS_FULL, 1) : 0,
+                },
+                new BeatmapStatistic
+                {
+                    Name = "Most bosses",
+                    Content = count(rating is { Bosses: > 0 } r3 ? r3.Bosses : -1),
+                    CreateIcon = () => new SpriteIcon { Icon = FontAwesome.Solid.Crown },
+                    BarDisplayLength = rating is { Bosses: > 0 } r4 ? Math.Min(r4.Bosses / (float)DanmakusuBalance.STAT_BOSSES_FULL, 1f) : 0,
+                },
+            };
+        }
+
+        /// <summary>What is kept of this map; in osu!, what is known while the rest is counted in the background (<paramref name="coming"/>); outside it, (once) worked out now.</summary>
+        private DanmakusuStars.Rating? ratingOf(out bool coming)
+        {
+            coming = false;
+
+            lock (gate)
+            {
+                if (shown != null)
+                    return shown;
+
+                string? md5 = BeatmapInfo?.MD5Hash;
+
+                bool has = DanmakusuStars.TryGetRating(md5, out var kept);
+
+                if (has && kept.Complete)
+                    return shown = kept;
+
+                if (HitObjects.Count == 0)
+                    return shown = new DanmakusuStars.Rating(0, 0, 0, 1);
+
+                if (CountsInBackground.Enabled && !string.IsNullOrEmpty(md5))
+                {
+                    // (a map that could not be rated is not tried again; what was counted but not kept is shown as it was)
+                    if (DanmakusuStars.Complete(md5))
+                        return null;
+
+                    if (CountsInBackground.TryGetShownOnly(md5, out var counted))
+                        return shown = counted;
+
+                    CountsInBackground.Request(md5, this);
+                    coming = true;
+                    return has ? kept : null;
+                }
+
+                try
+                {
+                    return shown = Count(this, md5);
+                }
+                catch (Exception e)
+                {
+                    Logger.Log($"Danmakusu: no counts for {BeatmapInfo} ({e.Message})");
+                    return shown = null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Plans the map (what is kept of it is not planned again) and keeps the counts with its stars. The song is not at hand here: a map with too few sections of its own would choose them with it, so
+        /// how many bosses it has room for is then shown but not kept (<see cref="DanmakusuStars.Complete(string?)"/> stays false; the background rating of the library reads the song).
+        /// </summary>
+        public static DanmakusuStars.Rating Count(IBeatmap beatmap, string? md5)
+        {
+            var rating = DanmakusuStars.TryGetRating(md5, out var kept) && kept.Bullets >= 0 && kept.Beams >= 0 ? kept : fromRate(StarRating.Rate(beatmap));
+
+            bool neededSong = false;
+            int bosses = rating.Bosses > 0 ? rating.Bosses : BulletPlanner.MostBosses(beatmap, () =>
+            {
+                neededSong = true;
+                return null;
+            });
+
+            DanmakusuStars.Put(md5, neededSong ? rating : rating with { Bosses = bosses });
+            return rating with { Bosses = bosses };
+        }
+
+        private static DanmakusuStars.Rating fromRate(StarRating.Result result) => new DanmakusuStars.Rating(result.Stars, result.Bullets, result.Beams, 0);
+    }
+}

@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup Label="Project">
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>osu.Game.Rulesets.Danmakusu</AssemblyName>
+    <RootNamespace>osu.Game.Rulesets.Danmakusu</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <!-- the known-vulnerability warnings (NU1902 / NU1903) are about packages that osu.Game itself depends on (AutoMapper, SignalR, ImageSharp); a ruleset cannot upgrade them -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+
+  <!--
+    Set Version to the lazer release you are targeting (osu! -> Settings -> About shows it).
+    The runtime assets are excluded on purpose: lazer already ships osu.Game and osu.Game.Rulesets.Osu,
+    and a second copy next to the ruleset dll would be loaded as a different assembly.
+  -->
+  <ItemGroup Label="Resources">
+    <EmbeddedResource Include="Resources\**\*.wav" />
+    <EmbeddedResource Include="Resources\**\*.mp3" />
+    <EmbeddedResource Include="Resources\**\*.ogg" />
+    <EmbeddedResource Include="Resources\**\*.png" />
+    <EmbeddedResource Include="Resources\**\*.webp" />
+    <EmbeddedResource Include="$(PkgLib_Harmony)\lib\net10.0\0Harmony.dll" LogicalName="0Harmony.dll" Condition="'$(PkgLib_Harmony)' != ''" />
+  </ItemGroup>
+
+  <!--
+    After every build the ruleset is copied into osu!'s rulesets folder. A running osu! keeps the dll locked, so it is closed first: asked to close normally (so it saves its settings),
+    and killed if it is still there after 5 seconds. Build with -p:CloseOsu=false to leave it running (the copy then only warns).
+  -->
+  <PropertyGroup Label="Deploy">
+    <OsuRulesetsDir>$(APPDATA)\osu\rulesets</OsuRulesetsDir>
+    <CloseOsu Condition="'$(CloseOsu)' == ''">true</CloseOsu>
+  </PropertyGroup>
+
+  <Target Name="CloseOsu" AfterTargets="Build" BeforeTargets="CopyToOsu" Condition="'$(CloseOsu)' == 'true' And Exists('$(OsuRulesetsDir)')">
+    <Exec ContinueOnError="true" Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$p = Get-Process -Name 'osu!' -ErrorAction SilentlyContinue; if ($p) { Write-Host 'Closing osu!...'; $p | ForEach-Object { [void]$_.CloseMainWindow() }; $p | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue; $p | Where-Object { -not $_.HasExited } | Stop-Process -Force -ErrorAction SilentlyContinue; $p | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue }; exit 0&quot;" />
+  </Target>
+
+  <Target Name="CopyToOsu" AfterTargets="Build" Condition="Exists('$(OsuRulesetsDir)')">
+    <!-- (the dll had this name before the ruleset was renamed: osu! would load both) -->
+    <Delete Files="$(OsuRulesetsDir)\osu.Game.Rulesets.Touhou.dll" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(OsuRulesetsDir)" Retries="0" ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="CopiedFiles" ItemName="CopiedToOsu" />
+    </Copy>
+    <Message Importance="high" Condition="'@(CopiedToOsu)' != ''" Text="Copied $(TargetFileName) to $(OsuRulesetsDir)" />
+    <Message Importance="high" Condition="'@(CopiedToOsu)' == ''" Text="NOT copied to osu! (is osu! running? close it and build again)" />
+  </Target>
+
+  <!-- (a copy of the built dll is also kept in bin\Release\net10.0) -->
+  <PropertyGroup Label="Project copy">
+    <ProjectCopyDir>$(MSBuildProjectDirectory)\bin\Release\$(TargetFramework)</ProjectCopyDir>
+  </PropertyGroup>
+
+  <Target Name="CopyToProject" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ProjectCopyDir)" ContinueOnError="WarnAndContinue" />
+    <Message Importance="high" Text="Copied $(TargetFileName) to $(ProjectCopyDir)" />
+  </Target>
+
+  <!-- (after every build the project folder, without bin and obj, and the built dll are zipped into ..\Archives with the date and time; the newest 30 are kept. -p:Archive=false skips it, and so does a copy without archive.ps1, as the one on GitHub) -->
+  <Target Name="Archive" AfterTargets="Build" Condition="'$(Archive)' != 'false' And Exists('$(MSBuildProjectDirectory)\archive.ps1')">
+    <Exec ContinueOnError="true" Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\archive.ps1&quot; -Project &quot;$(MSBuildProjectDirectory)&quot; -Dll &quot;$(TargetPath)&quot;" />
+  </Target>
+
+  <ItemGroup Label="Package References">
+    <PackageReference Include="ppy.osu.Game" Version="2026.916.0" />
+    <PackageReference Include="ppy.osu.Game.Rulesets.Osu" Version="2026.916.0" />
+    <!-- (Harmony: lets maps of the other modes be offered in Danmakusu, see OtherModesInSongSelect.cs; its dll is embedded in the ruleset's, osu! loads only the ruleset) -->
+    <PackageReference Include="Lib.Harmony" Version="2.4.3" GeneratePathProperty="true" />
+  </ItemGroup>
+</Project>
