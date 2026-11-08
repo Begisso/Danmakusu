@@ -1,18 +1,50 @@
 # Danmakusu
 
-A fan-made ruleset for osu! (lazer): osu!standard maps played as a bullet hell. The circles, sliders and spinners play themselves and fire bullets and laser beams to the music, and you dodge them. Bosses, Touhou Project characters, take over the map's breaks, kiai sections and spinners, each with an attack of their own.
+A fan-made ruleset for **osu!lazer**: osu!standard maps played as a bullet hell. The circles, sliders and spinners play themselves and fire bullets and laser beams to the music. Your job is to dodge.
 
-- Every osu!standard map works, and maps of mania, taiko and catch are converted too.
-- Choose how many bosses a map has with the Boss Selection mods (one, two or three bosses at once).
-- Song select shows Danmakusu's own star rating and counts (bullets, beams, the most bosses a map has room for), and can sort by them.
+Bosses take over the map's breaks, kiai sections and spinners. They are Touhou Project characters, each with a mechanic of their own. **77 of 144 characters** have theirs so far, and more are added all the time. The rest wait in the roster as placeholders with a shared attack.
+
+![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg)
+
+## Features
+
+- Every osu!standard map works. Maps of osu!mania, osu!taiko and osu!catch are converted too.
+- One, two or three bosses at once (the Boss Selection, Double and Triple Boss Selection mods). Pick them yourself in the boss menu before a map, or let the map's colours choose.
+- Song select shows Danmakusu's own star rating, how many bullets and beams a map has, and the most bosses it has room for. It can sort by any of these.
+
+## Controls
+
+Choose how you move in the boss menu before a map:
+
+**Cursor only** (default): the character is wherever your cursor is.
+- Hold **key 1 or key 2** to freeze the character in place while the cursor moves on. These are osu!standard's keys: Z / X or the mouse buttons by default, and 1 / 2 as well.
+- While holding one key, press the **other** to move the frozen character to where the cursor is now.
+- Let go of both keys and the character jumps to the cursor.
+
+**Keyboard**:
+- **W A S D** or the **arrow keys** move the character. Hold **Shift** to move at half speed. The speed can be set in the boss menu.
+- **Space** puts the character on the cursor, and it stays on the cursor while Space is held.
+
+The character gets hit by bullets, laser beams, a slider while it is moving, and a circle at the moment it is hit if you stand inside it. Every hit costs health and counts as a miss, and health slowly comes back over time. Your accuracy is how many objects you got through without being hit.
 
 ## Install
 
 1. Download `osu.Game.Rulesets.Danmakusu.dll` from the [latest release](../../releases/latest).
-2. In osu!, open Settings → General → "Open osu! folder", and put the dll in its `rulesets` folder (on Windows: `%APPDATA%\osu\rulesets`).
-3. Restart osu!. Danmakusu appears next to the other modes.
+2. In osu!lazer, open Settings → General → "Open osu! folder", and put the dll in its `rulesets` folder (on Windows: `%APPDATA%\osu\rulesets`).
+3. Restart osu!lazer. Danmakusu appears next to the other modes.
 
-The dll is built for osu!(lazer) **2026.916.0**. Another version of osu! may refuse to load it, or crash with it.
+The dll is built for osu!lazer **2026.916.0**. Another version may refuse to load it, or crash with it.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Clownpiece and Seiran](screenshots/clownpiece-seiran.jpg) | ![Kaguya Houraisan and Mima](screenshots/kaguya-mima.jpg) |
+| Clownpiece and Seiran | Kaguya Houraisan and Mima |
+| ![Ran Yakumo and Mononobe no Futo](screenshots/ran-futo.jpg) | ![Yuyuko Saigyouji and Saki Kurokoma](screenshots/yuyuko-saki.jpg) |
+| Ran Yakumo and Mononobe no Futo | Yuyuko Saigyouji and Saki Kurokoma |
+| ![Watatsuki no Yorihime and Hong Meiling](screenshots/yorihime-meiling.jpg) | ![Song select](screenshots/song-select.jpg) |
+| Watatsuki no Yorihime and Hong Meiling | Song select: bullets, beams, most bosses, and the Danmakusu sorts |
 
 ## Build
 
@@ -22,13 +54,13 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 dotnet build
 ```
 
-The dll ends up in `bin\Debug\net10.0`. If osu! is installed, the build also copies it into osu!'s `rulesets` folder, and **closes osu! first** (osu! keeps the old dll locked while it runs). To leave osu! running, build with:
+The dll ends up in `bin\Debug\net10.0`. If osu!lazer is installed, the build also copies it into osu!'s `rulesets` folder, and **closes osu! first** (osu! keeps the old dll locked while it runs). To leave osu! running, build with:
 
 ```
 dotnet build -p:CloseOsu=false
 ```
 
-To build for another osu! version, change the version of `ppy.osu.Game` and `ppy.osu.Game.Rulesets.Osu` in `osu.Game.Rulesets.Danmakusu.csproj` to that version (osu! → Settings → About shows it).
+To build for another osu!lazer version, change the version of `ppy.osu.Game` and `ppy.osu.Game.Rulesets.Osu` in `osu.Game.Rulesets.Danmakusu.csproj` to that version (Settings → About shows it).
 
 ## Disclaimer
 
