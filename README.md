@@ -43,8 +43,10 @@ The dll is built for osu!lazer **2026.916.0**. Another version may refuse to loa
 | Clownpiece and Seiran | Kaguya Houraisan and Mima |
 | ![Ran Yakumo and Mononobe no Futo](screenshots/ran-futo.jpg) | ![Yuyuko Saigyouji and Saki Kurokoma](screenshots/yuyuko-saki.jpg) |
 | Ran Yakumo and Mononobe no Futo | Yuyuko Saigyouji and Saki Kurokoma |
-| ![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg) | ![Song select](screenshots/song-select.jpg) |
-| Toyosatomimi no Miko and Eiki Shiki | Song select: bullets, beams, most bosses, and the Danmakusu sorts |
+| ![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg) | ![Marisa Kirisame](screenshots/marisa.jpg) |
+| Toyosatomimi no Miko and Eiki Shiki | Marisa Kirisame |
+| ![Song select](screenshots/song-select.jpg) | |
+| Song select: bullets, beams, most bosses, and the Danmakusu sorts | |
 
 ## Build
 
