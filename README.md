@@ -45,8 +45,8 @@ The dll is built for osu!lazer **2026.916.0**. Another version may refuse to loa
 | Ran Yakumo and Mononobe no Futo | Yuyuko Saigyouji and Saki Kurokoma |
 | ![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg) | ![Marisa Kirisame](screenshots/marisa.jpg) |
 | Toyosatomimi no Miko and Eiki Shiki | Marisa Kirisame |
-| ![Song select](screenshots/song-select.jpg) | |
-| Song select: bullets, beams, most bosses, and the Danmakusu sorts | |
+| ![Minamitsu Murasa and Joon Yorigami](screenshots/murasa-joon.jpg) | ![Song select](screenshots/song-select.jpg) |
+| Minamitsu Murasa and Joon Yorigami | Song select: bullets, beams, most bosses, and the Danmakusu sorts |
 
 ## Build
 
