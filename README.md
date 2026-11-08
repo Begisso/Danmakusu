@@ -4,7 +4,7 @@ A fan-made ruleset for **osu!lazer**: osu!standard maps played as a bullet hell.
 
 Bosses take over the map's breaks, kiai sections and spinners. They are Touhou Project characters, each with a mechanic of their own. **77 of 144 characters** have theirs so far, and more are added all the time. The rest wait in the roster as placeholders with a shared attack.
 
-![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg)
+![Watatsuki no Yorihime and Hong Meiling: the Earth shatters](screenshots/yorihime-meiling.jpg)
 
 ## Features
 
@@ -43,8 +43,8 @@ The dll is built for osu!lazer **2026.916.0**. Another version may refuse to loa
 | Clownpiece and Seiran | Kaguya Houraisan and Mima |
 | ![Ran Yakumo and Mononobe no Futo](screenshots/ran-futo.jpg) | ![Yuyuko Saigyouji and Saki Kurokoma](screenshots/yuyuko-saki.jpg) |
 | Ran Yakumo and Mononobe no Futo | Yuyuko Saigyouji and Saki Kurokoma |
-| ![Watatsuki no Yorihime and Hong Meiling](screenshots/yorihime-meiling.jpg) | ![Song select](screenshots/song-select.jpg) |
-| Watatsuki no Yorihime and Hong Meiling | Song select: bullets, beams, most bosses, and the Danmakusu sorts |
+| ![Toyosatomimi no Miko and Eiki Shiki](screenshots/miko-eiki.jpg) | ![Song select](screenshots/song-select.jpg) |
+| Toyosatomimi no Miko and Eiki Shiki | Song select: bullets, beams, most bosses, and the Danmakusu sorts |
 
 ## Build
 
