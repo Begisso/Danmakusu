@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Containers;
 using osu.Framework.Input.Events;
 using osu.Framework.Logging;
 using osu.Game.Overlays.Mods;
@@ -37,6 +38,88 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         }
 
         protected override bool OnKeyDown(KeyDownEvent e) => false;
+
+        // ---- the panel of a mod's settings stands over this column ----
+        // osu!'s panel of a mod's settings ("Mod Customisation") is at the top right of the mod screen; it is put over this column instead (the user, 2026-11-13: "Mod advanced Settings should be Above
+        // Danmakusu Column instead"), following it as the columns scroll, right of the search box when the two would overlap, and kept on the screen. In a ruleset where this column has nothing it goes
+        // back where osu! has it. If osu! has renamed what is looked up here, the panel simply stays where osu! has it.
+
+        private static readonly FieldInfo? customisation_panel = typeof(ModSelectOverlay).GetField("customisationPanel", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly PropertyInfo? search_box = typeof(ModSelectOverlay).GetProperty("SearchTextBox", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        private ModSelectOverlay? overlay;
+        private bool panelMoved;
+        private float osuPanelWidth = 400;
+
+        /// <summary>(how wide the panel is over this column: four boss tiles of the picker's own width, 168, and the panel's room round them)</summary>
+        private const float panel_width = 760;
+
+        protected override void UpdateAfterChildren()
+        {
+            base.UpdateAfterChildren();
+
+            try
+            {
+                placeCustomisation();
+            }
+            catch (Exception e)
+            {
+                // (osu! has changed how its panel is made: it stays where osu! puts it)
+                Logger.Log($"Danmakusu: the mod settings panel stays where osu! has it ({e.Message})");
+                overlay = null;
+                panelMovingBroken = true;
+            }
+        }
+
+        private static bool panelMovingBroken;
+
+        private void placeCustomisation()
+        {
+            if (panelMovingBroken)
+                return;
+
+            overlay ??= this.FindClosestParent<ModSelectOverlay>();
+
+            if (overlay == null || customisation_panel?.GetValue(overlay) is not Drawable panel || panel.Parent is not CompositeDrawable parent)
+                return;
+
+            if (!IsPresent || AvailableMods.Count == 0)
+            {
+                if (panelMoved)
+                {
+                    panel.Anchor = panel.Origin = Anchor.TopRight;
+                    panel.X = 0;
+                    panel.Width = osuPanelWidth;
+                    panelMoved = false;
+                }
+
+                return;
+            }
+
+            if (!panelMoved)
+            {
+                osuPanelWidth = panel.Width;
+                panel.Anchor = panel.Origin = Anchor.TopLeft;
+                panel.X = 0;
+
+                panelMoved = true;
+            }
+
+            // (wide enough for four of the boss picker's tiles in a row with their names: the user, 2026-11-13, "wider so boss names can fit"; never wider than the screen has room for)
+            panel.Width = Math.Min(panel_width, Math.Max(parent.DrawWidth, osuPanelWidth));
+
+            // (all in the space of the panel's parent: how far its left edge is from where it is wanted)
+            float now = parent.ToLocalSpace(panel.ScreenSpaceDrawQuad.TopLeft).X;
+            float wanted = parent.ToLocalSpace(ScreenSpaceDrawQuad.TopLeft).X;
+
+            if (search_box?.GetValue(overlay) is Drawable { IsPresent: true } search)
+                wanted = Math.Max(wanted, parent.ToLocalSpace(search.ScreenSpaceDrawQuad.TopRight).X + 10);
+
+            float width = panel.DrawWidth;
+            float right = parent.DrawWidth - width;
+            wanted = Math.Clamp(wanted, 0, Math.Max(right, 0));
+            panel.X += wanted - now;
+        }
 
         /// <summary>(as song select's own columns: a mod that does not go with the chosen ones is shown so; purple: <see cref="PurpleMods"/>)</summary>
         protected override ModPanel CreateModPanel(ModState mod) => new IncompatibilityDisplayingModPanel(mod);

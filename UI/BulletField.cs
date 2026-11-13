@@ -862,8 +862,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bossCharacter3 = new BossCharacter(slotBosses, 2) { BaseColour = backgroundColour },
                 stageBulletsUnder = new StageLayer(96, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (the balls Mokou throws in a break and in a spinner: above the bullets and above her)
                 stageBullets = new StageLayer(96, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (Mokou's big circles: above the bullets and above her, over the balls she throws)
-                stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7) { Grows = true }, // (Koakuma's bats: above the bullets)
-                stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow,
+                stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
+                stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
                     StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
@@ -1313,6 +1313,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // a trap (Enoko's) holds the character: it stays where it is, whatever the cursor or the keys do; when it is let go it is put on the cursor again (no path check)
                 forcedHeld = true;
             }
+            else if (autoPilot && !failed)
+            {
+                // Autoplay: the character dodges by itself (see BulletField.AutoPilot); a teleport, like the freeze keys' or Space's, is not swept along the way
+                forcedHeld = false;
+                characterPosition = autoPilotMove(now, previousTime, out bool teleported);
+
+                if (teleported)
+                {
+                    previousCharacterPosition = characterPosition;
+                    sweep = false;
+                }
+
+                cursorPosition = characterPosition;
+            }
             else if (forcedHeld && !keyboardControls)
             {
                 forcedHeld = false;
@@ -1554,9 +1568,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (held away from the mouse - frozen, in Enoko's trap, at the edge of Eiki's circle - the two swap places, only to look at: the skinned cursor is drawn where the character is (the playfield
             // moves it, see DanmakusuPlayfield.swapCursor), and the character's ring, as the ghost, where the mouse is; everything still goes by where the character is)
+            // (Autoplay: the skinned cursor is drawn on the character, which is where it is; no ghost where the replay's still cursor stands)
             CursorSwapped = !keyboardControls && !Preview && !failed && Vector2.DistanceSquared(cursor, characterPosition) > 1f;
-            character.Position = CursorSwapped ? cursor : characterPosition;
-            character.UpdateState(frozen, CursorSwapped ? characterPosition - cursor : cursor - characterPosition);
+            character.Position = CursorSwapped && !autoPilot ? cursor : characterPosition;
+            character.UpdateState(frozen, autoPilot ? Vector2.Zero : CursorSwapped ? characterPosition - cursor : cursor - characterPosition);
 
             // (the player's magic circle is where the player really is, under the hitbox; in the World's Ender's impact frame it goes black and white as the character does)
             playerCircle.Position = characterPosition;
@@ -2803,6 +2818,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Fade = fade,
                         Decal = look?.Decal ?? BulletDecal.None,
                         RedHandle = redHandles[active[k]],
+                        YellowHandle = emitter.YellowHandle,
                         Blades = drawShape == BulletShape.Knife ? emitter.Blades : 1,
                         BladeAngle = drawShape == BulletShape.Knife ? emitter.BladeAngle(b, ringTime + fall) : 0f,
                         Stretch = emitter.KnifeStretch,

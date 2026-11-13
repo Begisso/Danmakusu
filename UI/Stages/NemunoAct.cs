@@ -13,9 +13,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Nemuno Sakata: every tenth slider beam of her section is hers when its slider ends (the planner takes it out of the field from then on: LaserEmitter.VanishAt). It stops where it is, all of it, and
         // over a beat turns round its middle until it points at the player, straightening smoothly into a line as long as it was (its curve is laid out along the way it points); then over a beat two copies
-        // of it grow out of it on each side, sliding to their places and widening from nothing (five straight beams side by side, far apart). Then each of the five turns round its own middle to aim at
-        // where the player is at that moment, they all flash (faster and brighter), and two beats after the split they are thrown at that place: each falls towards it (as Zanmu's stopped things
-        // fall), getting darker, and is gone once it is off the screen. They hurt like a slider body all along (a copy as wide as it has grown).
+        // of it grow out of it on each side, sliding to their places and widening from nothing (five straight beams side by side, far apart). Then the row of five turns as one round the middle beam until
+        // that one aims at where the player is at that moment (they stay parallel), they all flash (faster and brighter), and two beats after the split they are thrown that way: all five fall the same way,
+        // from the middle beam towards that place (as Zanmu's stopped things fall), side by side, getting darker, and each is gone once it is off the screen. They hurt like a slider body all along (a copy
+        // as wide as it has grown).
         // ======================================================================================================================================================
 
         private sealed class NemunoAct : StageAct
@@ -204,16 +205,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 side = new Vector2(-aim.Y, aim.X);
                 Vector2 middle = t.Centre + side * across;
 
-                // (then each turns round its own middle to aim at where the player was when they had grown, over a beat, and flashes until it is thrown)
+                // (then the row turns as one round the middle beam until that one aims at where the player was when they had grown, over a beat: they stay parallel, side by side, and flash until they are thrown,
+                // all the same way)
                 float aimTurn = 0f;
                 Vector2 fallWay = t.FallWay;
 
                 if (t.AimKnown && time > splitAt(t))
                 {
-                    Vector2 toAim = t.AimPoint - middle;
+                    Vector2 toAim = t.AimPoint - t.Centre;
                     float wanted = toAim.LengthSquared > 1e-4f ? angleOf(toAim) : t.ToAngle;
                     aimTurn = MathF.IEEERemainder(wanted - t.ToAngle, MathF.Tau) * smoothStep((time - splitAt(t)) / (beat * DanmakusuBalance.NEMUNO_REAIM_BEATS));
                     fallWay = toAim.LengthSquared > 1e-4f ? Vector2.Normalize(toAim) : t.FallWay;
+
+                    Vector2 fromCentre = middle - t.Centre;
+                    float rowCos = MathF.Cos(aimTurn), rowSin = MathF.Sin(aimTurn);
+                    middle = t.Centre + new Vector2(fromCentre.X * rowCos - fromCentre.Y * rowSin, fromCentre.X * rowSin + fromCentre.Y * rowCos);
 
                     double hold = fallsAt(t) - splitAt(t);
 

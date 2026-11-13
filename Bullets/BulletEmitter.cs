@@ -150,6 +150,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Remilia's spinner knives: they never get more blades (and never spin).</summary>
         public bool PlainKnife { get; set; }
 
+        /// <summary>Knives with a yellow handle (Yumeko's).</summary>
+        public bool YellowHandle { get; set; }
+
         /// <summary>Remilia's attack: how many bullets (not knives) were thrown in the attack before this ring; -1 = none of this ring's bullets is ever a big one.</summary>
         public int BigBase { get; set; } = -1;
 
@@ -722,6 +725,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Flashes = Flashes,
                 Blades = Blades,
                 PlainKnife = PlainKnife,
+                YellowHandle = YellowHandle,
                 BladeSpin = BladeSpin,
                 BigBase = BigBase,
                 Layout = Layout,

@@ -259,6 +259,13 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         /// <summary>(instead of osu!'s check, when Danmakusu filters by stars) the stars are checked as osu! checks them, by the Danmakusu stars; everything else by osu!'s own check, with its star filters left out.</summary>
         private static bool matchPrefix(BeatmapInfo beatmap, FilterCriteria criteria, ref bool __result)
         {
+            // (a song without a map of its own - a placeholder - is shown only in Danmakusu with Map Generation on, which makes its map; never in osu!'s own modes)
+            if (!matching && Generation.Placeholders.IsPlaceholder(beatmap) && !(ours(criteria) && Generation.Placeholders.MapGenerationOn))
+            {
+                __result = false;
+                return false;
+            }
+
             if (matching || !ours(criteria) || (!criteria.StarDifficulty.HasFilter && !criteria.UserStarDifficulty.HasFilter))
                 return true;
 
@@ -298,6 +305,23 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         private static WeakReference<BeatmapCarousel>? carousel;
 
         private static void carouselPostfix(BeatmapCarousel __instance) => carousel = new WeakReference<BeatmapCarousel>(__instance);
+
+        /// <summary>(on the update thread) Song select filters again whatever it goes by (Map Generation was turned on or off: the songs without maps come or go).</summary>
+        public static void Refilter()
+        {
+            if (carousel == null || !carousel.TryGetTarget(out var shown))
+                return;
+
+            try
+            {
+                if (shown.Criteria != null && shown.LoadState == LoadState.Loaded && shown.Parent != null)
+                    shown.Filter(shown.Criteria);
+            }
+            catch (Exception e)
+            {
+                Logger.Log($"Danmakusu: song select could not filter again ({e.Message})");
+            }
+        }
 
         /// <summary>
         /// (on the update thread) Song select sorts, groups and filters again, if it shows Danmakusu and goes by stars in any of the three. True if it did. A filter already under way is left to finish.

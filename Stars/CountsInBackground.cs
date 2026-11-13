@@ -22,7 +22,7 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         private const int most_waiting = 6;
 
         private static readonly object gate = new object();
-        private static readonly LinkedList<(string md5, IBeatmap beatmap)> waiting = new LinkedList<(string, IBeatmap)>();
+        private static readonly LinkedList<(string key, string md5, IBeatmap beatmap, bool keep)> waiting = new LinkedList<(string, string, IBeatmap, bool)>();
         private static readonly HashSet<string> waitingOrCounting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static Thread? thread;
 
@@ -32,22 +32,30 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         /// <summary>The maps whose counts have come in, for song select to show again.</summary>
         public static readonly ConcurrentQueue<string> Finished = new ConcurrentQueue<string>();
 
-        /// <summary>What was counted here and not kept with the stars, if anything (null inside: the map could not be counted).</summary>
-        public static bool TryGetShownOnly(string md5, out DanmakusuStars.Rating? rating) => shownOnly.TryGetValue(md5, out rating);
+        /// <summary>What was counted here and not kept with the stars, if anything (null inside: the map could not be counted). A changed map's under <see cref="KeyOf"/>.</summary>
+        public static bool TryGetShownOnly(string key, out DanmakusuStars.Rating? rating) => shownOnly.TryGetValue(key, out rating);
 
-        /// <summary>Counts this map soon (first, before those asked for earlier). Nothing happens if it is already waiting or being counted.</summary>
-        public static void Request(string md5, IBeatmap beatmap)
+        /// <summary>The name a map is counted under here: its MD5, or for a map a Danmakusu mod has changed (<see cref="Mods.SectionMarks.ChangedBy"/>) its MD5 and the mods (never an MD5, so never kept).</summary>
+        public static string KeyOf(string md5, string? changedBy) => changedBy == null ? md5 : md5 + "|" + changedBy;
+
+        /// <summary>
+        /// Counts this map soon (first, before those asked for earlier). Nothing happens if it is already waiting or being counted. A map a Danmakusu mod has changed (<paramref name="changedBy"/>) is counted
+        /// as it is and only shown: nothing of it is kept with the map's stars.
+        /// </summary>
+        public static void Request(string md5, IBeatmap beatmap, string? changedBy = null)
         {
+            string key = KeyOf(md5, changedBy);
+
             lock (gate)
             {
-                if (!waitingOrCounting.Add(md5))
+                if (!waitingOrCounting.Add(key))
                     return;
 
-                waiting.AddFirst((md5, beatmap));
+                waiting.AddFirst((key, md5, beatmap, changedBy == null));
 
                 while (waiting.Count > most_waiting + 1)
                 {
-                    waitingOrCounting.Remove(waiting.Last!.Value.md5);
+                    waitingOrCounting.Remove(waiting.Last!.Value.key);
                     waiting.RemoveLast();
                 }
 
@@ -65,7 +73,7 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         {
             while (true)
             {
-                (string md5, IBeatmap beatmap) next;
+                (string key, string md5, IBeatmap beatmap, bool keep) next;
 
                 lock (gate)
                 {
@@ -81,7 +89,12 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
                     while (StarFiller.Playing)
                         Thread.Sleep(500);
 
-                    if (!DanmakusuStars.Complete(next.md5))
+                    if (!next.keep)
+                    {
+                        // (changed by a mod: shown while it is, kept nowhere)
+                        shownOnly[next.key] = DanmakusuBeatmap.Count(next.beatmap, next.md5, keep: false);
+                    }
+                    else if (!DanmakusuStars.Complete(next.md5))
                     {
                         var counted = DanmakusuBeatmap.Count(next.beatmap, next.md5);
 
@@ -92,15 +105,15 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
                 }
                 catch (Exception e)
                 {
-                    shownOnly[next.md5] = null;
+                    shownOnly[next.key] = null;
                     Logger.Log($"Danmakusu: no counts for {next.beatmap.BeatmapInfo} ({e.Message})");
                 }
                 finally
                 {
                     lock (gate)
-                        waitingOrCounting.Remove(next.md5);
+                        waitingOrCounting.Remove(next.key);
 
-                    Finished.Enqueue(next.md5);
+                    Finished.Enqueue(next.md5); // (song select shows the map again, whichever way it was counted)
                 }
             }
         }

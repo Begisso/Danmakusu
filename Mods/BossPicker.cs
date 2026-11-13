@@ -31,13 +31,29 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     /// <summary>
     /// The chosen bosses in the settings of a boss selection mod: a slider for how many there are (as far as the map has room for them), and a list of the heads of all the bosses; a click on a head chooses that boss (the
     /// head dims and a check appears on it), a click on a chosen head takes the check away again. The value is how many bosses there are, a bar, and the ids of the chosen bosses in the order they were chosen, separated by commas.
+    /// A second slider says how many attacks and pauses every boss has room for at least ("count;attacks|ids"; without the ";attacks" one, as values were saved before it): the more, the fewer bosses the map has room for.
     /// </summary>
     public abstract partial class BossPicker : SettingsItem<string>
     {
         protected override Drawable CreateControl() => new PickerControl();
 
-        /// <summary>The value for <paramref name="count"/> bosses of which these are chosen.</summary>
-        public static string ValueOf(int count, IEnumerable<string> ids) => $"{count}|{string.Join(",", ids)}";
+        /// <summary>How many attacks and pauses a boss can be given room for at least, at most.</summary>
+        public const int MOST_ATTACKS = 8;
+
+        /// <summary>The value for <paramref name="count"/> bosses of which these are chosen, each with room for <paramref name="attacks"/> attacks and pauses.</summary>
+        public static string ValueOf(int count, IEnumerable<string> ids, int attacks = 1)
+            => attacks > 1 ? $"{count};{attacks}|{string.Join(",", ids)}" : $"{count}|{string.Join(",", ids)}";
+
+        /// <summary>How many attacks and pauses every boss has room for at least, as a value says (1 when it does not say).</summary>
+        public static int AttacksOf(string? value)
+        {
+            string text = value ?? string.Empty;
+            int bar = text.IndexOf('|');
+            string head = bar > 0 ? text[..bar] : text;
+            int semicolon = head.IndexOf(';');
+
+            return semicolon > 0 && int.TryParse(head[(semicolon + 1)..], out int attacks) ? Math.Clamp(attacks, 1, MOST_ATTACKS) : 1;
+        }
 
         /// <summary>The ids in a value, in order (every id once).</summary>
         public static List<string> Ids(string? value)
@@ -48,8 +64,13 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         {
             string text = value ?? string.Empty;
             int bar = text.IndexOf('|');
+            string head = bar > 0 ? text[..bar] : string.Empty;
+            int semicolon = head.IndexOf(';');
 
-            return Math.Max(bar > 0 && int.TryParse(text[..bar], out int count) ? count : 1, Ids(text).Count);
+            if (semicolon >= 0)
+                head = head[..semicolon];
+
+            return Math.Max(int.TryParse(head, out int count) ? count : 1, Ids(text).Count);
         }
 
         /// <summary>The chosen bosses in a value, in order (ids that are not in the roster any more are left out).</summary>
@@ -101,10 +122,21 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             private int mostOnMap = BossRoster.All.Count; // (as many bosses as the map has room for: known when the map has been read, so nothing is cut down before that)
             private bool mapRead;
 
+            // (how many attacks and pauses every boss has room for at least: the more, the fewer bosses fit)
+            private readonly BindableInt attacks = new BindableInt(1) { MinValue = 1, MaxValue = MOST_ATTACKS, Precision = 1 };
+            private readonly RoundedSliderBar<int> attacksSlider;
+            private readonly SpriteText attacksLabel;
+
+            /// <summary>The value for <paramref name="count"/> bosses of which these are chosen, with the attacks per boss it has now.</summary>
+            private string valueOf(int count, IEnumerable<string> ids) => ValueOf(count, ids, AttacksOf(current.Value));
+
+            /// <summary>(read by the bar preview's background work: how many attacks and pauses per boss the map's room is counted for)</summary>
+            internal int AttacksNow => attacks.Value;
+
             public PickerControl()
             {
                 RelativeSizeAxes = Axes.X;
-                Height = 240;
+                Height = 286;
 
                 tiles = BossRoster.All.Select(boss => new Tile(boss, this)).ToArray();
 
@@ -205,6 +237,17 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     KeyboardStep = 1,
                 };
 
+                // under that: how many attacks and pauses every boss has room for at least
+                attacksLabel = new SpriteText { Font = FontUsage.Default.With(size: 14), Y = 84 };
+
+                attacksSlider = new RoundedSliderBar<int>
+                {
+                    RelativeSizeAxes = Axes.X,
+                    Y = 102,
+                    Current = attacks,
+                    KeyboardStep = 1,
+                };
+
                 // under that: the HP bar of the map with the bosses that are checked now (without their names and heads)
                 barPreview = new BarPreview(this)
                 {
@@ -221,6 +264,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     countBox,
                     maxButton,
                     countSlider,
+                    attacksLabel,
+                    attacksSlider,
                     barPreview,
                     new Container
                     {
@@ -240,18 +285,27 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 base.LoadComplete();
                 count.BindValueChanged(changed => setCount(changed.NewValue));
                 current.BindValueChanged(_ => refresh(), true);
+
+                // (more attacks per boss: the map has room for fewer of them, counted again)
+                attacks.BindValueChanged(changed =>
+                {
+                    if (changed.NewValue != AttacksOf(current.Value))
+                        current.Value = ValueOf(max, Ids(current.Value), changed.NewValue);
+
+                    barPreview.Recount(changed.NewValue);
+                });
             }
 
             /// <summary>How wide the random button is (px): the search field takes the rest of the row.</summary>
             private const float random_width = 120f;
 
-            private const float bar_y = 84f;
+            private const float bar_y = 130f;
 
             /// <summary>The slider has been moved: what is checked stays, as far as it fits.</summary>
             private void setCount(int wanted)
             {
                 if (wanted != max)
-                    current.Value = ValueOf(wanted, Ids(current.Value).Take(wanted));
+                    current.Value = valueOf(wanted, Ids(current.Value).Take(wanted));
             }
 
             /// <summary>A number has been typed: as far as the map has room for it (what cannot be read leaves the number as it was).</summary>
@@ -278,7 +332,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 // (a map with room for fewer than the mod says: the slider comes down to it)
                 if (now != max)
                 {
-                    current.Value = ValueOf(now, Ids(current.Value).Take(now));
+                    current.Value = valueOf(now, Ids(current.Value).Take(now));
                     return;
                 }
 
@@ -311,7 +365,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     pool.RemoveAt(index);
                 }
 
-                current.Value = ValueOf(max, picked);
+                current.Value = valueOf(max, picked);
             }
 
             private void filter(string text)
@@ -338,6 +392,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
             private void refresh()
             {
+                attacks.Value = AttacksOf(current.Value);
+                attacksLabel.Text = $"Attacks and pauses per boss: at least {attacks.Value}";
                 refreshCount();
 
                 var ids = Ids(current.Value);
@@ -365,8 +421,48 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 [Resolved(CanBeNull = true)]
                 private IBindable<WorkingBeatmap>? beatmap { get; set; }
 
+                // (the chosen mods: with Always Boss or Map Generation on, the sections are theirs)
+                [Resolved(CanBeNull = true)]
+                private IBindable<IReadOnlyList<osu.Game.Rulesets.Mods.Mod>>? mods { get; set; }
+
                 private IBeatmap? playable;
                 private SongBands? bands;
+                private int recountVersion;
+
+                /// <summary>Counts again how many bosses the map has room for, with <paramref name="attacks"/> attacks and pauses each (off the update thread).</summary>
+                public void Recount(int attacks)
+                {
+                    var map = playable;
+                    var song = bands;
+                    int version = ++recountVersion;
+
+                    if (map == null)
+                        return;
+
+                    Task.Run(() =>
+                    {
+                        int most;
+
+                        try
+                        {
+                            most = BulletPlanner.MostBosses(map, () => song, attacks);
+                        }
+                        catch
+                        {
+                            return;
+                        }
+
+                        Schedule(() =>
+                        {
+                            if (version == recountVersion)
+                                picker.setMostOnMap(most);
+                        });
+                    });
+                }
+
+                /// <summary>The chosen mods that change the map's sections (Always Boss, Map Generation).</summary>
+                private osu.Game.Rulesets.Mods.Mod[] sectionMods()
+                    => mods?.Value?.Where(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration).ToArray() ?? [];
                 private BossInfo[] fromColours = [];
                 private IReadOnlyList<BossInfo> picked = [];
                 private BossHud? hud;
@@ -381,6 +477,16 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 {
                     base.LoadComplete();
                     beatmap?.BindValueChanged(map => loadMap(map.NewValue), true);
+
+                    // (Always Boss or Map Generation put on or taken off: the map is read again)
+                    mods?.BindValueChanged(changed =>
+                    {
+                        bool had = changed.OldValue?.Any(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration) ?? false;
+                        bool has = changed.NewValue?.Any(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration) ?? false;
+
+                        if (had || has)
+                            loadMap(beatmap?.Value);
+                    });
                 }
 
                 public void ShowPicked(IReadOnlyList<BossInfo> bosses)
@@ -399,6 +505,9 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     if (working == null)
                         return;
 
+                    var withMods = sectionMods();
+                    int attacks = picker.AttacksNow;
+
                     Task.Run(() =>
                     {
                         IBeatmap? converted = null;
@@ -408,7 +517,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
                         try
                         {
-                            converted = working.GetPlayableBeatmap(new DanmakusuRuleset().RulesetInfo);
+                            converted = working.GetPlayableBeatmap(new DanmakusuRuleset().RulesetInfo, withMods);
 
                             // (the song's bands are only read when the map has too few sections of its own: then the bar shows the sections chosen with them, as in the game)
                             bool read = false;
@@ -422,7 +531,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                                 song = null;
 
                             SongBands? known = song;
-                            most = BulletPlanner.MostBosses(converted, () => known);
+                            most = BulletPlanner.MostBosses(converted, () => known, attacks);
 
                             var mapColours = MapColours.Read(working);
 
@@ -500,7 +609,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     ids.Add(boss.Id);
                 }
 
-                current.Value = ValueOf(max, ids);
+                current.Value = valueOf(max, ids);
             }
 
             private partial class Tile : Container, IHasTooltip

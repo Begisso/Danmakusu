@@ -46,18 +46,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // osu! moves gameplay on in even steps of a sixtieth of a second, however long each takes: when one takes 50 ms gameplay runs at a third of the music's speed until it is too far behind (see below), and that is all the
             // player sees of a heavy moment. A bullet hell can take uneven steps (everything here goes by the time): gameplay stays with the music and the frames get fewer instead. A replay keeps the even steps.
-            if (frame_stable != null && (bool)frame_stable.GetValue(this)! != HasReplayLoaded.Value)
-                frame_stable.SetValue(this, HasReplayLoaded.Value);
+            // (Autoplay's replay is only a still cursor - the field moves the character as the frames come - so it goes as a play does: in even steps a heavy frame was run again and again to catch up,
+            // and the game froze)
+            bool even = HasReplayLoaded.Value && !autoplay;
+
+            if (frame_stable != null && (bool)frame_stable.GetValue(this)! != even)
+                frame_stable.SetValue(this, even);
 
             unstickClock();
         }
+
+        private bool autoplay => Mods.Any(mod => mod is ModAutoplay);
 
         /// <summary>(osu! keeps this switch to itself; if it is ever gone, gameplay simply takes even steps again)</summary>
         private static readonly PropertyInfo? frame_stable = typeof(DrawableRuleset).GetProperty("FrameStablePlayback", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private void unstickClock()
         {
-            if (HasReplayLoaded.Value)
+            if (HasReplayLoaded.Value && !autoplay)
                 return;
 
             Drawable? parent = Parent;

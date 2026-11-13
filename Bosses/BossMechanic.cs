@@ -373,5 +373,60 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         /// <summary>Elly: no pauses; Kagerou's claw, one big arc half the playfield's height from her, twice as slow; she slides after the player until they are in reach, and swings a scythe all the time whose blade hurts like a slider body.</summary>
         Reaping,
+
+        /// <summary>
+        /// Misumaru Tamatsukuri: she throws a yin-yang orb at the player every eight beats (one and a half times as big as Reimu's; it ricochets off the walls and off the other orbs, hurts like a slider body and is gone after
+        /// sixteen beats), and every thirtieth bullet of her section turns into one. In her attacks bullets that touch ricochet off each other's bodies, once each.
+        /// </summary>
+        Orbs,
+
+        /// <summary>
+        /// Suika Ibuki: every four beats she stomps: what is within four circle radii of her is thrown on twice as fast, glowing like magma, with a narrow tail of beam two beats long, and bursts into four small ellipses at the
+        /// wall; the stomp hurts the player there, and thin glowing cracks in the ground hurt like a slider body for two beats. Every sixteen beats a wide glowing crack, as jagged as the World's Ender's cut, splits the ground
+        /// from her towards the player; it hurts like a slider body and eight beats later it explodes into glowing ellipses.
+        /// </summary>
+        Fissure,
+
+        /// <summary>
+        /// Yuki: in her attacks the old laser bursts (five beams from her, the first at the player, turning slowly towards them), but every slice of a beam goes out where the player was when it was fired, and leaves a
+        /// burning scorch mark there for eight beats that hurts like a slider body. Every four beats she shoots rings of five ricochet stars from five places round her.
+        /// </summary>
+        Scorch,
+
+        /// <summary>
+        /// Yumeko: fans of five knives (yellow handles) at the player every two beats; every eighth bullet turns into a knife that falls towards where the player was. Everything that leaves the screen in sixteen beats
+        /// comes back in the next four as knives, from where it left, straight across from its wall, four times as close together.
+        /// </summary>
+        Recall,
+
+        /// <summary>
+        /// Shou Toramaru: a cross of beams grows from the middle of the screen past its edges and turns, clockwise in her attacks and anticlockwise in her pauses; every fourth bullet fired comes out of the cross instead,
+        /// spread evenly along it, flying across it to one side or the other. Every four beats she shoots a ring of sixteen beams that wave from side to side.
+        /// </summary>
+        Pagoda,
+
+        /// <summary>
+        /// Eirin Yagokoro: every eight beats the four nearest bullets of every group are joined into a constellation by a beam (see-through for four beats first), and every bullet stands still for four beats while the beams
+        /// hurt; then the beams are gone and everything flies on.
+        /// </summary>
+        Constellation,
+
+        /// <summary>
+        /// Megumu Iizunamaru: no pauses; every half beat five straight endless beams from her, see-through for four beats and solid for four, each set turned five degrees from the last (the other way every 32 beats).
+        /// Every eight beats every bullet on the screen turns into a star like Marisa's and ricochets once.
+        /// </summary>
+        Galaxy,
+
+        /// <summary>
+        /// Kana Anaberal: every sixteen beats 32 bullets stop, grow to twice their size, turn white and glow; eight beats later they fly off, each its own way, twice as fast, and ricochet three times. Every eight beats
+        /// she shoots a fan of three bullets twice as big as a plain one at the player.
+        /// </summary>
+        Poltergeist,
+
+        /// <summary>
+        /// Eternity Larva: she shoots butterflies that flap their wings and drift and wander as Wriggle's fireflies. Every eight beats every twentieth bullet on the screen turns aquamarine and flies at half its speed with
+        /// a red ring round it (as Patchouli's fire) for four beats; then it swells to a big round bullet two circle radii wide, with Mokou's impact sound, and shrinks back over the next four beats.
+        /// </summary>
+        Metamorphosis,
     }
 }

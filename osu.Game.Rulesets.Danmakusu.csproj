@@ -23,6 +23,7 @@
     <EmbeddedResource Include="Resources\**\*.ogg" />
     <EmbeddedResource Include="Resources\**\*.png" />
     <EmbeddedResource Include="Resources\**\*.webp" />
+    <EmbeddedResource Include="Resources\**\*.json" />
     <EmbeddedResource Include="$(PkgLib_Harmony)\lib\net10.0\0Harmony.dll" LogicalName="0Harmony.dll" Condition="'$(PkgLib_Harmony)' != ''" />
   </ItemGroup>
 

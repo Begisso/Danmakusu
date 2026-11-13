@@ -360,7 +360,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Does the ops layer take care of this stage bullet? Only the ones that fly straight (or fall with a constant pull): the ones that an act moves itself keep doing what the act says.</summary>
         private bool stageBulletTraced(in StageBullet b)
-            => otherOpsOn && !b.Untraced && b.Trail == null && b.A <= 0f && b.FallAt <= 0 && b.StopAfter <= 0 && b.WrapHeight <= 0f && !b.Slider && (!b.Hidden || b.Ops) && !b.Harmless && b.Switch <= 0 && b.TurnT <= 0 && b.Pushes == null && b.Wander <= 0f;
+            => otherOpsOn && !b.Untraced && b.Trail == null && b.Legs == null && b.A <= 0f && b.FallAt <= 0 && b.StopAfter <= 0 && b.WrapHeight <= 0f && !b.Slider && (!b.Hidden || b.Ops) && !b.Harmless && b.Switch <= 0 && b.TurnT <= 0 && b.Pushes == null && b.Wander <= 0f;
 
         /// <summary>Where a stage bullet is at <paramref name="t"/>: where the ops of the other bosses (walls that bounce, freezing, portals) leave it, or on its own straight line.</summary>
         private bool stageBulletAt(in StageBullet b, double t, out Vector2 position)
@@ -376,7 +376,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// The moment a stage bullet that nothing traces has got to at <paramref name="t"/>: with Gengetsu or Saki on the field it flies on the bullets' own clock too, as their speed-up is on every bullet on the screen.
         /// (Not what has been laid down step by step, or orbits something: a star at the tip of a beam stays there.)
         /// </summary>
-        private double stageClock(in StageBullet b, double t) => stageOnClock && b.Trail == null && b.A <= 0f ? effects.Effective(b.T0, t) : t;
+        private double stageClock(in StageBullet b, double t) => stageOnClock && b.Trail == null && b.Legs == null && b.A <= 0f ? effects.Effective(b.T0, t) : t;
 
         private bool stageOnClock;
 

@@ -248,6 +248,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Murasa's anchor (Resources/Textures/murasa_anchor.png, the user's picture, made with Tools/Bake `anchor`): silver, its ring on the left and its crown on the right, 512 x 433.</summary>
         Anchor,
+
+        /// <summary>Eternity Larva's butterfly seen from above (Resources/Textures/larva_butterfly.png, the user's picture, its white background taken away with Tools/Bake `cutout`): its head at the top, its wings across, 512 x 331.</summary>
+        Butterfly,
     }
 
     /// <summary>
@@ -457,7 +460,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.MagicCircle => bake(renderer, makeMagicCircle()),
                     StageTexture.Chevron => bake(renderer, makeChevron()),
                     StageTexture.SeijaArrow => bake(renderer, makeSeijaArrow()),
-                    StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"),
+                    StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"), StageTexture.Butterfly => BossCharacter.LoadResource(renderer, "Textures.larva_butterfly.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc1 => bake(renderer, makeLitArc(1f - (1 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc2 => bake(renderer, makeLitArc(1f - (2 + 0.5f) / LIT_ARCS)),

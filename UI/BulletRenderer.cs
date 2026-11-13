@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
@@ -111,6 +111,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>A knife with a blue handle (Chimata's).</summary>
         public bool BlueHandle;
 
+        /// <summary>A knife with a yellow handle (Yumeko's).</summary>
+        public bool YellowHandle;
+
         /// <summary>0 = sharp; 1 = the bullet is drawn from the soft sheet (the same picture, blurred, so its edge cannot be seen at all: Luna Child's); in between the two are faded into each other.</summary>
         public float Soft;
 
@@ -216,7 +219,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private Texture? softSheet; // (the same sheet, every cell's picture at half its size in the middle of its cell and blurred: drawn twice as big it is the bullet with an edge that fades into nothing)
         private int sheetStyles;
         private int sheetBase; // the rows of the palette; the special colours (TINT_) are the rows after them
-        private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, trainTexture, snowflakeTexture, haloTexture; // pictures that are drawn as they are (Resources/Textures); null if missing
+        private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, trainTexture, snowflakeTexture, haloTexture; // pictures that are drawn as they are (Resources/Textures); null if missing
         private Texture? smileTexture, skullTexture;
         private Texture? cloudTexture, flashTexture;
         private CloudSprite[] clouds = new CloudSprite[64];
@@ -244,6 +247,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             new Color4(0.75f, 0.85f, 1f, 1f),
             new Color4(0.2f, 0.16f, 0.3f, 1f),
             new Color4(0.08f, 0.32f, 0.16f, 1f), // (the dark green of Wakasagihime's seaweed)
+            new Color4(0.42f, 0.96f, 0.80f, 1f), // (aquamarine: what Eternity Larva swells)
         };
 
         public const int TINT_RED = 1;
@@ -261,6 +265,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public const int TINT_LIGHTNING = 13; // (Tojiko's bolts, and what they throw back)
         public const int TINT_HISAMI_HAIR = 14; // (black with a violet sheen: the copies Hisami records)
         public const int TINT_SEAWEED = 15; // (the dark green of Wakasagihime's seaweed: the petals on it, Yuuka's leaves)
+        public const int TINT_AQUAMARINE = 16; // (what Eternity Larva is about to swell, and swells)
 
         // layout of the sheet: one row per palette colour, a disc cell, an arrowhead cell and a star cell per row, with gaps so mipmaps never mix cells.
         private const int max_styles = 40;
@@ -291,6 +296,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             knifeTexture = BossCharacter.LoadResource(renderer, "Textures.knife.png");
             knifeRedTexture = BossCharacter.LoadResource(renderer, "Textures.knife_red.png");
             knifeBlueTexture = blueKnife(renderer);
+            knifeYellowTexture = blueKnife(renderer, true);
             haloTexture = createTexture(renderer, true); // (the soft light of the bloom)
             trainTexture = BossCharacter.LoadResource(renderer, "Textures.train.png");
             snowflakeTexture = BossCharacter.LoadResource(renderer, "Textures.snowflake.png");
@@ -372,8 +378,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             Invalidate(Invalidation.DrawNode);
         }
 
-        /// <summary>The knife with its green handle turned blue (null if the picture is missing).</summary>
-        private static Texture? blueKnife(IRenderer renderer)
+        /// <summary>The knife with its green handle turned blue, or yellow (Yumeko's) when <paramref name="yellow"/> (null if the picture is missing).</summary>
+        private static Texture? blueKnife(IRenderer renderer, bool yellow = false)
         {
             using var stream = typeof(BulletRenderer).Assembly.GetManifestResourceStream("osu.Game.Rulesets.Danmakusu.Resources.Textures.knife.png");
 
@@ -390,7 +396,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var pixel = image[x, y];
 
                     if (pixel.G > pixel.R + 12 && pixel.G > pixel.B + 12)
-                        image[x, y] = new Rgba32(pixel.R, pixel.B, pixel.G, pixel.A);
+                    {
+                        image[x, y] = yellow
+                            ? new Rgba32((byte)Math.Min(255, pixel.G + 40), (byte)Math.Min(255, pixel.G * 0.86f + 20), (byte)(Math.Min(pixel.R, pixel.B) * 0.4f), pixel.A)
+                            : new Rgba32(pixel.R, pixel.B, pixel.G, pixel.A);
+                    }
                 }
             }
 
@@ -677,7 +687,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private Texture? softSheet;
             private int sheetStyles;
             private int sheetBase;
-            private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, haloTexture, trainTexture, snowflakeTexture, talismanBack, talismanLines, smileTexture, skullTexture;
+            private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, haloTexture, trainTexture, snowflakeTexture, talismanBack, talismanLines, smileTexture, skullTexture;
             private Color4[] bodyColours = [];
             private Vector2[] drawPoints = new Vector2[1024];
             private float[] drawWidths = new float[1024];
@@ -712,6 +722,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 knifeTexture = Source.knifeTexture;
                 knifeRedTexture = Source.knifeRedTexture;
                 knifeBlueTexture = Source.knifeBlueTexture;
+                knifeYellowTexture = Source.knifeYellowTexture;
                 haloTexture = Source.haloTexture;
                 trainTexture = Source.trainTexture;
                 snowflakeTexture = Source.snowflakeTexture;
@@ -974,7 +985,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 // a knife's halo is the shape of the knife (one for each of its blades)
-                Texture? picture = b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
+                Texture? picture = b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.YellowHandle && knifeYellowTexture != null ? knifeYellowTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
                 var pictureCoords = picture == null ? default : new RectangleF(0, 0, picture.DisplayWidth, picture.DisplayHeight);
                 float half = b.Radius * DanmakusuBalance.KNIFE_LENGTH_FACTOR;
                 int blades = Math.Max(b.Blades, 1);
@@ -1235,7 +1246,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private void drawPicture(IRenderer renderer, BulletInstance b, float bright, float alpha)
             {
                 bool train = b.Shape == BulletShape.Train;
-                Texture? picture = train ? trainTexture : b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
+                Texture? picture = train ? trainTexture : b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.YellowHandle && knifeYellowTexture != null ? knifeYellowTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
                 float along = b.Radius * (train ? DanmakusuBalance.TRAIN_LENGTH_FACTOR : DanmakusuBalance.KNIFE_LENGTH_FACTOR * (b.Stretch > 0f ? b.Stretch : 1f));
                 float across = along * (train ? DanmakusuBalance.TRAIN_ASPECT : DanmakusuBalance.KNIFE_ASPECT);
 

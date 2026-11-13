@@ -68,6 +68,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private bool on(Trap trap, double t) => trap.Known && trap.Placed <= t && !shut(trap, t) && t < trap.Gone;
 
+            /// <summary>(the autoplay) A trap that is armed within the time, with the place in its reach: stepping in is caught.</summary>
+            public override bool Springs(BulletField f, Vector2 at, double from, double to)
+            {
+                float reach = radius * DanmakusuBalance.ENOKO_TRAP_TRIGGER + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
+
+                for (int i = liveFrom; i < traps.Count; i++)
+                {
+                    var trap = traps[i];
+
+                    if (trap.Placed > to)
+                        break;
+
+                    if (to < trap.Armed || !on(trap, Math.Max(from, trap.Armed)))
+                        continue;
+
+                    if (Vector2.Distance(at, trap.At) <= reach)
+                        return true;
+                }
+
+                return false;
+            }
+
             public override void Reset(BulletField f, double time)
             {
                 foreach (var trap in traps)

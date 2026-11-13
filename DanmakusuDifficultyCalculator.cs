@@ -38,7 +38,7 @@ namespace osu.Game.Rulesets.Danmakusu
                 attributes.StarRating = rated.Stars;
 
                 // (song select sorts by it and shows the counts: kept when no mod changes it - the boss selection mods do not. How many bosses it has room for is left to the background rating, which reads the song)
-                if (mods.All(mod => mod is IBossSelection))
+                if (mods.All(mod => mod is IBossSelection or DanmakusuModAlwaysBoss) && !SectionMarks.Generated(beatmap)) // (not with Map Generation: what it rates is not the map)
                     DanmakusuStars.Put(beatmap.BeatmapInfo?.MD5Hash, new DanmakusuStars.Rating(rated.Stars, rated.Bullets, rated.Beams, 0));
             }
             catch (Exception e)

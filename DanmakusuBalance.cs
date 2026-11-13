@@ -719,15 +719,187 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int NEMUNO_BEAMS_OF_EVERY = 4; // (this many of every NEMUNO_BEAM_EVERY slider beams are hers, spread evenly)
         public const double NEMUNO_AIM_BEATS = 1;
         public const int NEMUNO_COPIES_EACH_SIDE = 2;
-        public const float NEMUNO_COPY_GAP = 10f;
+        public const float NEMUNO_COPY_GAP = 20f;
         public const double NEMUNO_SPLIT_BEATS = 1;
         public const double NEMUNO_HOLD_BEATS = 2;
 
-        /// <summary>Nemuno: when the copies have grown, every beam turns to aim at the player over this many beats (then flashes until it is thrown); the rings fired round the player start this many times as far out and fade in over this long (ms).</summary>
+        /// <summary>
+        /// Nemuno: when the copies have grown, the row of five turns as one round the middle beam until that one aims at the player, over this many beats (they stay parallel, then flash until they are thrown, all the same way);
+        /// the rings fired round the player start this many times as far out and fade in over this long (ms).
+        /// </summary>
         public const double NEMUNO_REAIM_BEATS = 1;
 
         public const float NEMUNO_SPAWN_WIDER = 2f;
         public const double NEMUNO_FADE_IN_MS = 300;
+
+        /// <summary>
+        /// Misumaru: her yin-yang orbs are this many times as big as Reimu's; she throws one at the player every this many beats, and every this many-th bullet of her section (counted ring by ring) turns into one, flying on
+        /// its way; at most this many fly at once (the oldest shrinks away). In her attacks bullets whose bodies touch ricochet off each other, once each, not before they are this old (ms); the grid they are looked up in has
+        /// cells this many plain bullet radii wide.
+        /// </summary>
+        public const float MISUMARU_ORB_SIZE = 1.5f;
+
+        public const double MISUMARU_THROW_EVERY_BEATS = 8;
+        public const int MISUMARU_ORB_EVERY = 30;
+        public const int MISUMARU_ORBS_MOST = 12;
+        public const double MISUMARU_ARM_MS = 300;
+        public const float MISUMARU_CELL = 3f;
+
+        /// <summary>
+        /// Suika: every this many beats she stomps: what is within this many circle radii of her is thrown on this many times as fast, glowing (this much bloom), with a tail of beam this many beats long (this many times the
+        /// bullet's radius wide at its head), and at the wall it bursts into this many ellipses this much of its size, fanned out over this many degrees. The player is hurt within the stomp for this long (ms); the thin cracks
+        /// (this many, this many circle radii wide on each side) hurt for this many beats while they fade.
+        /// </summary>
+        public const double SUIKA_STOMP_EVERY_BEATS = 4;
+
+        public const float SUIKA_STOMP_CIRCLES = 4f;
+        public const float SUIKA_STOMP_SPEED = 2f;
+        public const float SUIKA_MAGMA_BLOOM = 0.6f;
+        public const double SUIKA_TAIL_BEATS = 2;
+        public const float SUIKA_TAIL_WIDTH = 0.45f;
+        public const int SUIKA_WALL_PIECES = 4;
+        public const float SUIKA_WALL_PIECE_SIZE = 0.5f;
+        public const float SUIKA_WALL_SPREAD_DEGREES = 90f;
+        public const double SUIKA_STOMP_HURT_MS = 150;
+        public const int SUIKA_CRACKS = 7;
+        public const float SUIKA_THIN_CRACK_CIRCLES = 0.15f;
+        public const double SUIKA_CRACKS_BEATS = 2;
+
+        /// <summary>
+        /// Suika: every this many beats the big crack grows from her towards the player over this many beats, this many circle radii wide on each side of its line; this many beats after it has grown it explodes: from this
+        /// many places along it, this many glowing ellipses fly off to each side (the World's Ender's speeds and sizes).
+        /// </summary>
+        public const double SUIKA_FISSURE_EVERY_BEATS = 16;
+
+        public const double SUIKA_FISSURE_GROW_BEATS = 1;
+        public const float SUIKA_FISSURE_CIRCLES = 2f;
+        public const double SUIKA_FISSURE_STAY_BEATS = 8;
+        public const int SUIKA_FISSURE_POINTS = 24;
+        public const int SUIKA_FISSURE_BULLETS = 4;
+
+        /// <summary>
+        /// Yuki: her beams are this many spinner star radii wide on each side, fly out this many times as fast as a plain bullet, a slice every this many ms; every this many-th slice leaves a scorch mark where it goes out, this
+        /// many beam half widths across, that burns for this many beats. Every this many beats she shoots, from this many places this many circle radii round her, rings of this many ricochet stars.
+        /// </summary>
+        public const float YUKI_BEAM_WIDTH = 1.2f;
+
+        public const float YUKI_BEAM_SPEED = 2f;
+        public const double YUKI_SLICE_MS = 30;
+        public const int YUKI_SCORCH_EVERY = 3;
+        public const float YUKI_SCORCH_SIZE = 1.3f;
+        public const double YUKI_SCORCH_BEATS = 8;
+        public const double YUKI_STARS_EVERY_BEATS = 4;
+        public const int YUKI_STAR_PLACES = 5;
+        public const int YUKI_STARS = 5;
+        public const float YUKI_STAR_PLACE_CIRCLES = 2.5f;
+
+        /// <summary>
+        /// Yumeko: a fan of this many knives over this many degrees, this many times a plain bullet's speed, every this many beats; every this many-th bullet of her section turns into a knife that falls towards where the
+        /// player was with this pull (px per ms squared). What leaves the screen in this many beats comes back as knives in the next this many beats (at most this many).
+        /// </summary>
+        public const int YUMEKO_FAN_KNIVES = 5;
+
+        public const float YUMEKO_FAN_DEGREES = 60f;
+        public const float YUMEKO_FAN_SPEED = 1f;
+        public const double YUMEKO_FAN_EVERY_BEATS = 2;
+        public const int YUMEKO_KNIFE_EVERY = 8;
+        public const float YUMEKO_FALL_GRAVITY = ZANMU_GRAVITY * 4f;
+        public const double YUMEKO_RECORD_BEATS = 16;
+        public const double YUMEKO_RETURN_BEATS = 4;
+        public const int YUMEKO_RETURN_MOST = 600;
+
+        /// <summary>
+        /// Shou: her cross turns this many times as fast as a spinner's beams (never slower than this many degrees a second), each arm this many plain bullet radii wide on each side, glowing this much, growing out over this
+        /// many beats; every this many-th bullet fired comes out of it, no nearer its middle than this many circle radii (the big star covers the middle). Every this many beats a ring of this many waving beams: they swing this
+        /// many circle radii to each side, to and fro in this many beats, are this many beats long and this many plain bullet radii wide on each side.
+        /// </summary>
+        public const float SHOU_CROSS_SPIN = 0.75f; // (was 1.5 and 20 degrees, halved 2026-11-13)
+
+        public const float SHOU_CROSS_LEAST_DEGREES = 10f;
+        public const float SHOU_CROSS_WIDTH = 3f;
+        public const float SHOU_CROSS_BLOOM = 0.6f;
+        public const float SHOU_CROSS_NEAREST_CIRCLES = 2.6f;
+        public const double SHOU_CROSS_GROW_BEATS = 1;
+        public const int SHOU_FROM_CROSS_EVERY = 4;
+        public const double SHOU_RING_EVERY_BEATS = 4;
+        public const int SHOU_RING_BEAMS = 16;
+        public const float SHOU_WAVE_CIRCLES = 1f;
+        public const double SHOU_WAVE_BEATS = 2;
+        public const double SHOU_WAVE_TAIL_BEATS = 1.5;
+        public const float SHOU_WAVE_WIDTH = 0.5f;
+
+        /// <summary>
+        /// Eirin: every this many beats the constellations: see-through for this many beats first, then for this many beats everything stands still and the beams (this many plain bullet radii wide on each side) hurt;
+        /// this many bullets to a constellation. The preview is this visible.
+        /// </summary>
+        public const double EIRIN_EVERY_BEATS = 8;
+
+        public const double EIRIN_PREVIEW_BEATS = 4;
+        public const double EIRIN_HOLD_BEATS = 4;
+        public const float EIRIN_BEAM_WIDTH = 0.35f;
+        public const int EIRIN_GROUP = 4;
+        public const float EIRIN_PREVIEW_ALPHA = 0.25f;
+
+        /// <summary>
+        /// Megumu: every this many beats this many endless beams from her, see-through (this visible) for this many beats and solid for this many, each set turned this many degrees from the last, the other way every this
+        /// many beats; this many plain bullet radii wide on each side. Every this many beats every bullet on the screen turns into a star and ricochets once.
+        /// </summary>
+        public const double MEGUMU_BEAM_EVERY_BEATS = 0.5;
+
+        public const int MEGUMU_BEAMS = 5;
+        public const float MEGUMU_PREVIEW_ALPHA = 0.18f;
+        public const double MEGUMU_PREVIEW_BEATS = 4;
+        public const double MEGUMU_LIVE_BEATS = 4;
+        public const float MEGUMU_STEP_DEGREES = 5f;
+        public const double MEGUMU_TURN_BEATS = 32;
+        public const float MEGUMU_BEAM_WIDTH = 0.5f;
+        public const double MEGUMU_STARS_EVERY_BEATS = 8;
+
+        /// <summary>
+        /// Megumu (since 2026-11-13): a set stays where she was when its preview came; each beam starts this many circle radii from that place, on its own way out, and is bent this many degrees off that way
+        /// (all the same way round: a pinwheel).
+        /// </summary>
+        public const float MEGUMU_SHOOT_CIRCLES = 1.5f;
+
+        public const float MEGUMU_BEND_DEGREES = 20f;
+
+        /// <summary>
+        /// Kana Anaberal: every this many beats this many bullets stop; over this many beats they grow to this many times their size, turn white and glow (this much); this many beats after they stopped they fly off, each its
+        /// own way, this many times as fast as they flew, and ricochet this many times. Every this many beats a fan of this many bullets, this many degrees apart, this many times a plain bullet's size, at the player.
+        /// </summary>
+        public const double KANA_EVERY_BEATS = 16;
+
+        public const int KANA_STOPPED = 32;
+        public const double KANA_GROW_BEATS = 4;
+        public const float KANA_GROW = 2f;
+        public const float KANA_BLOOM = 0.8f;
+        public const double KANA_HOLD_BEATS = 8;
+        public const float KANA_SPEED = 2f;
+        public const int KANA_RICOCHETS = 3;
+        public const double KANA_FAN_EVERY_BEATS = 8;
+        public const int KANA_FAN_BULLETS = 3;
+        public const float KANA_FAN_DEGREES = 15f;
+        public const float KANA_FAN_SIZE = 2f;
+
+        /// <summary>
+        /// Eternity Larva: a ring of this many butterflies every this many beats, this many times a plain bullet's speed (they wander as Wriggle's fireflies), as big as a spinner's star (their wings this many times its radius
+        /// across), flapping once every this many ms. Every this many beats every this many-th bullet on the screen is warned of for this many beats (half as fast meanwhile), then swells to this many circle radii over this
+        /// long (ms), glowing this much, and shrinks back over the last this many beats of the next four.
+        /// </summary>
+        public const int LARVA_RING_BUTTERFLIES = 8;
+
+        public const double LARVA_RING_EVERY_BEATS = 4;
+        public const float LARVA_SPEED = 0.6f;
+        public const float LARVA_WINGSPAN = 3f;
+        public const double LARVA_FLAP_MS = 260;
+        public const double LARVA_EVERY_BEATS = 8;
+        public const int LARVA_SWELL_EVERY = 20;
+        public const double LARVA_WARN_BEATS = 4;
+        public const float LARVA_WARN_SLOW = 0.5f;
+        public const float LARVA_SWELL_CIRCLES = 2f;
+        public const double LARVA_SWELL_MS = 150;
+        public const float LARVA_SWELL_BLOOM = 0.7f;
+        public const double LARVA_SHRINK_BEATS = 1;
 
         /// <summary>
         /// Sanae: in her attacks every ring has this many times as many bullets (64 at most), this much of their size, and a round one is a five-pointed star. Her own rings: this many ricochet stars, this much of a
@@ -749,6 +921,42 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float KEYBOARD_SPEED = 0.4f;
 
         public const float KEYBOARD_SLOW = 0.5f;
+
+        // ---- Autoplay (UI/BulletField.AutoPilot.cs): the character dodges by itself, as little as it can ----
+
+        /// <summary>How far ahead the autoplay looks (ms of game time) and in what steps: it stands still while nothing would touch it within that, and only goes where it stays safe that long.</summary>
+        public const double AUTO_HORIZON_MS = 400;
+
+        public const double AUTO_SAMPLE_MS = 25;
+
+        /// <summary>Room it keeps round its hitbox (px), and the smallest step aside it takes.</summary>
+        public const float AUTO_MARGIN = 3f;
+
+        public const float AUTO_SMALLEST_DODGE = 8f;
+
+        /// <summary>How many ways it looks round itself to walk to, and the walks: from the smallest step to as far as it gets in the time it looks ahead, in this many lengths.</summary>
+        public const int AUTO_WAYS = 16;
+
+        public const int AUTO_LENGTHS = 6;
+
+        /// <summary>With the mouse (cursor controls) it walks this fast (px per ms); with the keyboard at the keyboard's own speed. A walk that cannot be safe is a teleport instead (the freeze keys, or Space).</summary>
+        public const float AUTO_CURSOR_SPEED = 0.6f;
+
+        /// <summary>The places it can teleport to: a grid this many px apart over the whole screen, this far in from its edges.</summary>
+        public const float AUTO_GRID = 16f;
+
+        public const float AUTO_EDGE = 12f;
+
+        /// <summary>
+        /// How long the autoplay may think in a frame (ms): past it, it takes the best way it has found so far (the frame is not held up: it froze the game). A teleport is looked for this far round it first
+        /// (px), the whole screen only when there is time left.
+        /// </summary>
+        public const double AUTO_BUDGET_MS = 8;
+
+        public const float AUTO_TELEPORT_NEAR = 260f;
+
+        /// <summary>(the walks this long are looked at first, with only what comes near them gathered; the longer ones while there is time)</summary>
+        public const float AUTO_SHORT_WALK = 64f;
 
         /// <summary>Every beat the game counts with is at most this many beats per minute.</summary>
         /// <summary>The fastest and the slowest tempo a boss counts with: her attacks and pauses and every mechanic of hers (see <see cref="BossBeat"/>).</summary>

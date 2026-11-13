@@ -454,6 +454,36 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>(the autoplay) An eye that has been put down and explodes within the time, with the place in its reach.</summary>
+            public override bool Springs(BulletField f, Vector2 at, double from, double to)
+            {
+                if (f.failed || eyeCount == 0)
+                    return false;
+
+                // (the first eye that explodes after from: they explode one after the other)
+                int low = 0, high = eyeCount;
+
+                while (low < high)
+                {
+                    int middle = (low + high) / 2;
+
+                    if (explodesAt(middle) <= from)
+                        low = middle + 1;
+                    else
+                        high = middle;
+                }
+
+                float reach = radius + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
+
+                for (int k = low; k < eyeCount && explodesAt(k) <= to; k++)
+                {
+                    if (captured[k] && !processed[k] && Vector2.Distance(at, eyes[k]) <= reach)
+                        return true;
+                }
+
+                return false;
+            }
+
             private void explode(BulletField f, int k, double at, double now)
             {
                 takeSlices(f, k, at);

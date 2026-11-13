@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using osu.Framework.Allocation;
@@ -50,14 +51,17 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         /// <summary>Is a map being played (or in a break of one)? The background work waits then.</summary>
         public static bool Playing => playState?.Value is LocalUserPlayingState.Playing or LocalUserPlayingState.Break;
 
+        private IBindable<IReadOnlyList<Mod>>? selectedMods;
+
         [BackgroundDependencyLoader(true)]
-        private void load(BeatmapStore? beatmapStore, BeatmapManager? beatmapManager, IRulesetStore? rulesets, Storage? storage, ILocalUserPlayInfo? playInfo)
+        private void load(BeatmapStore? beatmapStore, BeatmapManager? beatmapManager, IRulesetStore? rulesets, Storage? storage, ILocalUserPlayInfo? playInfo, IBindable<IReadOnlyList<Mod>>? mods)
         {
             this.beatmapStore = beatmapStore;
             this.beatmapManager = beatmapManager;
             this.storage = storage;
             danmakusu = rulesets?.GetRuleset(DanmakusuRuleset.SHORT_NAME);
             playing = playInfo?.PlayingState.GetBoundCopy();
+            selectedMods = mods?.GetBoundCopy();
         }
 
         protected override void LoadComplete()
@@ -77,6 +81,18 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
 
             // (song select shows a map's counts at once and counts the rest in the background: CountsInBackground)
             CountsInBackground.Enabled = true;
+
+            // (songs without maps are shown while Map Generation is on: song select filters again when it is turned on or off)
+            selectedMods?.BindValueChanged(changed =>
+            {
+                bool on = changed.NewValue.Any(mod => mod is Mods.DanmakusuModMapGeneration);
+
+                if (on == Generation.Placeholders.MapGenerationOn)
+                    return;
+
+                Generation.Placeholders.MapGenerationOn = on;
+                SongSelectStars.Refilter();
+            }, true);
 
             new Thread(() => run(store, manager, ruleset, file, play)) { IsBackground = true, Name = "Danmakusu stars", Priority = ThreadPriority.Lowest }.Start();
         }
@@ -121,6 +137,17 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
 
             while (true)
             {
+                // (songs put in the folder for songs without maps: a placeholder each, imported before they are rated)
+                try
+                {
+                    waitWhilePlaying(play);
+                    Generation.Placeholders.ImportNew(manager, Path.Combine(Path.GetDirectoryName(file) ?? string.Empty, "danmakusu_songs.txt"));
+                }
+                catch (Exception e)
+                {
+                    Logger.Log($"Danmakusu: songs without maps could not be looked at ({e.Message})");
+                }
+
                 try
                 {
                     var todo = unrated(store);

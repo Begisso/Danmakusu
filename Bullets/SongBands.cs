@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using osu.Framework.Audio.Track;
 using osu.Game.Beatmaps;
+using osu.Game.Extensions;
 
 namespace osu.Game.Rulesets.Danmakusu.Bullets
 {
@@ -19,17 +21,34 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         private readonly float[] low, mid, high;
 
+        /// <summary>
+        /// How long one point of the waveform really is (ms). osu! puts (int)(frequency / 1000 x channels) samples into a point, so a 44.1 kHz song's points are 44/44.1 ms long: counted as a millisecond
+        /// each, everything came later and later through the song (0.4 s by three minutes; until 2026-11-13).
+        /// </summary>
+        private readonly double scale;
+
         /// <summary>The drum hits that come at the frequency the song's drums most often hit at (from the hit before or to the hit after), in order: when (ms) and how hard.</summary>
         private readonly List<(double Time, float Strength)> normalHits;
 
         /// <summary>The drum hits that come at half that frequency (twice as far apart: half-time, a dubstep drop), in order.</summary>
         private readonly List<(double Time, float Strength)> halfTimeHits;
 
-        private SongBands(float[] low, float[] mid, float[] high, List<(double Time, float Strength)> hits)
+        /// <summary>Every drum hit (kicks and snares), in order: when (ms) and how hard (how many times the band's average it jumped). The map generator puts objects on them.</summary>
+        public IReadOnlyList<(double Time, float Strength)> Hits { get; }
+
+        /// <summary>The hits of the bass alone (kicks), in order: where the beats of a song without a map are put (<see cref="Generation.Tempo"/>).</summary>
+        public IReadOnlyList<(double Time, float Strength)> Kicks { get; private init; } = Array.Empty<(double, float)>();
+
+        /// <summary>How long the song is that the bands were read from (ms).</summary>
+        public double Length => low.Length * (double)bucket_ms * scale;
+
+        private SongBands(float[] low, float[] mid, float[] high, List<(double Time, float Strength)> hits, double scale)
         {
             this.low = low;
             this.mid = mid;
             this.high = high;
+            this.scale = scale;
+            Hits = hits;
 
             double usual = usualSpacing(hits);
             normalHits = atSpacing(hits, usual);
@@ -104,8 +123,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         private const double burst_fall = 0.5;
 
+        /// <summary>
+        /// A hit is found this much after it is heard (ms): the waveform's bands are worked out over blocks of 1024 samples (23 ms). Measured against the objects of 21 mapped songs (SectionCheck
+        /// tempotest, TEMPO_DEBUG=1): the hits came a median 16 ms after them (2026-11-13).
+        /// </summary>
+        private const double hit_lag_ms = 16;
+
         /// <summary>The drum hits of one band: where it jumps up much more than it does round there (a kick in the bass, a snare in the mid).</summary>
-        private static void findHits(Waveform.Point[] points, Func<Waveform.Point, double> band, List<(double, float)> into)
+        private static void findHits(Waveform.Point[] points, Func<Waveform.Point, double> band, List<(double, float)> into, double scale)
         {
             int frames = points.Length / frame_ms;
 
@@ -159,7 +184,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (peak - fallenTo < rise[f] * burst_fall)
                     continue;
 
-                into.Add((f * frame_ms, (float)(rise[f] / average)));
+                into.Add((Math.Max(f * frame_ms * scale - hit_lag_ms, 0), (float)(rise[f] / average)));
                 last = f;
             }
         }
@@ -200,10 +225,100 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         }
 
         /// <summary>The bands of the song of <paramref name="working"/>; null when its track cannot be read.</summary>
-        public static SongBands? From(IWorkingBeatmap? working) => From(working?.Waveform);
+        public static SongBands? From(IWorkingBeatmap? working)
+        {
+            if (working == null)
+                return null;
 
-        /// <summary>The bands of a song's <paramref name="waveform"/>; null when it cannot be read.</summary>
-        public static SongBands? From(Waveform? waveform)
+            // (how long a point of its waveform is: from the song file's own header)
+            double scale = 1;
+
+            try
+            {
+                string? path = (working.BeatmapInfo?.BeatmapSet as osu.Game.Database.IHasRealmFiles)?.GetPathForFile(working.BeatmapInfo!.Metadata.AudioFile);
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    using var stream = working.GetStream(path);
+                    scale = MsPerPoint(stream);
+                }
+            }
+            catch
+            {
+                scale = 1;
+            }
+
+            return From(working.Waveform, scale);
+        }
+
+        /// <summary>The bands of a song file (the tools, and songs without maps).</summary>
+        public static SongBands? FromFile(string path)
+        {
+            double scale;
+
+            using (var stream = File.OpenRead(path))
+                scale = MsPerPoint(stream);
+
+            using var waveform = new Waveform(File.OpenRead(path));
+            return From(waveform, scale);
+        }
+
+        /// <summary>
+        /// How long one point of osu!'s waveform of a song is (ms), from the song's header: osu! puts (int)(frequency x 0.001 x channels) samples into a point (the same sum here, in the same float numbers).
+        /// 1 when it cannot be read.
+        /// </summary>
+        public static double MsPerPoint(Stream? audio)
+        {
+            if (audio == null)
+                return 1;
+
+            try
+            {
+                var procedures = new ManagedBass.FileProcedures
+                {
+                    Close = _ => { },
+                    Length = _ => audio.Length,
+                    Read = (buffer, length, _) =>
+                    {
+                        var bytes = new byte[length];
+                        int read = audio.Read(bytes, 0, length);
+                        System.Runtime.InteropServices.Marshal.Copy(bytes, 0, buffer, read);
+                        return read;
+                    },
+                    Seek = (offset, _) =>
+                    {
+                        audio.Seek(offset, SeekOrigin.Begin);
+                        return true;
+                    },
+                };
+
+                int handle = ManagedBass.Bass.CreateStream(ManagedBass.StreamSystem.NoBuffer, ManagedBass.BassFlags.Decode | ManagedBass.BassFlags.Float, procedures);
+
+                if (handle == 0)
+                    return 1;
+
+                try
+                {
+                    if (!ManagedBass.Bass.ChannelGetInfo(handle, out var info) || info.Frequency <= 0 || info.Channels <= 0)
+                        return 1;
+
+                    int perPoint = (int)((float)info.Frequency * 0.001f * (float)info.Channels);
+                    return perPoint > 0 ? perPoint / (double)info.Channels / info.Frequency * 1000 : 1;
+                }
+                finally
+                {
+                    ManagedBass.Bass.StreamFree(handle);
+                    GC.KeepAlive(procedures);
+                }
+            }
+            catch
+            {
+                return 1;
+            }
+        }
+
+        /// <summary>The bands of a song's <paramref name="waveform"/>; null when it cannot be read. <paramref name="scale"/>: how long one of its points is (ms, see <see cref="MsPerPoint"/>).</summary>
+        public static SongBands? From(Waveform? waveform, double scale = 1)
         {
             try
             {
@@ -235,11 +350,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
 
                 var hits = new List<(double Time, float Strength)>();
-                findHits(points, point => point.LowIntensity, hits); // (kicks)
-                findHits(points, point => point.MidIntensity, hits); // (snares)
+                findHits(points, point => point.LowIntensity, hits, scale); // (kicks)
+                var kicks = hits.ToList();
+                findHits(points, point => point.MidIntensity, hits, scale); // (snares)
                 hits.Sort((a, b) => a.Time.CompareTo(b.Time));
 
-                return new SongBands(low, mid, high, hits);
+                return new SongBands(low, mid, high, hits, scale) { Kicks = kicks };
             }
             catch
             {
@@ -248,14 +364,30 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         }
 
         /// <summary>How strong the bass is on average between <paramref name="from"/> and <paramref name="to"/> (ms of the song).</summary>
-        public float Bass(double from, double to) => average(low, from, to);
+        public float Bass(double from, double to) => average(low, from / scale, to / scale);
 
         /// <summary>How strong the mid frequencies are on average between <paramref name="from"/> and <paramref name="to"/>.</summary>
-        public float Mid(double from, double to) => average(mid, from, to);
+        public float Mid(double from, double to) => average(mid, from / scale, to / scale);
 
         /// <summary>How strong the treble is on average between <paramref name="from"/> and <paramref name="to"/>.</summary>
-        public float Treble(double from, double to) => average(high, from, to);
+        public float Treble(double from, double to) => average(high, from / scale, to / scale);
 
+        /// <summary>How loud the song is on average between <paramref name="from"/> and <paramref name="to"/>: its three bands together.</summary>
+        public float Loudness(double from, double to) => Bass(from, to) + Mid(from, to) + Treble(from, to);
+
+        /// <summary>The drum hit nearest to <paramref name="time"/> within <paramref name="reach"/> ms: how hard it is (0 = none that near).</summary>
+        public float HitNear(double time, double reach)
+        {
+            int at = lowerBound(Hits as List<(double Time, float Strength)> ?? Hits.ToList(), time - reach);
+            float best = 0f;
+
+            for (int i = at; i < Hits.Count && Hits[i].Time <= time + reach; i++)
+                best = Math.Max(best, Hits[i].Strength);
+
+            return best;
+        }
+
+        /// <summary>(<paramref name="from"/> and <paramref name="to"/> in points of the waveform)</summary>
         private static float average(float[] buckets, double from, double to)
         {
             int first = Math.Clamp((int)(from / bucket_ms), 0, buckets.Length);

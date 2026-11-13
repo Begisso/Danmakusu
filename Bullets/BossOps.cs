@@ -75,6 +75,24 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A bullet that only stands still while Reisen's freeze is on (pulled and bouncing ones do not slide): see-through, with no preview.</summary>
         public static readonly BulletLook ReisenStill = new BulletLook { Alpha = DanmakusuBalance.REISEN_VISIBLE };
 
+        /// <summary>A bullet that Megumu has turned into a star like Marisa's.</summary>
+        public static readonly BulletLook MarisaStar = new BulletLook { Shape = BulletShape.Star };
+
+        /// <summary>A bullet that stands still in Eirin's constellation: a little lighter.</summary>
+        public static readonly BulletLook Constellation = new BulletLook { Overlay = BulletRenderer.TINT_WHITE, OverlayAmount = 0.35f };
+
+        /// <summary>Eirin: the moments everything stands still in constellations: every eight beats from four beats into her section (the four before each are the preview).</summary>
+        public static List<double> ConstellationMarks(BossPeriod period)
+        {
+            var marks = new List<double>();
+            double beat = Math.Max(period.BeatLength, 1);
+
+            for (double mark = period.ShootStart + beat * DanmakusuBalance.EIRIN_PREVIEW_BEATS; mark < period.End; mark += beat * DanmakusuBalance.EIRIN_EVERY_BEATS)
+                marks.Add(mark);
+
+            return marks;
+        }
+
         /// <summary>The attacks of a boss: (start, end) of every laser burst / attack window.</summary>
         public static List<(double Start, double End)> Attacks(BossPeriod period)
         {
@@ -418,6 +436,31 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Mirror, Time = end, End = end, After = Knife });
                             beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start });
                         }
+
+                        break;
+
+                    case BossMechanic.Galaxy:
+                    {
+                        // Megumu: every eight beats every bullet on the screen turns into a star like Marisa's (a freeze that takes no time and leaves it a star) and ricochets once off the border before the next turn
+                        double gap = Math.Max(period.BeatLength, 1) * DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS;
+
+                        foreach (double mark in LunaMarks(period, DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS))
+                        {
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark, BornBefore = mark, SkipSharp = true, After = MarisaStar });
+                            bullets.Add(new TrajectoryOp
+                            {
+                                Kind = TrajectoryOpKind.Bounce, Time = mark, End = mark + gap, BornBefore = mark, SkipSharp = true, After = MarisaStar,
+                                Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
+                            });
+                        }
+
+                        break;
+                    }
+
+                    case BossMechanic.Constellation:
+                        // Eirin: every eight beats (the first four beats into her section, after the first preview) every bullet that exists stands still for four beats, a little lighter; her act joins them into constellations
+                        foreach (double mark in ConstellationMarks(period))
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark + Math.Max(period.BeatLength, 1) * DanmakusuBalance.EIRIN_HOLD_BEATS, BornBefore = mark, SkipSharp = true, During = Constellation });
 
                         break;
                 }

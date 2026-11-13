@@ -203,6 +203,77 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public float SpinPhase;
             public float FallSpin;
+
+            /// <summary>A knife: its handle is yellow (Yumeko's).</summary>
+            public bool YellowHandle;
+
+            /// <summary>
+            /// When not null the bullet flies these straight legs one after the other, each from its moment and place at its velocity (worked out when it was made: the ricochets of Kana's and Yuki's stars, what
+            /// Suika's stomp throws). Before the first leg it stands at <see cref="P0"/>. The ops of the other bosses leave it alone.
+            /// </summary>
+            public StageLeg[]? Legs;
+        }
+
+        /// <summary>One straight stretch of a stage bullet's flight (see <see cref="StageBullet.Legs"/>): from <see cref="T"/> on it is at <see cref="P"/> + <see cref="V"/> x the time since.</summary>
+        private struct StageLeg
+        {
+            public double T;
+            public Vector2 P;
+            public Vector2 V;
+        }
+
+        /// <summary>
+        /// The legs of something that flies from <paramref name="from"/> at <paramref name="velocity"/> from <paramref name="t0"/> on and bounces off the walls of the screen (when its middle gets there) at most
+        /// <paramref name="bounces"/> times, then flies on out; <paramref name="hits"/> gets where and when each bounce is (may be null).
+        /// </summary>
+        private StageLeg[] bouncingLegs(double t0, Vector2 from, Vector2 velocity, int bounces, List<(double Time, Vector2 Where)>? hits = null)
+        {
+            var legs = new List<StageLeg> { new StageLeg { T = t0, P = from, V = velocity } };
+            Vector2 low = stageMin, high = stageMax;
+            double t = t0;
+            Vector2 p = Vector2.Clamp(from, low, high);
+
+            legs[0] = new StageLeg { T = t0, P = p, V = velocity };
+
+            for (int k = 0; k < bounces && velocity.LengthSquared > 1e-12f; k++)
+            {
+                double across = toWall(p, velocity, out bool sideways);
+
+                if (double.IsInfinity(across) || across <= 0)
+                    break;
+
+                t += across;
+                p += velocity * (float)across;
+
+                if (sideways)
+                    velocity.X = -velocity.X;
+                else
+                    velocity.Y = -velocity.Y;
+
+                p = Vector2.Clamp(p, low, high);
+                legs.Add(new StageLeg { T = t, P = p, V = velocity });
+                hits?.Add((t, p));
+            }
+
+            return legs.ToArray();
+        }
+
+        /// <summary>Where a bullet that flies legs is at <paramref name="t"/>, and how fast it goes.</summary>
+        private static Vector2 legPoint(StageLeg[] legs, Vector2 before, double t, out Vector2 velocity)
+        {
+            if (legs.Length == 0 || t < legs[0].T)
+            {
+                velocity = Vector2.Zero; // (it stands: drawn facing its Face)
+                return before;
+            }
+
+            int i = legs.Length - 1;
+
+            while (i > 0 && legs[i].T > t)
+                i--;
+
+            velocity = legs[i].V;
+            return legs[i].P + legs[i].V * (float)(t - legs[i].T);
         }
 #pragma warning restore CS0649
 
@@ -556,6 +627,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>Does the character hurt itself on the act (like on a slider) at <paramref name="now"/>?</summary>
             public virtual bool Hurts(BulletField f, double now) => false;
+
+            /// <summary>
+            /// (for the autoplay, which looks ahead) Does something of the act go off between <paramref name="from"/> and <paramref name="to"/> that hurts a character standing at <paramref name="at"/> once,
+            /// when it goes off - an explosion, a trap that snaps shut? Only what <see cref="Hurts"/> does not answer for.
+            /// </summary>
+            public virtual bool Springs(BulletField f, Vector2 at, double from, double to) => false;
 
             /// <summary>When the last mechanic of the act's boss is over, if it goes on after her section (the boss stays until then: <see cref="BossPeriod.MechanicsEnd"/>).</summary>
             public virtual double MechanicsEnd => double.NegativeInfinity;
@@ -1421,6 +1498,73 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         // Koakuma's bats are made while she attacks
                         if (period.End > period.ShootStart)
                             registerStage(new BatAct(this, period, period.ShootStart, period.End));
+
+                        break;
+
+                    case BossMechanic.Orbs:
+                        // Misumaru's orbs all through her section, and the bullets that ricochet off each other in her attacks
+                        if (period.End > period.ShootStart)
+                            registerStage(new OrbsAct(period, attacks));
+
+                        break;
+
+                    case BossMechanic.Fissure:
+                        // Suika's stomps and cracks all through her section
+                        if (period.End > period.ShootStart)
+                            registerStage(new FissureAct(period));
+
+                        break;
+
+                    case BossMechanic.Scorch:
+                        // Yuki's scorching beams in her attacks, her stars all through her section
+                        if (period.End > period.ShootStart)
+                            registerStage(new ScorchAct(this, period, attacks));
+
+                        break;
+
+                    case BossMechanic.Recall:
+                        // Yumeko: what turns into her falling knives, and what leaves and comes back (her fans of knives are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new RecallAct(period));
+
+                        break;
+
+                    case BossMechanic.Pagoda:
+                        // Shou's cross, what comes out of it, and her waving beams
+                        if (period.End > period.ShootStart)
+                            registerStage(new PagodaAct(period, attacks));
+
+                        break;
+
+                    case BossMechanic.Constellation:
+                    {
+                        // Eirin's constellations (that everything stands still is BossOps')
+                        var marks = BossOps.ConstellationMarks(period);
+
+                        if (marks.Count > 0)
+                            registerStage(new ConstellationAct(this, period, marks));
+
+                        break;
+                    }
+
+                    case BossMechanic.Galaxy:
+                        // Megumu's beams (that everything turns into stars is BossOps')
+                        if (period.End > period.ShootStart)
+                            registerStage(new GalaxyAct(period));
+
+                        break;
+
+                    case BossMechanic.Poltergeist:
+                        // Kana's stopped bullets (her fans of big bullets are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new PoltergeistAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Metamorphosis:
+                        // Eternity Larva's butterflies, and the bullets she swells
+                        if (period.End > period.ShootStart)
+                            registerStage(new MetamorphosisAct(this, period));
 
                         break;
 
@@ -2353,6 +2497,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private static Vector2 stageBulletPosition(in StageBullet b, double t)
         {
+            if (b.Legs != null)
+                return legPoint(b.Legs, b.P0, t, out _);
+
             if (b.Trail != null)
             {
                 double u = (t - b.T0) / b.TrailStep;
@@ -2473,6 +2620,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private static Vector2 stageBulletVelocity(in StageBullet b, double t)
         {
+            if (b.Legs != null)
+            {
+                legPoint(b.Legs, b.P0, t, out Vector2 legVelocity);
+                return legVelocity;
+            }
+
             if (b.Trail != null)
             {
                 if (b.Trail.Count < 2)
@@ -2640,6 +2793,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Style = bullet.Style,
                         Direction = bullet.Spin != 0f ? stageSpun(bullet, drawTime) : bullet.KeepFace && bullet.Face.LengthSquared > 0f ? bullet.Face : velocity.LengthSquared > 1e-12f ? Vector2.Normalize(velocity) : bullet.Face.LengthSquared > 0f ? bullet.Face : new Vector2(1, 0),
                         BlueHandle = bullet.BlueHandle,
+                        YellowHandle = bullet.YellowHandle,
                         Shape = look?.Shape ?? bullet.Shape,
                         Speed = velocity.Length,
                         Overlay = look is { Overlay: > 0 } ? look.Overlay : bullet.Tint2At > 0 && drawTime >= bullet.Tint2At ? bullet.Tint2 : bullet.Tint,
@@ -3045,6 +3199,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.Rays: // nor does Miko
                 case BossMechanic.Purification: // Junko never leaves the middle
                 case BossMechanic.Anchors: // nor does Murasa
+                case BossMechanic.Pagoda: // Shou stands in the middle of her cross
                     return true;
 
                 case BossMechanic.Unknown:

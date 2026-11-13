@@ -82,8 +82,15 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
         public void ApplyToDrawableRuleset(DrawableRuleset<OsuHitObject> drawableRuleset) => this.drawableRuleset = drawableRuleset;
 
-        // (the map waits behind the boss menu until the player presses Start)
-        public void ApplyToHUD(HUDOverlay overlay) => BossMenu.Attach(overlay, drawableRuleset, this, Bosses);
+        // (the map waits behind the boss menu until the player presses Start - unless at least one boss is checked in the mod's settings already: then the map starts at once with them, the user 2026-11-13.
+        // How the player moves stays as it was last chosen)
+        public void ApplyToHUD(HUDOverlay overlay)
+        {
+            if (BossPicker.Bosses(Bosses.Value).Count > 0)
+                return;
+
+            BossMenu.Attach(overlay, drawableRuleset, this, Bosses);
+        }
     }
 
     /// <summary>Like <see cref="DanmakusuModBossSelection"/>, but two bosses attack together in every section, with half the bullets each: so the map has room for twice as many.</summary>

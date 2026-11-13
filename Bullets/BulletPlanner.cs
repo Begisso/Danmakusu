@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Audio;
@@ -39,7 +39,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Dream, BossMechanic.Rewind, BossMechanic.ThreeWorlds, BossMechanic.Taiko, BossMechanic.Rebirth, BossMechanic.Winter, BossMechanic.Dowsing, BossMechanic.Death, BossMechanic.Destruction,
             BossMechanic.Darkness, BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Momentum, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Haste, BossMechanic.HalfMoon, BossMechanic.Claws, BossMechanic.Reaping,
-            BossMechanic.Anchors,
+            BossMechanic.Anchors, BossMechanic.Galaxy,
+        };
+
+        /// <summary>
+        /// Bosses whose own shots are all their act's or their own rings made in planMechanics, all through their section (in a spinner too): none of the placeholder's spirals of stars, and none of the spinner's stars
+        /// (Misumaru's orbs, Suika's stomps, Yuki's stars, Yumeko's knives, Shou's waving beams, Megumu's beams, Kana's big bullets).
+        /// </summary>
+        private static readonly HashSet<BossMechanic> own_shots_only = new HashSet<BossMechanic>
+        {
+            BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -51,6 +60,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Autumn, BossMechanic.Fortune, BossMechanic.Shockwave, BossMechanic.Recording, BossMechanic.Earthquake, BossMechanic.Judgement, BossMechanic.Market, BossMechanic.Misfortune, BossMechanic.Foxes,
             BossMechanic.Stacking, BossMechanic.Possibility, BossMechanic.Storm, BossMechanic.Slash, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Cloud, BossMechanic.Haste, BossMechanic.Crescent,
             BossMechanic.Blades, BossMechanic.Miracle, BossMechanic.Claws, BossMechanic.Anchors,
+            BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -70,6 +80,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Silence, BossMechanic.Stampede, BossMechanic.Market, BossMechanic.Possibility, BossMechanic.Storm, BossMechanic.Slash, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Cloud, BossMechanic.Claws,
             BossMechanic.Anchors,
+            BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -124,8 +135,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// </summary>
         public static List<(double start, double end, BossKind kind, bool restartKiaiCount)> Sections(IBeatmap beatmap, Func<SongBands?>? bands = null)
         {
-            var sections = mapSections(beatmap);
-            fillSections(beatmap, sections, bands);
+            bool always = Mods.SectionMarks.AlwaysBoss(beatmap);
+            var sections = always ? alwaysBossSections(beatmap) : mapSections(beatmap);
+
+            if (!always)
+                fillSections(beatmap, sections, bands);
 
             // (a break never covers circles or sliders either: cut round them, as the made-up spinners are)
             var objects = beatmap.HitObjects.Where(h => h is not Spinner).Select(h => (Start: h.StartTime - 1, End: h.GetEndTime() + 1)).ToList();
@@ -1005,6 +1019,58 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             return result;
         }
 
+        /// <summary>
+        /// The Always Boss mod: the breaks (as the map gives them a boss) and every spinner (also one in a kiai) are sections of their own as they are, and every stretch between them, from the first object to the last,
+        /// is a section as a kiai is (one too short for a boss goes on with the one before, as any short section does). A break before a stretch starts the beam count of a kiai again.
+        /// </summary>
+        private static List<(double start, double end, BossKind kind, bool restartKiaiCount)> alwaysBossSections(IBeatmap beatmap)
+        {
+            var sections = mapSections(beatmap).Where(section => section.kind == BossKind.Break).ToList();
+
+            if (beatmap.HitObjects.Count == 0)
+                return sections;
+
+            var spinners = beatmap.HitObjects.OfType<Spinner>().Where(spinner => spinner.EndTime > spinner.StartTime).ToList();
+
+            foreach (var spinner in spinners)
+                sections.Add((spinner.StartTime, spinner.EndTime, BossKind.Spinner, false));
+
+            double first = beatmap.HitObjects.Min(h => h.StartTime);
+            double last = beatmap.HitObjects.Max(h => h.GetEndTime());
+            var taken = beatmap.Breaks.Select(b => (Start: b.StartTime, End: b.EndTime, Break: true))
+                               .Concat(spinners.Select(s => (Start: s.StartTime, End: s.EndTime, Break: false)))
+                               .OrderBy(x => x.Start).ToList();
+
+            double from = first;
+            bool afterBreak = false;
+
+            void stretch(double start, double end)
+            {
+                if (end - start >= Math.Max(DanmakusuBalance.CapBeat(beatmap.ControlPointInfo.TimingPointAt(start).BeatLength), 1) * DanmakusuBalance.BOSS_MIN_BREAK_BEATS)
+                    sections.Add((start, end, BossKind.Kiai, afterBreak));
+            }
+
+            foreach (var (start, end, isBreak) in taken)
+            {
+                if (start > from)
+                {
+                    stretch(from, start);
+                    afterBreak = false;
+                }
+
+                if (end > from)
+                {
+                    from = end;
+                    afterBreak = isBreak;
+                }
+            }
+
+            if (last > from)
+                stretch(from, last);
+
+            return sections.OrderBy(section => section.start).ToList();
+        }
+
         /// <summary>The sections the map itself gives a boss: its breaks, kiai sections and spinners.</summary>
         private static List<(double start, double end, BossKind kind, bool restartKiaiCount)> mapSections(IBeatmap beatmap)
         {
@@ -1153,15 +1219,18 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// How many bosses a map has room for, one at a time, with an attack and a pause of the default length each, whoever they are: a section holds as many as fit, a spinner one when it is long enough, as it is not cut, and a build-up none, as it
         /// leads into the section after it (at least one boss, whatever the map).
         /// </summary>
-        public static int MostBosses(IBeatmap beatmap, Func<SongBands?>? bands = null)
+        public static int MostBosses(IBeatmap beatmap, Func<SongBands?>? bands = null, int cycles = 1)
         {
             int most = 0;
+            cycles = Math.Max(cycles, 1); // (the boss picker's "attacks per boss": every boss has room for at least this many attacks and pauses)
 
             foreach (var (start, end, kind, restartKiaiCount) in Sections(beatmap, bands))
             {
+                double piece = shortestPiece(beatmap, start) * cycles;
+
                 if (kind != BossKind.Spinner)
-                    most += (int)((end - start + 1) / shortestPiece(beatmap, start));
-                else if (!restartKiaiCount && holdsABoss(beatmap, start, end))
+                    most += (int)((end - start + 1) / piece);
+                else if (!restartKiaiCount && end - start >= piece - 1)
                     most++;
             }
 
@@ -2506,7 +2575,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             emitters[k].PlainKnife = true;
                         }
                     }
-                    else if (boss.Mechanic != BossMechanic.Rebirth && boss.Mechanic != BossMechanic.Silence && boss.Mechanic != BossMechanic.Stampede && boss.Mechanic != BossMechanic.Market && boss.Mechanic != BossMechanic.Possibility && boss.Mechanic != BossMechanic.Storm && boss.Mechanic != BossMechanic.Slash && boss.Mechanic != BossMechanic.Rays && boss.Mechanic != BossMechanic.Cloud && boss.Mechanic != BossMechanic.Anchors && !(boss.Mechanic == BossMechanic.FantasySeal && kind == BossKind.Kiai)) // (Mokou shoots nothing of her own: what she throws is the field's, see MokouAct; nor does Reimu in a kiai section: only her orb; nor Murasa: her anchors are all, see AnchorAct)
+                    else if (boss.Mechanic != BossMechanic.Rebirth && boss.Mechanic != BossMechanic.Silence && boss.Mechanic != BossMechanic.Stampede && boss.Mechanic != BossMechanic.Market && boss.Mechanic != BossMechanic.Possibility && boss.Mechanic != BossMechanic.Storm && boss.Mechanic != BossMechanic.Slash && boss.Mechanic != BossMechanic.Rays && boss.Mechanic != BossMechanic.Cloud && boss.Mechanic != BossMechanic.Anchors && !own_shots_only.Contains(boss.Mechanic) && !(boss.Mechanic == BossMechanic.FantasySeal && kind == BossKind.Kiai)) // (Mokou shoots nothing of her own: what she throws is the field's, see MokouAct; nor does Reimu in a kiai section: only her orb; nor Murasa: her anchors are all, see AnchorAct)
                     {
                         // Koishi's hearts: twice as big, shot as often as the stars (KOISHI_HEART_INTERVAL_FACTOR), twice as many in a ring (KOISHI_HEART_COUNT_FACTOR, below)
                         bool hearts = boss.Mechanic == BossMechanic.Unconscious || boss.Mechanic == BossMechanic.Recollection;
@@ -2917,6 +2986,61 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         case BossMechanic.Scrolls when pass == 0:
                             addRememberedBeams(period, bossList.ToArray());
                             break;
+
+                        // Yumeko: a fan of five knives with yellow handles at the player every two beats, all through her section (in a spinner too: its stars are gone); what turns into her knives and comes back is her act's
+                        case BossMechanic.Recall when pass == 0:
+                        {
+                            double step = Math.Max(period.BeatLength, 1) * DanmakusuBalance.YUMEKO_FAN_EVERY_BEATS;
+                            int knives = DanmakusuBalance.YUMEKO_FAN_KNIVES;
+                            float gap = DanmakusuBalance.YUMEKO_FAN_DEGREES / Math.Max(knives - 1, 1) * MathF.PI / 180f;
+
+                            for (double t = period.ShootStart; t < period.End; t += step)
+                            {
+                                var directions = new Vector2[knives];
+
+                                // (the middle one first: the field aims the first one at the player)
+                                for (int i = 0; i < knives; i++)
+                                {
+                                    float angle = (i + 1) / 2 * (i % 2 == 1 ? -1f : 1f) * gap;
+                                    directions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                                }
+
+                                var fan = createEmitter(t, bossPlanOrigin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t) * DanmakusuBalance.YUMEKO_FAN_SPEED, directions, 0, radius * DanmakusuBalance.SAKUYA_KNIFE_SIZE_FACTOR, BulletShape.Knife,
+                                    aimAtPlayer: true, followsBoss: true, straight: true);
+                                fan.YellowHandle = true;
+                                fan.PlainKnife = true;
+                                fan.OwnShot = true;
+                                emitters.Add(fan);
+                            }
+
+                            break;
+                        }
+
+                        // Kana Anaberal: a fan of three bullets twice as big as a plain one at the player every eight beats, all through her section (in a spinner too); what she stops and throws is her act's
+                        case BossMechanic.Poltergeist when pass == 0:
+                        {
+                            double step = Math.Max(period.BeatLength, 1) * DanmakusuBalance.KANA_FAN_EVERY_BEATS;
+                            float gap = DanmakusuBalance.KANA_FAN_DEGREES * MathF.PI / 180f;
+
+                            for (double t = period.ShootStart; t < period.End; t += step)
+                            {
+                                var directions = new Vector2[DanmakusuBalance.KANA_FAN_BULLETS];
+
+                                for (int i = 0; i < directions.Length; i++)
+                                {
+                                    float angle = (i + 1) / 2 * (i % 2 == 1 ? -1f : 1f) * gap;
+                                    directions[i] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                                }
+
+                                var fan = createEmitter(t, bossPlanOrigin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, radius * DanmakusuBalance.KANA_FAN_SIZE, BulletShape.Circle,
+                                    aimAtPlayer: true, followsBoss: true, straight: true);
+                                fan.KeepCount = true; // (three with another boss on the screen too)
+                                fan.OwnShot = true;
+                                emitters.Add(fan);
+                            }
+
+                            break;
+                        }
 
                         // Doremy: in her attacks (in a spinner, the whole spinner) every ring of the map's circles, sliders and spinner gets a copy that is fired from the mirror image of where
                         // it is fired (through the middle of the playfield) the opposite way: three quarters as big, twice as fast. The field shows the mirrored circles and sliders themselves.

@@ -95,6 +95,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Recording] = 4, // Hisami
             [BossMechanic.FantasySeal] = 4, // Reimu
             [BossMechanic.Anchors] = 4, // Murasa
+            [BossMechanic.Orbs] = 3, // Misumaru
+            [BossMechanic.Fissure] = 4, // Suika
+            [BossMechanic.Scorch] = 4, // Yuki
+            [BossMechanic.Recall] = 4, // Yumeko
+            [BossMechanic.Pagoda] = 3, // Shou (4 until her cross turned half as fast, 2026-11-13)
+            [BossMechanic.Constellation] = 3, // Eirin
+            [BossMechanic.Galaxy] = 5, // Megumu
+            [BossMechanic.Poltergeist] = 3, // Kana Anaberal
+            [BossMechanic.Metamorphosis] = 3, // Eternity Larva
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece
