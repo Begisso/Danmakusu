@@ -762,7 +762,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_WALL_SPREAD_DEGREES = 90f;
         public const double SUIKA_STOMP_HURT_MS = 150;
         public const int SUIKA_CRACKS = 7;
-        public const float SUIKA_THIN_CRACK_CIRCLES = 0.15f;
+        public const float SUIKA_THIN_CRACK_CIRCLES = 0.5f; // (0.15 until 2026-11-14: "crack themselves are very thick and represent magma"; now the widest, under her, narrowing to a fifth at the end)
         public const double SUIKA_CRACKS_BEATS = 2;
 
         /// <summary>
@@ -788,6 +788,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int YUKI_SCORCH_EVERY = 3;
         public const float YUKI_SCORCH_SIZE = 1.3f;
         public const double YUKI_SCORCH_BEATS = 8;
+
+        /// <summary>Yuki's scorch marks have a glowing edge this share of their radius wide (2026-11-14; at least 2 px).</summary>
+        public const float YUKI_SCORCH_EDGE = 0.22f;
         public const double YUKI_STARS_EVERY_BEATS = 4;
         public const int YUKI_STAR_PLACES = 5;
         public const int YUKI_STARS = 5;
@@ -808,14 +811,29 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double YUMEKO_RETURN_BEATS = 4;
         public const int YUMEKO_RETURN_MOST = 600;
 
+        /// <summary>Yumeko's warning (2026-11-14): every wall flashes gold over this many beats before the knives come back, this many times, a glowing band this many circle radii deep, this bright.</summary>
+        public const double YUMEKO_WARN_BEATS = 1;
+
+        public const int YUMEKO_WARN_FLASHES = 2;
+        public const float YUMEKO_WARN_WIDTH_CIRCLES = 2.5f;
+        public const float YUMEKO_WARN_ALPHA = 0.85f;
+
         /// <summary>
         /// Shou: her cross turns this many times as fast as a spinner's beams (never slower than this many degrees a second), each arm this many plain bullet radii wide on each side, glowing this much, growing out over this
         /// many beats; every this many-th bullet fired comes out of it, no nearer its middle than this many circle radii (the big star covers the middle). Every this many beats a ring of this many waving beams: they swing this
         /// many circle radii to each side, to and fro in this many beats, are this many beats long and this many plain bullet radii wide on each side.
         /// </summary>
-        public const float SHOU_CROSS_SPIN = 0.75f; // (was 1.5 and 20 degrees, halved 2026-11-13)
+        public const float SHOU_CROSS_SPIN = 0.375f; // (was 1.5 and 20 degrees, halved 2026-11-13, halved again 2026-11-14: 0.75 and 10)
 
-        public const float SHOU_CROSS_LEAST_DEGREES = 10f;
+        public const float SHOU_CROSS_LEAST_DEGREES = 5f;
+
+        /// <summary>Shou's cross flashes another colour over this many beats before it turns the other way, on and off this many times (2026-11-14).</summary>
+        public const double SHOU_FLASH_BEATS = 1;
+
+        public const int SHOU_FLASHES = 3;
+
+        /// <summary>Shou's waving beams wave up to this many times as often half a screen's diagonal out as near her (2026-11-14).</summary>
+        public const float SHOU_WAVE_FASTEST = 3f;
         public const float SHOU_CROSS_WIDTH = 3f;
         public const float SHOU_CROSS_BLOOM = 0.6f;
         public const float SHOU_CROSS_NEAREST_CIRCLES = 2.6f;
@@ -823,8 +841,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int SHOU_FROM_CROSS_EVERY = 4;
         public const double SHOU_RING_EVERY_BEATS = 4;
         public const int SHOU_RING_BEAMS = 16;
-        public const float SHOU_WAVE_CIRCLES = 1f;
-        public const double SHOU_WAVE_BEATS = 2;
+        public const float SHOU_WAVE_CIRCLES = 0.5f; // (1 until 2026-11-14: half the swing)
+        public const double SHOU_WAVE_BEATS = 4; // (2 until 2026-11-14: half as often near her - faster further out, SHOU_WAVE_FASTEST)
         public const double SHOU_WAVE_TAIL_BEATS = 1.5;
         public const float SHOU_WAVE_WIDTH = 0.5f;
 
@@ -840,6 +858,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int EIRIN_GROUP = 4;
         public const float EIRIN_PREVIEW_ALPHA = 0.25f;
 
+        /// <summary>Eirin (2026-11-14): her constellations keep at least this far apart (px: their beams neither cross nor touch); the bullets of a constellation are this much lighter while they stand.</summary>
+        public const float EIRIN_APART = 6f;
+
+        public const float EIRIN_STOPPED_LIGHTER = 0.35f;
+
         /// <summary>
         /// Megumu: every this many beats this many endless beams from her, see-through (this visible) for this many beats and solid for this many, each set turned this many degrees from the last, the other way every this
         /// many beats; this many plain bullet radii wide on each side. Every this many beats every bullet on the screen turns into a star and ricochets once.
@@ -848,6 +871,11 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const int MEGUMU_BEAMS = 5;
         public const float MEGUMU_PREVIEW_ALPHA = 0.18f;
+
+        /// <summary>Megumu (2026-11-14): her solid beams fade out over this many beats (hurting until half faded); her sets go round the whole rainbow in this many beats.</summary>
+        public const double MEGUMU_FADE_BEATS = 0.5;
+
+        public const double MEGUMU_RAINBOW_BEATS = 16;
         public const double MEGUMU_PREVIEW_BEATS = 4;
         public const double MEGUMU_LIVE_BEATS = 4;
         public const float MEGUMU_STEP_DEGREES = 5f;
@@ -876,6 +904,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double KANA_HOLD_BEATS = 8;
         public const float KANA_SPEED = 2f;
         public const int KANA_RICOCHETS = 3;
+
+        /// <summary>Kana's warning arrows (2026-11-14): this many times as big as the bullet they stand by (at least half a circle radius), this opaque.</summary>
+        public const float KANA_ARROW_SIZE = 1.2f;
+
+        public const float KANA_ARROW_ALPHA = 0.9f;
         public const double KANA_FAN_EVERY_BEATS = 8;
         public const int KANA_FAN_BULLETS = 3;
         public const float KANA_FAN_DEGREES = 15f;
@@ -886,7 +919,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// across), flapping once every this many ms. Every this many beats every this many-th bullet on the screen is warned of for this many beats (half as fast meanwhile), then swells to this many circle radii over this
         /// long (ms), glowing this much, and shrinks back over the last this many beats of the next four.
         /// </summary>
-        public const int LARVA_RING_BUTTERFLIES = 8;
+        public const int LARVA_RING_BUTTERFLIES = 16; // (8 until 2026-11-14: "Double the amount of butterflies")
 
         public const double LARVA_RING_EVERY_BEATS = 4;
         public const float LARVA_SPEED = 0.6f;
@@ -900,6 +933,85 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double LARVA_SWELL_MS = 150;
         public const float LARVA_SWELL_BLOOM = 0.7f;
         public const double LARVA_SHRINK_BEATS = 1;
+
+        /// <summary>
+        /// Nitori (2026-11-13): in every attack a giant icosahedron of beams round the middle of the playfield, as wide from corner to corner as this share of the playfield, grown over this many beats and faded in over
+        /// this many (out over this many ms when it comes apart); it turns once in this many seconds (half the speed of the animation the user gave, 4.16 s a turn), every next attack the other way, seen this
+        /// many degrees from the side; its beams this share of a slider's beam wide. When the attack is over it comes apart into plain bullets this share of their size, one every this many circle radii along
+        /// its edges, flying straight out from its middle at this share of her plain bullets' speed. Her own shots: an arc of beam this many degrees wide (drawn with this many pieces) at the player every this
+        /// share of a beat, flying out at this share of her plain bullets' speed.
+        /// </summary>
+        public const float NITORI_SIZE = 1f;
+
+        public const double NITORI_GROW_BEATS = 8;
+        public const double NITORI_FADE_IN_BEATS = 1;
+        public const double NITORI_FADE_OUT_MS = 150;
+        public const double NITORI_SPIN_SECONDS = 8.32;
+
+        /// <summary>Nitori's icosahedron also turns round its middle in the plane of the screen once in this many seconds (2026-11-14).</summary>
+        public const double NITORI_ROLL_SECONDS = 12;
+        public const float NITORI_TILT_DEGREES = 5f;
+        public const float NITORI_BEAM_WIDTH = 1f;
+        public const float NITORI_BULLET_SIZE = 0.5f;
+        public const float NITORI_BULLET_EVERY_CIRCLES = 1f;
+        public const float NITORI_BULLET_SPEED = 1f;
+        public const double NITORI_ARC_EVERY_BEATS = 0.25;
+        public const float NITORI_ARC_DEGREES = 10f;
+        public const int NITORI_ARC_POINTS = 6;
+        public const float NITORI_ARC_SPEED = 1.5f;
+
+        /// <summary>
+        /// Mai (2026-11-13): her snowflakes' arms are this share of the playfield's width long; one grows over this many beats and goes again over this many, coming apart into plain bullets this share of their
+        /// size, one every this many circle radii along its beams, flying out at this share of her plain bullets' speed. A beam's sharp tip is this many of its half widths long.
+        /// </summary>
+        public const float MAI_ARM_SIZE = 1.2f; // (0.6 until 2026-11-14: "Snowflake radius doubled")
+
+        public const double MAI_GROW_BEATS = 8;
+        public const double MAI_OUT_BEATS = 8;
+        public const float MAI_BULLET_SIZE = 0.5f;
+        public const float MAI_BULLET_EVERY_CIRCLES = 1.5f;
+        public const float MAI_BULLET_SPEED = 1f;
+        public const float MAI_TIP_WIDTHS = 8f; // (4 until 2026-11-14: the tips twice as long too)
+
+        /// <summary>Mai's snowflake (2026-11-14, "a lot more branches and sub branches"): a pair of side branches every this share of an arm along it; on each branch a pair of twigs every this share of an arm.</summary>
+        public const float MAI_BRANCH_STEP = 0.07f;
+
+        public const float MAI_TWIG_STEP = 0.06f;
+
+        /// <summary>
+        /// Benben (2026-11-13): every slider's beam in her section has a copy this many circle radii above it and below it, every slice of them harmless (see-through) for this many beats; her own three parallel beams
+        /// are this many of their widest half widths apart. A bullet that crosses a beam (every second one) becomes a note this many times its size, flying at its speed times a factor that swells from PULSE_LOW
+        /// to PULSE_HIGH and back every this many beats; after the first swell it turns towards the player, once.
+        /// </summary>
+        public const float BENBEN_COPY_GAP_CIRCLES = 1f;
+
+        public const double BENBEN_COPY_HARMLESS_BEATS = 4;
+        public const float BENBEN_BEAM_SPACING = 2.5f;
+        public const float BENBEN_NOTE_SIZE = 2f;
+        public const float BENBEN_NOTE_PULSE_LOW = 0.5f;
+        public const float BENBEN_NOTE_PULSE_HIGH = 2f;
+        public const double BENBEN_NOTE_PULSE_BEATS = 2;
+
+        /// <summary>
+        /// Ellen (2026-11-13): a ring of this many talismans every this many beats; the beams between every two of them are harmless for this many beats. Socrates, her cat, is this many times as big as a plain
+        /// bullet, jumps every this many beats to a bullet within this many circle radii of it (the one nearest the player), and a jump takes this share of a beat.
+        /// </summary>
+        public const int ELLEN_RING_TALISMANS = 16;
+
+        public const double ELLEN_RING_EVERY_BEATS = 2;
+        public const double ELLEN_BEAM_HARMLESS_BEATS = 4;
+        public const float ELLEN_CAT_SIZE = 2f;
+        public const double ELLEN_CAT_JUMP_BEATS = 2;
+        public const float ELLEN_CAT_REACH_CIRCLES = 4f;
+        public const double ELLEN_CAT_LEAP_BEATS = 0.25;
+
+        /// <summary>
+        /// Socrates (2026-11-14): further from the player than it can jump it jumps every this many beats (half that when twice as far); it likes best a bullet whose leap goes over the player, the player no
+        /// further than this many circle radii off the line of it.
+        /// </summary>
+        public const double ELLEN_CAT_FAR_JUMP_BEATS = 1;
+
+        public const float ELLEN_CAT_OVER_CIRCLES = 1.5f;
 
         /// <summary>
         /// Sanae: in her attacks every ring has this many times as many bullets (64 at most), this much of their size, and a round one is a five-pointed star. Her own rings: this many ricochet stars, this much of a
@@ -1379,6 +1491,83 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int KAKU_RETURN_EVERY = 2; // (every this many-th bullet comes back)
         public const double KAKU_RETURN_BEATS = 16;
         public const double KAKU_RETURN_FADE_MS = 600;
+
+        /// <summary>Yoshika (2026-11-13): as Seiga, every this many-th bullet that leaves comes back (half as many), at its speed divided by this (its own speed), leaving copies that stay this many beats each, fading out over this many ms.</summary>
+        public const int YOSHIKA_RETURN_EVERY = KAKU_RETURN_EVERY * 2;
+
+        public const float YOSHIKA_RETURN_SPEED_DIVISOR = 1f;
+        public const double YOSHIKA_ECHO_BEATS = 8;
+
+        /// <summary>Yoshika's returning talisman (the head) lives this many beats, leaving its echoes only so far (2026-11-14: 16 as Seiga's, then 8, then 2).</summary>
+        public const double YOSHIKA_HEAD_BEATS = 2;
+        public const double YOSHIKA_ECHO_FADE_MS = 250;
+
+        /// <summary>
+        /// Matenshi (2026-11-13): each wing this share of the playfield's width, unfolding over this many beats, this opaque; every this many-th bullet fired comes out of the wings as a feather this many times its size,
+        /// glowing this much. Every this many beats a beam this many circle radii wide straight down over the player: a preview (this opaque) for this many beats, then solid for this many, growing down over this many.
+        /// Closed (2026-11-14, the wings open from it): turned this many degrees (negative: up, towards each other; was 105 down) and this share of their size (they come out of her small); they fade in,
+        /// closed, over this many beats. Open, they sway this many degrees either way once every this many beats.
+        /// </summary>
+        public const float MATENSHI_WING_SIZE = 0.45f;
+
+        public const float MATENSHI_WING_CLOSED_DEGREES = -50f;
+        public const float MATENSHI_WING_CLOSED_SCALE = 0.15f;
+        public const float MATENSHI_WING_SWAY_DEGREES = 4f;
+        public const double MATENSHI_WING_SWAY_BEATS = 2;
+        public const double MATENSHI_WING_APPEAR_BEATS = 0.5;
+        public const double MATENSHI_WING_GROW_BEATS = 4;
+        public const float MATENSHI_WING_ALPHA = 0.95f;
+        public const int MATENSHI_FROM_WINGS_EVERY = 2;
+        public const float MATENSHI_FEATHER_SIZE = 1.5f;
+        public const float MATENSHI_FEATHER_BLOOM = 0.8f;
+        public const double MATENSHI_BEAM_EVERY_BEATS = 4; // (8 until 2026-11-14: "twice more frequency"; every strike is two beams, one over the player and one at a place of its own)
+        public const float MATENSHI_BEAM_WIDTH_CIRCLES = 3f;
+        public const double MATENSHI_BEAM_PREVIEW_BEATS = 4;
+        public const double MATENSHI_BEAM_LIVE_BEATS = 4;
+        public const double MATENSHI_BEAM_GROW_BEATS = 0.25;
+        public const float MATENSHI_PREVIEW_ALPHA = 0.18f;
+
+        /// <summary>
+        /// Yatsuhashi (2026-11-14): the map converted to osu!mania with this many keys, one lane each across the field (the whole screen); every note's beam is this many times as thick as a normal beam, falls from the top of the
+        /// screen to the bottom in this many beats (its front reaches the bottom on the note), and a tap's beam is as long as this many beats of its fall.
+        /// </summary>
+        public const int YATSUHASHI_COLUMNS = 18;
+
+        public const float YATSUHASHI_BEAM_WIDTH = 4f; // (2 until 2026-11-14: "double the thickness")
+        public const double YATSUHASHI_FALL_BEATS = 4; // (2 until 2026-11-14: "halve the falling speed")
+        public const double YATSUHASHI_TAP_BEATS = 0.5; // (0.25 at twice the speed: a tap's beam is as long on the screen as it was)
+
+        /// <summary>
+        /// Keiki (2026-11-14): her squares of this many plain bullets, one every this many beats. In her section the rings are fired at one moment in this many (the others are dropped) with this many times the
+        /// bullets (at most MAX_RING_BULLETS), as squares; every this many-th bullet that goes out of the screen comes back as a beam as long as this many beats of its way.
+        /// </summary>
+        public const int KEIKI_SQUARE_BULLETS = 64;
+
+        public const double KEIKI_SQUARE_EVERY_BEATS = 4;
+        public const int KEIKI_RING_EVERY = 2;
+        public const int KEIKI_RING_COUNT_FACTOR = 2;
+        public const int KEIKI_RETURN_EVERY = 5;
+        public const double KEIKI_BEAM_BEATS = 4;
+
+        /// <summary>
+        /// Tsukasa (2026-11-14): every this many-th beam of her section bounces once (the bounce window goes on this long after her section, for the slices fired late in it). Her rings of this many big balls, each
+        /// this many osu! circle radii, one every this many beats at this share of a plain bullet's speed; every this many-th bullet fired in her section comes out of the balls instead.
+        /// </summary>
+        public const int TSUKASA_BOUNCE_EVERY = 4;
+
+        public const double TSUKASA_BOUNCE_AFTER_MS = 8000;
+        public const int TSUKASA_BALLS = 6;
+        public const float TSUKASA_BALL_CIRCLES = 2f;
+        public const double TSUKASA_BALL_EVERY_BEATS = 4;
+        public const float TSUKASA_BALL_SPEED = 0.5f;
+        public const int TSUKASA_RESHOOT_EVERY = 10;
+
+        /// <summary>Yatsuhashi's approach circles (2026-11-14): they start this many times their closed size (as osu!'s), this opaque, their line this share of their closed radius on either side.</summary>
+        public const float YATSUHASHI_APPROACH_SCALE = 4f;
+
+        public const float YATSUHASHI_APPROACH_ALPHA = 0.9f;
+        public const float YATSUHASHI_APPROACH_LINE = 0.06f;
+
         public const float KAKU_DARKEN = 0.5f;
         public const float KAKU_TALISMAN_FIT = 0.92f;
         public const int SUNNY_TRIANGLE_BULLETS = 12;
@@ -1411,6 +1600,20 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SATORI_EYE_DISTANCE = 3f; // (the eye is twice as big as it was: its near edge is as far from the player as it was)
         public const float SATORI_EYE_ALPHA = 0.75f;
         public const double SATORI_EYE_FADE_OUT_MS = 300;
+
+        /// <summary>
+        /// Satori's trail (2026-11-13, beside her readings): the player leaves a red beam where they go, a point every this share of a beat. Every slice of it is see-through (as Junko's) and harmless for this many beats,
+        /// then hurts for this many more, fading out over the last of them (once half faded it no longer hurts); as wide as this share of a slider's beam. Two points this far apart (a teleport, a flick of the
+        /// cursor) are not joined.
+        /// </summary>
+        public const double SATORI_TRAIL_STEP_BEATS = 1.0 / 16;
+
+        public const double SATORI_TRAIL_HARMLESS_BEATS = 4;
+        public const double SATORI_TRAIL_ACTIVE_BEATS = 8;
+        public const double SATORI_TRAIL_FADE_BEATS = 2;
+        public const float SATORI_TRAIL_WIDTH = 1f;
+        public const float SATORI_TRAIL_GHOST_ALPHA = JUNKO_GHOST_ALPHA;
+        public const float SATORI_TRAIL_JUMP_PX = 120f;
 
         public const float SEIRAN_SIDE_ANGLE_DEGREES = 5f / 3f;
         public const float SEIRAN_SHOT_SPACING = RINGO_BEHIND_SPACING;
@@ -1754,6 +1957,36 @@ namespace osu.Game.Rulesets.Danmakusu
 
             return points;
         }
+
+        /// <summary>
+        /// An eighth note in the bullet's own frame (its stem along +x, its flag on +y: facing up on the screen it stands upright, the flag to the right; farthest point at distance about 1). Traced from the
+        /// user's picture (2026-11-13), simplified to 31 points.
+        /// </summary>
+        public static readonly Vector2[] NOTE =
+        {
+            new Vector2(0.933f, 0.002f), new Vector2(0.933f, 0.063f), new Vector2(0.79f, 0.073f), new Vector2(0.675f, 0.117f), new Vector2(0.36f, 0.374f), new Vector2(0.218f, 0.459f), new Vector2(0.086f, 0.496f),
+            new Vector2(-0.076f, 0.493f), new Vector2(-0.306f, 0.425f), new Vector2(-0.432f, 0.367f), new Vector2(-0.465f, 0.337f), new Vector2(-0.137f, 0.452f), new Vector2(-0.019f, 0.455f), new Vector2(0.096f, 0.432f),
+            new Vector2(0.198f, 0.391f), new Vector2(0.296f, 0.32f), new Vector2(0.367f, 0.222f), new Vector2(0.428f, 0.066f), new Vector2(-0.662f, 0.056f), new Vector2(-0.767f, 0.005f), new Vector2(-0.858f, -0.09f),
+            new Vector2(-0.916f, -0.205f), new Vector2(-0.933f, -0.35f), new Vector2(-0.902f, -0.432f), new Vector2(-0.821f, -0.493f), new Vector2(-0.726f, -0.496f), new Vector2(-0.638f, -0.452f), new Vector2(-0.564f, -0.374f),
+            new Vector2(-0.489f, -0.228f), new Vector2(-0.476f, -0.117f), new Vector2(-0.503f, 0.005f),
+        };
+
+        /// <summary>
+        /// A feather in the bullet's own frame: the outline of the user's picture (Resources/Textures/matenshi_feather.png, made by `Bake feather ... 256 ... 25`: turned level, the tip on +x), traced and simplified to 26 points,
+        /// farthest point at distance 1. It is the feather's hit shape and the shape of its glow; the feather itself is drawn from the picture (2026-11-14).
+        /// </summary>
+        public static readonly Vector2[] FEATHER =
+        {
+            new Vector2(0.173f, -0.482f), new Vector2(0.128f, -0.354f), new Vector2(0.286f, -0.474f), new Vector2(0.256f, -0.241f), new Vector2(0.474f, -0.459f), new Vector2(0.392f, -0.354f), new Vector2(0.565f, -0.459f),
+            new Vector2(0.467f, -0.309f), new Vector2(0.663f, -0.429f), new Vector2(0.603f, -0.377f), new Vector2(0.889f, -0.286f), new Vector2(0.949f, -0.015f), new Vector2(0.535f, 0.369f), new Vector2(-0.136f, 0.437f),
+            new Vector2(-0.497f, 0.264f), new Vector2(-0.904f, -0.143f), new Vector2(-0.828f, -0.166f), new Vector2(-0.926f, -0.377f), new Vector2(-0.828f, -0.256f), new Vector2(-0.542f, -0.279f), new Vector2(-0.286f, -0.429f),
+            new Vector2(-0.294f, -0.226f), new Vector2(-0.218f, -0.429f), new Vector2(-0.105f, -0.309f), new Vector2(0.03f, -0.414f), new Vector2(0.015f, -0.309f),
+        };
+
+        /// <summary>The feather's picture: its height over its width, and its half length as a share of the outline's farthest point (the bullet's radius).</summary>
+        public const float FEATHER_ASPECT = 0.531f;
+
+        public const float FEATHER_PICTURE_HALF = 0.964f;
 
         /// <summary>A slice of a laser beam in the bullet's own frame: a thin blade, pointed at both ends, along the x axis (farthest points at distance 1).</summary>
         public static readonly Vector2[] SLICE = createSlice();

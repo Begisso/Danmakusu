@@ -8,7 +8,10 @@ using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Input.Events;
+using osu.Framework.Localisation;
 using osu.Framework.Logging;
+using osu.Framework.Testing;
+using osu.Game.Graphics.Sprites;
 using osu.Game.Overlays.Mods;
 using osu.Game.Rulesets.Mods;
 using osuTK.Graphics;
@@ -73,6 +76,29 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
         private static bool panelMovingBroken;
 
+        private OsuSpriteText? headerText;
+        private LocalisableString osuHeader;
+
+        /// <summary>
+        /// The panel's header says "Danmakusu Settings" while it stands over this column (the user, 2026-11-14: "Rename it to Danmakusu Settings"), and osu!'s own words again when it goes back. (Only the
+        /// words are changed; if osu! has changed how its header is made, it keeps its own.)
+        /// </summary>
+        private void nameHeader(Drawable panel, bool ours)
+        {
+            headerText ??= panel.ChildrenOfType<ModCustomisationHeader>().FirstOrDefault()?.ChildrenOfType<OsuSpriteText>().FirstOrDefault();
+
+            if (headerText == null)
+                return;
+
+            if (ours)
+            {
+                osuHeader = headerText.Text;
+                headerText.Text = "Danmakusu Settings";
+            }
+            else
+                headerText.Text = osuHeader;
+        }
+
         private void placeCustomisation()
         {
             if (panelMovingBroken)
@@ -91,6 +117,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     panel.X = 0;
                     panel.Width = osuPanelWidth;
                     panelMoved = false;
+                    nameHeader(panel, false);
                 }
 
                 return;
@@ -103,6 +130,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 panel.X = 0;
 
                 panelMoved = true;
+                nameHeader(panel, true);
             }
 
             // (wide enough for four of the boss picker's tiles in a row with their names: the user, 2026-11-13, "wider so boss names can fit"; never wider than the screen has room for)

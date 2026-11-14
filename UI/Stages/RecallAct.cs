@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.Danmakusu.UI
 {
@@ -11,7 +12,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Yumeko: all through her section every eighth bullet (anyone's but her own knives, counted ring by ring, as soon as it is seen) turns into a knife with a yellow handle where it is: it stops, and falls
         // towards where the player was at that moment, faster and faster. Everything that goes all the way out of the screen is remembered, sixteen beats at a time: in the four beats after them it all comes back
         // as yellow-handled knives, in the order it left and four times as close together, each from the place where it left, flying straight across from that wall (what left at the left comes back from the left
-        // and flies to the right) at the speed it had. Her own knives (fans of five at the player every two beats) are the planner's.
+        // and flies to the right) at the speed it had; over the beat before they come every wall of the screen flashes gold, twice. Her own knives (fans of five at the player every two beats) are the planner's.
         // ======================================================================================================================================================
 
         private sealed class RecallAct : StageAct
@@ -199,6 +200,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Hit = stored.Hit * big,
                     Style = stored.Style,
                 });
+            }
+
+            /// <summary>
+            /// The warning (2026-11-14, the user: "before knives come out of walls - all walls should big flash gold"): over the beat before what left in a window comes back, every wall of the screen flashes
+            /// gold, a wide glowing band along each, twice.
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed)
+                    return;
+
+                double span = beat * DanmakusuBalance.YUMEKO_WARN_BEATS;
+
+                for (int w = 0; w < windowEnds.Length; w++)
+                {
+                    if (t < windowEnds[w] - span || t >= windowEnds[w] || left[w].Count == 0)
+                        continue;
+
+                    double u = 1 - (windowEnds[w] - t) / span;
+                    float flash = 0.5f - 0.5f * MathF.Cos((float)(u * DanmakusuBalance.YUMEKO_WARN_FLASHES * MathF.Tau));
+                    var gold = new Color4(1f, 0.82f, 0.25f, 1f);
+                    Vector2 low = f.stageMin, high = f.stageMax, middle = (low + high) * 0.5f, size = high - low;
+                    float band = f.circleRadius * DanmakusuBalance.YUMEKO_WARN_WIDTH_CIRCLES;
+                    float alpha = DanmakusuBalance.YUMEKO_WARN_ALPHA * flash;
+
+                    f.stageFront.Add(StageTexture.Glow, new Vector2(middle.X, low.Y), new Vector2(size.X * 1.2f, band * 2f), 0f, alpha, gold, true);
+                    f.stageFront.Add(StageTexture.Glow, new Vector2(middle.X, high.Y), new Vector2(size.X * 1.2f, band * 2f), 0f, alpha, gold, true);
+                    f.stageFront.Add(StageTexture.Glow, new Vector2(low.X, middle.Y), new Vector2(band * 2f, size.Y * 1.2f), 0f, alpha, gold, true);
+                    f.stageFront.Add(StageTexture.Glow, new Vector2(high.X, middle.Y), new Vector2(band * 2f, size.Y * 1.2f), 0f, alpha, gold, true);
+                    break;
+                }
             }
 
             /// <summary>When a window is over, what left in it comes back as knives, in four beats: each from where it left, straight across from its wall.</summary>

@@ -10,8 +10,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Yuki: in her attacks the laser bursts every boss had before Marisa's Master Spark: five beams evenly round her (three with another boss on the screen, two with two more), the first aimed at the player
-        // when the attack begins, turning slowly together (as fast as a spinner's beams) so that the nearest comes round to the player; their slices fly out twice as fast as a plain bullet. But every slice goes
-        // out (fading) as far from her as the player was when it was fired, and every third leaves a scorch mark where it went out: charred, glowing embers that burn for eight beats and hurt like a slider body.
+        // when the attack begins, turning slowly together (as fast as a spinner's beams) so that the nearest comes round to the player; their slices fly out twice as fast as a plain bullet. Since 2026-11-14 they
+        // are as thick as a spinner's beams and grow as theirs do (an osu! circle's radius where they are fired, widening to the spinner beam's widest; they were thin). But every slice goes out (fading) as far
+        // from her as the player was when it was fired, and every third leaves a scorch mark where it went out: a charred disc with a glowing edge, all the marks one seamless outline where they overlap, that
+        // burns for eight beats and hurts like a slider body. Slices still flying when her attack ends (or she leaves) fly on out to the edge of the screen instead, and leave no mark.
         // The beams turn the way the player has gone, so it is all worked out step by step (a slice every 30 ms) and kept; time going back throws away what came after.
         // Her own shots, all through her section (in a spinner too): every four beats five rings of five ricochet stars, each from one of five places round her, two and a half circle radii away; a star ricochets
         // once off the edge of the screen and then flies out.
@@ -26,6 +28,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public float Angle; // (of the first beam)
                 public float Reach; // (how far out it goes)
                 public int Number;
+                public double AttackEnd; // (when the attack it was fired in ends: one still flying then goes on out to the edge of the screen)
             }
 
             private readonly double beat;
@@ -74,7 +77,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private float speed => stageBulletSpeed(Period) * DanmakusuBalance.YUKI_BEAM_SPEED;
 
-            private float halfWidth => Math.Max(Period.StarRadius, 2f) * DanmakusuBalance.YUKI_BEAM_WIDTH;
+            /// <summary>How big the scorch marks are: from the thin beams she had before 2026-11-14 (the marks stay as big as they were).</summary>
+            private float scorchHalf => Math.Max(Period.StarRadius, 2f) * DanmakusuBalance.YUKI_BEAM_WIDTH;
+
+            /// <summary>
+            /// How wide a slice is when it has flown <paramref name="flown"/> px: as a spinner's beam (2026-11-14, "as thick and growing as spinner placeholder laserbeams") - an osu! circle's radius where it is
+            /// fired, widening fast at first and ever more slowly to the spinner beam's widest over <see cref="DanmakusuBalance.LASER_GROWTH_DISTANCE"/>.
+            /// </summary>
+            private float widthAt(float flown)
+            {
+                if (Period.SpinnerBeamHalfWidth <= 0f)
+                    return scorchHalf;
+
+                float start = Period.SpinnerBeamStartHalfWidth;
+                float grown = Math.Max(Period.SpinnerBeamHalfWidth * DanmakusuBalance.LASER_PEAK_FACTOR, start);
+                float u = Math.Clamp(flown / DanmakusuBalance.LASER_GROWTH_DISTANCE, 0f, 1f);
+                return start + (grown - start) * (1f - (1f - u) * (1f - u));
+            }
+
+            private float widest => Period.SpinnerBeamHalfWidth > 0f ? Math.Max(Period.SpinnerBeamHalfWidth * DanmakusuBalance.LASER_PEAK_FACTOR, Period.SpinnerBeamStartHalfWidth) : scorchHalf;
+
+            /// <summary>
+            /// How far a slice goes: as far as the player was when it was fired - but one still flying when its attack ends (or she leaves) flies on out to the edge of the screen, so the beam is not gone at once
+            /// when she stops (2026-11-14).
+            /// </summary>
+            private float reachOf(BulletField f, in Slice slice)
+                => slice.Time + slice.Reach / Math.Max(speed, 1e-3f) > slice.AttackEnd ? Vector2.Distance(f.stageMin, f.stageMax) + widest * 2f : slice.Reach;
+
+            /// <summary>Does the slice go out where the player was (and may leave a scorch mark there)?</summary>
+            private bool stopsShort(in Slice slice) => slice.Time + slice.Reach / Math.Max(speed, 1e-3f) <= slice.AttackEnd;
 
             private double scorchMs => beat * DanmakusuBalance.YUKI_SCORCH_BEATS;
 
@@ -94,6 +125,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Reset(BulletField f, double time)
             {
+                shapes.Forget();
+
                 while (slices.Count > 0 && slices[^1].Time > time)
                     slices.RemoveAt(slices.Count - 1);
 
@@ -117,6 +150,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Update(BulletField f, double now)
             {
+                shapes.Forget(); // (the beams move on)
+
                 if (f.failed || now < Start)
                     return;
 
@@ -165,7 +200,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             angle += Math.Clamp(off, -most, most);
                         }
 
-                        slices.Add(new Slice { Time = t, From = from, Angle = angle, Reach = reach, Number = sliceNumber++ });
+                        slices.Add(new Slice { Time = t, From = from, Angle = angle, Reach = reach, Number = sliceNumber++, AttackEnd = end });
                         last = t;
                     }
                 }
@@ -199,7 +234,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private bool drawing;
             private int drawnBeams, drawnTotal;
             private Color4 runColour, runBorder;
-            private readonly List<(Vector2 A, Vector2 B)> hitSegments = new List<(Vector2, Vector2)>();
+            private readonly List<(Vector2 A, Vector2 B, float Half)> hitSegments = new List<(Vector2, Vector2, float)>();
+            private readonly List<float> widths = new List<float>();
+            private readonly MomentShapes shapes = new MomentShapes(); // (the beams and marks at the moments the autoplay asks about, kept for the frame)
 
             /// <summary>
             /// Beam <paramref name="beam"/> at <paramref name="t"/>, from her out: every run of slices that are still flying (a slice that has gone out cuts it, when an older one fired further still flies on) is drawn,
@@ -209,9 +246,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 line.Clear();
                 fades.Clear();
+                widths.Clear();
 
                 float gap = MathF.Tau / beamCount;
-                float fadeLength = Math.Max(halfWidth * 2f, 12f);
+                float fadeLength = Math.Max(scorchHalf * 2f, 12f);
                 bool started = false;
 
                 for (int i = slices.Count - 1; i >= from; i--)
@@ -222,23 +260,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     float flown = speed * (float)(t - slice.Time);
+                    float reach = reachOf(f, slice);
 
-                    if (flown >= slice.Reach)
+                    if (flown >= reach)
                     {
                         runDone(f);
                         continue;
                     }
 
-                    // (the newest run starts at her)
+                    // (the newest run starts at her, while she still fires)
                     if (!started)
                     {
-                        line.Add(slice.From);
-                        fades.Add(1f);
+                        if (t < slice.AttackEnd)
+                        {
+                            line.Add(slice.From);
+                            fades.Add(1f);
+                            widths.Add(widthAt(0f));
+                        }
+
                         started = true;
                     }
 
                     line.Add(slice.From + wayOf(slice.Angle + beam * gap) * flown);
-                    fades.Add(smoothStep((slice.Reach - flown) / fadeLength));
+                    fades.Add(smoothStep((reach - flown) / fadeLength));
+                    widths.Add(widthAt(flown));
                 }
 
                 runDone(f);
@@ -250,7 +295,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     if (drawing)
                     {
-                        f.addPlainBeam(line, halfWidth, runColour, runBorder, ref drawnBeams, ref drawnTotal);
+                        f.addPlainBeam(line, widest, runColour, runBorder, ref drawnBeams, ref drawnTotal, widths);
 
                         for (int i = 0; i < fades.Count; i++)
                             f.laserFadePointBuffer[drawnTotal - line.Count + i] = fades[i];
@@ -260,13 +305,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         for (int i = 0; i + 1 < line.Count; i++)
                         {
                             if (fades[i] > 0.5f && fades[i + 1] > 0.5f)
-                                hitSegments.Add((line[i], line[i + 1]));
+                                hitSegments.Add((line[i], line[i + 1], Math.Max(widths[i], widths[i + 1])));
                         }
                     }
                 }
 
                 line.Clear();
                 fades.Clear();
+                widths.Clear();
             }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
@@ -296,7 +342,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>How much a scorch mark left by <paramref name="slice"/> burns at <paramref name="t"/> (0 = not there).</summary>
             private float burning(in Slice slice, double t)
             {
-                if (slice.Number % DanmakusuBalance.YUKI_SCORCH_EVERY != 0)
+                if (slice.Number % DanmakusuBalance.YUKI_SCORCH_EVERY != 0 || !stopsShort(slice))
                     return 0f;
 
                 double age = t - outAt(slice);
@@ -309,30 +355,52 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Vector2 markOf(in Slice slice, int beam) => slice.From + wayOf(slice.Angle + beam * MathF.Tau / beamCount) * slice.Reach;
 
+            /// <summary>
+            /// The scorch marks (2026-11-14: more visible, with an edge): every mark is a charred disc with a glowing ember edge round it. The edges of all of them are drawn first and the charred insides over
+            /// them, so where marks overlap the inner edges are covered: one seamless outline round all of the burnt ground. Embers flicker in the middles.
+            /// </summary>
             public override void Draw(BulletField f, double t)
             {
                 if (f.failed || slices.Count == 0)
                     return;
 
-                float size = halfWidth * DanmakusuBalance.YUKI_SCORCH_SIZE * 2f;
-                var char_colour = new Color4(0.12f, 0.06f, 0.03f, 1f);
+                float radius = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE;
+                float edge = Math.Max(radius * DanmakusuBalance.YUKI_SCORCH_EDGE, 2f);
+                var char_colour = new Color4(0.13f, 0.065f, 0.035f, 1f);
+                var rim = new Color4(1f, 0.5f, 0.12f, 1f);
                 var ember = new Color4(1f, 0.42f, 0.08f, 1f);
+                int first = firstShown(f, t);
 
-                for (int i = firstShown(f, t); i < slices.Count; i++)
+                for (int pass = 0; pass < 3; pass++)
                 {
-                    var slice = slices[i];
-                    float level = burning(slice, t);
-
-                    if (level < 0.01f)
-                        continue;
-
-                    for (int beam = 0; beam < beamCount; beam++)
+                    for (int i = first; i < slices.Count; i++)
                     {
-                        Vector2 at = markOf(slice, beam);
-                        float flicker = 0.75f + 0.25f * MathF.Sin((float)(t * 0.013) + slice.Number * 1.7f + beam * 2.3f);
+                        var slice = slices[i];
+                        float level = burning(slice, t);
 
-                        f.stageBack.Add(StageTexture.Glow, at, new Vector2(size * 1.25f), 0f, 0.7f * level, char_colour);
-                        f.stageBack.Add(StageTexture.Glow, at, new Vector2(size * 0.8f), 0f, 0.55f * level * flicker, ember, true);
+                        if (level < 0.01f)
+                            continue;
+
+                        for (int beam = 0; beam < beamCount; beam++)
+                        {
+                            Vector2 at = markOf(slice, beam);
+
+                            switch (pass)
+                            {
+                                case 0: // (the edges, under everything of the marks)
+                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * (radius + edge)), 0f, level, rim);
+                                    break;
+
+                                case 1: // (the charred insides, over every edge)
+                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius), 0f, level, char_colour);
+                                    break;
+
+                                default: // (embers)
+                                    float flicker = 0.75f + 0.25f * MathF.Sin((float)(t * 0.013) + slice.Number * 1.7f + beam * 2.3f);
+                                    f.stageOrbs.Add(StageTexture.Glow, at, new Vector2(radius * 1.6f), 0f, 0.5f * level * flicker, ember, true);
+                                    break;
+                            }
+                        }
                     }
                 }
             }
@@ -344,10 +412,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return false;
 
                 Vector2 player = f.characterPosition;
+
+                // (asked about the same moment again - the autoplay, for many places: the marks and beams of that moment are worked out once, and kept for the frame)
+                var kept = shapes.Kept(now);
+
+                if (kept == null && shapes.Begin(now) is MomentShapes.Moment fresh)
+                {
+                    shapesAt(f, now, fresh);
+                    kept = fresh;
+                }
+
+                if (kept != null)
+                    return kept.Touches(player);
+
                 int from = firstShown(f, now);
 
                 // the marks
-                float markHit = halfWidth * DanmakusuBalance.YUKI_SCORCH_SIZE * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                float markHit = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                 for (int i = from; i < slices.Count; i++)
                 {
@@ -363,20 +444,53 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
-                // the beams
-                float hit = halfWidth * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                // the beams (as wide as they are there)
                 hitSegments.Clear();
 
                 for (int beam = 0; beam < beamCount; beam++)
                     beamAt(f, beam, now, from);
 
-                foreach (var (a, b) in hitSegments)
+                foreach (var (a, b, half) in hitSegments)
                 {
-                    if (distanceToSegment(player, a, b) <= hit)
+                    if (distanceToSegment(player, a, b) <= half * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
                 }
 
                 return false;
+            }
+
+            /// <summary>What hurts at <paramref name="now"/>, as runs for a kept moment: every burning mark a point, every piece of a beam a run of two as wide as its wider end.</summary>
+            private void shapesAt(BulletField f, double now, MomentShapes.Moment moment)
+            {
+                int from = firstShown(f, now);
+                float markHit = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                for (int i = from; i < slices.Count; i++)
+                {
+                    var slice = slices[i];
+
+                    if (burning(slice, now) < 0.5f)
+                        continue;
+
+                    for (int beam = 0; beam < beamCount; beam++)
+                    {
+                        moment.Point(markOf(slice, beam), markHit);
+                        moment.EndRun();
+                    }
+                }
+
+                hitSegments.Clear();
+
+                for (int beam = 0; beam < beamCount; beam++)
+                    beamAt(f, beam, now, from);
+
+                foreach (var (a, b, half) in hitSegments)
+                {
+                    float reach = half * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                    moment.Point(a, reach);
+                    moment.Point(b, reach);
+                    moment.EndRun();
+                }
             }
 
             // ---- her stars ----

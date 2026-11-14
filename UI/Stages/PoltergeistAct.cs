@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.Danmakusu.UI
 {
@@ -10,7 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Kana Anaberal: when her section begins and every sixteen beats after, 32 of the bullets on the screen (anyone's; chosen by a hash of the ring and the bullet, so the same ones on every play) stop where
         // they are. Over four beats they grow to twice their size (hitbox too), turn white and glow; eight beats after they stopped they fly off, each its own way (again by the hash), twice as fast as they flew,
-        // and ricochet off the edges of the screen three times before they fly out. Her own shots, a fan of three big bullets at the player every eight beats, are the planner's.
+        // and ricochet off the edges of the screen three times before they fly out. While they stand, a red arrow beside each points the way it will fly (blinking over the last beat). Her own shots, a fan of
+        // three big bullets at the player every eight beats, are the planner's.
         // ======================================================================================================================================================
 
         private sealed class PoltergeistAct : StageAct
@@ -214,6 +216,42 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var (time, where) in bounces)
                     f.addFlash(time, where, radius * DanmakusuBalance.KANA_GROW * DanmakusuBalance.RICOCHET_FLASH_SIZE);
+            }
+
+            /// <summary>
+            /// A red arrow beside every bullet she holds, pointing the way it will fly off (2026-11-14, the user: "red arrow warning to the direction stopped bullets about to move"): it fades in over a beat from when
+            /// the bullet stops, stands until the bullet goes, blinking over the last beat, and is gone as it flies.
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || Bullets.Count == 0)
+                    return;
+
+                var red = new Color4(1f, 0.12f, 0.15f, 1f);
+
+                foreach (var bullet in Bullets)
+                {
+                    if (bullet.Legs == null || bullet.Legs.Length == 0)
+                        continue;
+
+                    double release = bullet.Legs[0].T;
+
+                    if (t < bullet.T0 || t >= release)
+                        continue;
+
+                    float grown = smoothStep((t - bullet.ScaleFrom) / Math.Max(bullet.ScaleOver, 1));
+                    float radius = bullet.Radius * (1f + (bullet.ScaleTo - 1f) * grown);
+                    float size = Math.Max(radius * DanmakusuBalance.KANA_ARROW_SIZE, f.circleRadius * 0.5f);
+                    Vector2 at = bullet.P0 + bullet.Face * (radius + size * 0.6f);
+
+                    float alpha = smoothStep((t - bullet.T0) / beat);
+                    double left = release - t;
+
+                    if (left < beat)
+                        alpha *= 0.55f + 0.45f * MathF.Cos((float)(left / beat) * MathF.PI * 6f); // (it blinks as the moment comes)
+
+                    f.stageRipple.Add(StageTexture.SeijaArrow, at, new Vector2(size), MathF.Atan2(bullet.Face.Y, bullet.Face.X) * 180f / MathF.PI, alpha * DanmakusuBalance.KANA_ARROW_ALPHA, red);
+                }
             }
         }
     }

@@ -277,6 +277,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                         break;
 
+                    case BossMechanic.PipeFox:
+                        // Tsukasa: every fourth beam of her section (the planner marks which) bounces once off the border of the screen - every slice of it, the first time it touches the border (the slices fired late in
+                        // her section too, so the window goes on after it)
+                        beams.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.Bounce, Time = period.ShootStart, End = period.End + DanmakusuBalance.TSUKASA_BOUNCE_AFTER_MS, BornBefore = period.End, Window = true, OnlyMarked = true,
+                            Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
+                        });
+
+                        break;
+
                     case BossMechanic.Freeze:
                         // Cirno freezes every second bullet that exists when her attack starts (not what comes later) for the whole attack; it bursts at the end (see the planner). Beams freeze all the same
                         foreach (var (start, end) in Attacks(period))
@@ -423,6 +434,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             {
                                 Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, Slides = true, SlideVertical = vertical, SlideByDirection = true,
                                 During = vertical ? ReisenUp : ReisenLeft, DuringRight = vertical ? ReisenDown : ReisenRight,
+                                CutOutsidePlayfield = true, // (slices outside the playfield are cut off at once, not frozen: 2026-11-14)
                             });
                         }
 
@@ -457,12 +469,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         break;
                     }
 
-                    case BossMechanic.Constellation:
-                        // Eirin: every eight beats (the first four beats into her section, after the first preview) every bullet that exists stands still for four beats, a little lighter; her act joins them into constellations
-                        foreach (double mark in ConstellationMarks(period))
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark + Math.Max(period.BeatLength, 1) * DanmakusuBalance.EIRIN_HOLD_BEATS, BornBefore = mark, SkipSharp = true, During = Constellation });
-
-                        break;
+                    // (Eirin: since 2026-11-14 only the bullets of her constellations stand still, and her act stops them itself; every bullet that existed used to stop here, with a freeze)
                 }
             }
 

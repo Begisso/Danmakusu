@@ -2,7 +2,7 @@
 
 A fan-made ruleset for **osu!lazer**: osu!standard maps played as a bullet hell. The circles, sliders and spinners play themselves and fire bullets and laser beams to the music. Your job is to dodge.
 
-Bosses take over the map's breaks, kiai sections and spinners. They are Touhou Project characters, each with a mechanic of their own. **86 of 144 characters** have theirs so far, and more are added all the time. The rest wait in the roster as placeholders with a shared attack.
+Bosses take over the map's breaks, kiai sections and spinners. They are Touhou Project characters, each with a mechanic of their own. **95 of 144 characters** have theirs so far, and more are added all the time. The rest wait in the roster as placeholders with a shared attack.
 
 ![Watatsuki no Yorihime and Hong Meiling: the Earth shatters](screenshots/yorihime-meiling.jpg)
 

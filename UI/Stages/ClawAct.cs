@@ -428,7 +428,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bullet.Until = lit;
                     Bullets[i] = bullet;
                     wayOfCut(f, slash, position, out Vector2 normal, out float along);
-                    CutInTwo(f, lit, position, bullet.V, normal, along, bullet.Radius, bullet.Hit, bullet.Style, bullet.Shape, bullet.Tint);
+                    CutInTwo(f, lit, position, bullet.V, normal, along, bullet.Radius, bullet.Hit, bullet.Style, bullet.Shape, bullet.Tint, bullet.Bloom);
                 }
             }
 

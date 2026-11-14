@@ -437,7 +437,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var period in bosses)
                 {
-                    if ((period.Boss?.Mechanic == BossMechanic.FateSpear || period.Boss?.Mechanic == BossMechanic.Destruction) && emitters[e].Time >= period.Start - 1 && emitters[e].Time <= period.End + 1)
+                    if (period.Boss?.Mechanic is BossMechanic.FateSpear or BossMechanic.Destruction or BossMechanic.Jiangshi && emitters[e].Time >= period.Start - 1 && emitters[e].Time <= period.End + 1) // (Yoshika's too)
                     {
                         redHandles[e] = true;
                         break;
@@ -842,7 +842,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
                 verdantBackground = new Box { Colour = new Color4(0.12f, 0.2f, 0.05f, 1f), Alpha = 0f }, // (Daiyousei's attacks: a dark warm green dim)
-                stageBack = new StageLayer(1024, false, StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors: under the bullets)
+                stageBack = new StageLayer(1024, false, StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.WingRight, StageTexture.WingLeft) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
                 stageOrbs = new StageLayer(1300, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (the big round bullets, drawn as sharp as Mokou's ball, under the bullets: five pictures a ball, as many as there are; and the circles that fall in Urumi's section)
@@ -865,7 +865,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
                 stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
@@ -1275,6 +1275,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             logSlowFrame(Time.Current); // (the frame before, if it was slow)
             profile(-1);
+            forgetKeptBeams(); // (what the hit check keeps of the beams is for this frame's drawing only)
             double now = Time.Current;
             mirrorRadians = MirrorAngleAt(now) * MathF.PI / 180f;
 
@@ -2056,6 +2057,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float first = (laser.AimOutward && laser.BossOffset.LengthSquared > 1e-6f ? MathF.Atan2(laser.BossOffset.Y, laser.BossOffset.X) : MathF.Atan2(toPlayer.Y, toPlayer.X)) + laser.AimOffset;
 
+                // (Benben's parallel beams: aimed from her, fired from beside her, across the way they point)
+                if (laser.FollowsBoss && laser.Across != 0f)
+                    laser.Origin += new Vector2(-MathF.Sin(first), MathF.Cos(first)) * laser.Across;
+
                 if (laser.Rotates)
                     laser.StartRotation(now, first);
 
@@ -2159,6 +2164,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float step = laser.AngularSpeed * (float)dt;
                     angle += Math.Clamp(best, -step, step);
                 }
+
+                // (Benben's parallel beams: aimed from her - above - and fired from beside her, across the way they point now)
+                if (laser.FollowsBoss && !laser.KeepsOrigin && laser.Across != 0f)
+                    laser.Origin += new Vector2(-MathF.Sin(angle), MathF.Cos(angle)) * laser.Across;
 
                 laser.SetAngle(now, angle);
 
@@ -2419,6 +2428,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 foreach (var laser in lasers)
                     laser.ResetFinished();
 
+                forgetKeptBeams();
                 screenMin = newMin;
                 screenMax = newMax;
 
@@ -2446,6 +2456,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     laser.Lifetime = needed;
                     maxLaserSpan = Math.Max(maxLaserSpan, laser.Span);
+                    forgetKeptBeams();
                 }
             }
 
@@ -2905,6 +2916,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (before an attack every bullet flashes: that is its warning)
             bloomLevel = Math.Max(bloomLevel, failed ? 0f : flashLevel(drawTime));
+            pieceBloom = bloomLevel; // (the cut pieces glow with everything else, see CuttingAct)
 
             // Remilia's attack: everything on the screen glows, more and more (and in Daiyousei's, everything that has her buff)
             if (bloomLevel > 0.002f || verdantBloom > 0.002f)
@@ -2983,9 +2995,31 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return c != 0 ? c : a.Start.CompareTo(b.Start);
         });
 
+        /// <summary>(rings added to the live list since it was last sorted)</summary>
+        private int addedSinceSort;
+
+        /// <summary>(more added than this since the last sort - a seek, a resized window, the fail, when every ring is looked at again: a whole sort, not an insertion sort, which took 40 ms with 2,000 rings)</summary>
+        private const int whole_sort_from = 64;
+
+        private IComparer<int>? ringOrder;
+
         /// <summary>Puts the live rings in draw order: slowest first, ties by time. Insertion sort: the list is nearly sorted from frame to frame.</summary>
         private void sortActive()
         {
+            if (addedSinceSort > whole_sort_from)
+            {
+                addedSinceSort = 0;
+                ringOrder ??= Comparer<int>.Create((a, b) =>
+                {
+                    int c = emitters[a].Speed.CompareTo(emitters[b].Speed);
+                    return c != 0 ? c : a.CompareTo(b);
+                });
+                Array.Sort(active, 0, activeCount, ringOrder);
+                return;
+            }
+
+            addedSinceSort = 0;
+
             for (int i = 1; i < activeCount; i++)
             {
                 int value = active[i];
@@ -3022,6 +3056,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Array.Resize(ref active, active.Length * 2);
 
                 active[activeCount++] = nextSpawn++;
+                addedSinceSort++;
             }
         }
 

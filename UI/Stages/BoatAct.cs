@@ -10,9 +10,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Mononobe no Futo: everything fired in her section loses speed the nearer it gets to the wall ahead of it, down to 0.3 of its speed at the wall (BulletEmitter.SlowsToWall). When a pause starts she throws a boat at the
-        // player: the user's picture of a wooden ship seen from above, twenty circle radii long and as wide as the picture is for that, flying straight at where they are, bow first. It hurts like a slider body where the picture
-        // is. Nothing stays in it: every bullet whose body is in the hull (its outline, read from the picture) slides out to the nearest edge, fast (twice the boat's and its own speed together) but smoothly, a little every
-        // step, and flies on from there the way it was flying, as fast (so the boat ploughs through them and they slide off its sides).
+        // player: the user's picture of a wooden ship seen from above, twenty circle radii long and as wide as the picture is for that. It comes out of the wall nearest her, from behind her (from just out of the screen
+        // straight behind that wall from where she is), and flies straight at where the player is then, bow first. It hurts like a slider body where the picture is. Nothing stays in it: every bullet whose body is in
+        // the hull (its outline, read from the picture) slides out to the nearest edge, fast (twice the boat's and its own speed together) but smoothly, a little every step; the first time the boat has it, it is turned
+        // to fly straight out of the boat from there, as fast, and after that it keeps its way (once per bullet).
         // ======================================================================================================================================================
 
         private sealed class BoatAct : StageAct
@@ -43,7 +44,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 StageLayer.PrepareBoatShape();
             }
 
-            public override void Reset(BulletField f, double time) => boats.Clear();
+            /// <summary>The bullets a boat has turned already (each is turned out of the boat once).</summary>
+            private readonly HashSet<(BulletEmitter, int)> turned = new HashSet<(BulletEmitter, int)>();
+
+            public override void Reset(BulletField f, double time)
+            {
+                boats.Clear();
+                turned.Clear();
+            }
 
             /// <summary>The bullets are only looked at while a boat flies.</summary>
             public override bool Absorbs(double t) => AbsorbsBetween(t, t);
@@ -136,13 +144,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 while (boats.Count < throws.Count && throws[boats.Count] <= now)
                 {
-                    Vector2 from = f.bossVisualOf(Period);
+                    // (it comes out of the wall nearest her, from behind her: from just out of the screen straight behind that wall from where she is)
+                    Vector2 her = f.bossVisualOf(Period);
+                    float toLeft = her.X - f.stageMin.X, toRight = f.stageMax.X - her.X, toTop = her.Y - f.stageMin.Y, toBottom = f.stageMax.Y - her.Y;
+                    float nearest = Math.Min(Math.Min(toLeft, toRight), Math.Min(toTop, toBottom));
+                    float outside = halfLength(f) * 0.95f;
+                    Vector2 from = nearest == toLeft ? new Vector2(f.stageMin.X - outside, her.Y)
+                        : nearest == toRight ? new Vector2(f.stageMax.X + outside, her.Y)
+                        : nearest == toTop ? new Vector2(her.X, f.stageMin.Y - outside)
+                        : new Vector2(her.X, f.stageMax.Y + outside);
                     Vector2 aim = f.characterPosition - from;
                     Vector2 way = aim.LengthSquared > 1e-4f ? Vector2.Normalize(aim) : Vector2.UnitY;
                     float speed = stageBulletSpeed(Period) * DanmakusuBalance.FUTO_BOAT_SPEED;
 
                     // (it is looked at until all of it has left the screen, however long it is)
-                    double until = throws[boats.Count] + (Vector2.Distance(f.stageMin, f.stageMax) + 2f * halfLength(f)) / Math.Max(speed, 1e-4f);
+                    double until = throws[boats.Count] + (Vector2.Distance(f.stageMin, f.stageMax) + 3f * halfLength(f)) / Math.Max(speed, 1e-4f);
 
                     boats.Add(new Boat { Time = throws[boats.Count], Until = until, From = from, Velocity = way * speed });
                     f.playStageSound("mokou_wall_hit");
@@ -196,14 +212,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (depth < 0.25f)
                         continue;
 
-                    // (out to the edge the shortest way, but not at once: a little every step, fast enough that the boat never catches up with it; it flies on the way it was flying, as fast)
+                    // (out to the edge the shortest way, but not at once: a little every step, fast enough that the boat never catches up with it. The first time the boat has it, it is turned to fly straight out
+                    // of the boat from there, as fast (2026-11-14); after that it keeps the way it flies)
                     float own = emitter.SpeedOf(bullet);
                     float pushSpeed = DanmakusuBalance.FUTO_PUSH_SPEED * (boat.Velocity.Length + own);
                     float move = Math.Min(depth, pushSpeed * (float)Math.Max(t - ScanPrevious, 1.0));
                     Vector2 step = to - from;
+                    Vector2 outWorld = forward * outward.X + side * outward.Y;
 
-                    position = to + (forward * outward.X + side * outward.Y) * move;
-                    direction = step.LengthSquared > 1e-8f ? Vector2.Normalize(step) : forward * outward.X + side * outward.Y;
+                    position = to + outWorld * move;
+                    direction = turned.Add((emitter, bullet)) || step.LengthSquared <= 1e-8f ? outWorld : Vector2.Normalize(step);
                     speed = own;
                     return true;
                 }

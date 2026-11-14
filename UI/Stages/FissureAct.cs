@@ -11,11 +11,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Suika Ibuki: all through her section (in a spinner too) she stomps every four beats, where she stands: a ring goes out over the ground, everything within four circle radii of her (bullets of anyone)
         // is thrown on the way it was going, twice as fast, glowing like magma, with a narrow tail of beam two beats long behind it (it hurts like a slider body), and where it reaches the wall it bursts into four
-        // ellipses half its size, fanned out over 90 degrees round the way it would bounce. The stomp hurts the player if they are in it, and thin glowing cracks in the ground round her come up at once and fade out
-        // over two beats, hurting like a slider body meanwhile.
+        // ellipses half its size, fanned out over 90 degrees round the way it would bounce. The stomp hurts the player if they are in it, and thick cracks of magma in the ground, meeting under her, come up at once
+        // and fade out over two beats, hurting like a slider body meanwhile.
         // Every sixteen beats a wide crack of glowing magma, two circles across and as jagged as the World's Ender's cut, splits the ground from where she stands towards the player, out past the edge of the screen,
         // in a beat (Hecatia's cut sounds). It hurts like a slider body. Eight beats after it has grown it explodes (Hecatia's explosion): glowing magma ellipses fly off both sides all along it, as the World's
         // Ender's bullets do, and it cools away.
+        // Every crack is drawn as molten rock (the user's picture): a glow round it, a dark crust along its edges, orange inside going yellow and a white-hot vein; all the cracks of a frame are drawn layer by
+        // layer together, so they run into each other without a seam. Every sound of hers plays twice at once.
         // ======================================================================================================================================================
 
         private sealed class FissureAct : StageAct
@@ -160,7 +162,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     stompAt[k] = f.bossVisualOf(Period);
 
                     if (now - stomps[k] < 250 && stomps[k] > resetTime)
-                        f.playStageSound("hecatia_earth_hit");
+                        sound(f, "hecatia_earth_hit");
                 }
 
                 for (int k = 0; k < fissures.Length && fissures[k] <= now; k++)
@@ -177,7 +179,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         fissureLength[k] = (float)f.toWall(from, way, out _) + fissureHalf(f) * 2f; // (out past the edge of the screen)
 
                         if (now - fissures[k] < 250 && fissures[k] > resetTime)
-                            f.playStageSound("hecatia_cut");
+                            sound(f, "hecatia_cut");
                     }
 
                     if (!exploded[k] && now >= explodeAt(k))
@@ -186,9 +188,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         explode(f, k);
 
                         if (now - explodeAt(k) < 250 && explodeAt(k) > resetTime)
-                            f.playStageSound("hecatia_explosion");
+                            sound(f, "hecatia_explosion");
                     }
                 }
+            }
+
+            /// <summary>Every sound of hers plays twice at once (2026-11-14: "all her sounds play double times at the same time").</summary>
+            private static void sound(BulletField f, string name)
+            {
+                f.playStageSound(name);
+                f.playStageSound(name);
             }
 
             // ---- the stomp ----
@@ -279,12 +288,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return true;
             }
 
-            /// <summary>Thin crack <paramref name="c"/> of stomp <paramref name="k"/> (into <see cref="crack"/>): from near her out to the edge of the stomp, jagged.</summary>
+            /// <summary>
+            /// Crack <paramref name="c"/> of stomp <paramref name="k"/> (into <see cref="crack"/>, its half width at every point into <see cref="crackWidths"/>): from right under her out to the edge of the stomp,
+            /// jagged, unevenly wide and narrowing to its end (all of them meet in one pool of magma under her).
+            /// </summary>
             private void thinCrack(BulletField f, int k, int c)
             {
                 crack.Clear();
+                crackWidths.Clear();
 
                 float reach = stompRadius(f);
+                float half = f.circleRadius * DanmakusuBalance.SUIKA_THIN_CRACK_CIRCLES;
                 float angle = (c + 0.6f * (hash01(k, c, 71) - 0.5f)) * MathF.Tau / DanmakusuBalance.SUIKA_CRACKS + k * 0.9f;
                 Vector2 way = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
                 Vector2 side = new Vector2(-way.Y, way.X);
@@ -294,9 +308,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     float u = i / (crack_points - 1f);
                     float jag = i == 0 ? 0f : (hash01(k * 31 + c, i, 73) - 0.5f) * reach * 0.22f;
-                    crack.Add(stompAt[k] + way * (reach * 0.12f + (length - reach * 0.12f) * u) + side * jag);
+                    crack.Add(stompAt[k] + way * (length * u) + side * jag);
+                    crackWidths.Add(half * (i == 0 ? 1f : 0.75f + 0.5f * hash01(k * 31 + c, i, 74)) * (1f - 0.8f * u * u));
                 }
             }
+
+            private readonly List<float> crackWidths = new List<float>();
 
             private double cracksMs => beat * DanmakusuBalance.SUIKA_CRACKS_BEATS;
 
@@ -379,8 +396,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 player = f.characterPosition;
                 float me = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
-                // the stomp itself, and its thin cracks while they glow
-                float thin = f.circleRadius * DanmakusuBalance.SUIKA_THIN_CRACK_CIRCLES * DanmakusuBalance.BULLET_HITBOX_SCALE + me;
+                // the stomp itself, and its cracks while they glow
+                float thinMost = f.circleRadius * DanmakusuBalance.SUIKA_THIN_CRACK_CIRCLES * 1.25f + me;
 
                 for (int k = 0; k < stomps.Length && stomps[k] <= now; k++)
                 {
@@ -390,13 +407,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (now <= stomps[k] + DanmakusuBalance.SUIKA_STOMP_HURT_MS && Vector2.Distance(player, stompAt[k]) <= stompRadius(f) + me)
                         return true;
 
+                    // (far from all of them: none)
+                    if (Vector2.Distance(player, stompAt[k]) > stompRadius(f) * 1.2f + thinMost)
+                        continue;
+
                     for (int c = 0; c < DanmakusuBalance.SUIKA_CRACKS; c++)
                     {
                         thinCrack(f, k, c);
 
                         for (int i = 0; i + 1 < crack.Count; i++)
                         {
-                            if (distanceToSegment(player, crack[i], crack[i + 1]) <= thin)
+                            if (distanceToSegment(player, crack[i], crack[i + 1]) <= Math.Max(crackWidths[i], crackWidths[i + 1]) * DanmakusuBalance.BULLET_HITBOX_SCALE + me)
                                 return true;
                         }
                     }
@@ -505,12 +526,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         f.stageRipple.AddSoftRing(stompAt[k], radius * (0.3f + 0.7f * ring), Math.Max(f.circleRadius * 0.25f, 3f), Math.Max(f.circleRadius * 0.15f, 2f), 0.8f * (1f - smoothStep(age / 400.0)), new Color4(1f, 0.7f, 0.4f, 1f));
 
                     float glow = Math.Min(smoothStep(age / 60.0), 1f - smoothStep(age / cracksMs));
-                    float half = f.circleRadius * DanmakusuBalance.SUIKA_THIN_CRACK_CIRCLES;
 
                     for (int c = 0; c < DanmakusuBalance.SUIKA_CRACKS; c++)
                     {
                         thinCrack(f, k, c);
-                        moltenBand(f, crack, _ => half, glow);
+                        addBand(crack, crackWidths, glow, k * 977 + c * 31);
                     }
                 }
 
@@ -524,18 +544,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float heat = t < explodeAt(k) ? 0.75f + 0.25f * smoothStep((t - grownAt(k)) / (explodeAt(k) - grownAt(k))) : 1f - smoothStep((t - explodeAt(k)) / (beat * 0.5));
 
                     crack.Clear();
+                    crackWidths.Clear();
 
                     for (int i = 0; i <= fissure_steps; i++)
                     {
                         float u = Math.Min(i / (float)fissure_steps, grown);
                         crack.Add(lineAt(k, u));
+                        crackWidths.Add(widthAt(f, k, u));
 
                         if (u >= grown)
                             break;
                     }
 
-                    int fissure = k;
-                    moltenBand(f, crack, i => widthAt(f, fissure, Math.Min(i / (float)fissure_steps, grown)), heat);
+                    addBand(crack, crackWidths, heat, 50000 + k * 131);
 
                     // (the explosion flashes along it)
                     double flash = (t - explodeAt(k)) / (beat * 0.5);
@@ -543,6 +564,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (flash >= 0 && flash < 1)
                         f.stageFront.Add(StageTexture.Glow, lineAt(k, 0.5f), new Vector2(fissureLength[k] * 1.2f), 0f, 0.7f * (float)((1 - flash) * (1 - flash)), new Color4(1f, 0.6f, 0.25f, 1f), true);
                 }
+
+                drawBands(f);
 
                 // (what glows like magma has a soft orange light under it)
                 for (int i = SkipGone(ref glowFrom, ref glowFromTime, t, 0); i < Bullets.Count; i++)
@@ -561,38 +584,117 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            /// <summary>A line of molten rock through <paramref name="points"/> (half as wide as <paramref name="halfWidth"/> says at each point): white hot in its middle, orange round that, dying away softly, all <paramref name="heat"/> bright.</summary>
-            private static void moltenBand(BulletField f, List<Vector2> points, Func<int, float> halfWidth, float heat)
+            // ---- the magma (2026-11-14: thick, as the user's picture of a crack in cooling lava; one seamless piece) ----
+
+            // (the cracks of this frame, all drawn at once layer by layer: every point with its side (mitred, so the pieces of a crack meet without a seam or a gap), its half width and its vein's width)
+            private readonly List<Vector2> bandPoints = new List<Vector2>();
+            private readonly List<Vector2> bandSides = new List<Vector2>();
+            private readonly List<float> bandWidths = new List<float>();
+            private readonly List<float> bandVeins = new List<float>();
+            private readonly List<(int Start, int Count, float Heat)> bandRuns = new List<(int, int, float)>();
+
+            /// <summary>Keeps a crack through <paramref name="points"/> (half as wide as <paramref name="halfWidths"/> says at each point), <paramref name="heat"/> bright, for <see cref="drawBands"/>.</summary>
+            private void addBand(List<Vector2> points, List<float> halfWidths, float heat, int seed)
             {
                 if (points.Count < 2 || heat <= 0.01f)
                     return;
 
-                var hot = new Color4(1f, 0.93f, 0.65f, heat);
-                var orange = new Color4(1f, 0.5f, 0.1f, 0.9f * heat);
-                var soft = new Color4(1f, 0.32f, 0.06f, 0.4f * heat);
-                var none = new Color4(0.9f, 0.25f, 0.05f, 0f);
+                int start = bandPoints.Count;
 
-                for (int i = 1; i < points.Count; i++)
+                for (int i = 0; i < points.Count; i++)
                 {
-                    Vector2 a = points[i - 1], b = points[i];
-                    Vector2 along = b - a;
+                    // (the side at a corner is between the sides of the two pieces, longer so that the band keeps its width: at most twice as long at a sharp corner)
+                    Vector2 before = i > 0 ? points[i] - points[i - 1] : points[1] - points[0];
+                    Vector2 after = i + 1 < points.Count ? points[i + 1] - points[i] : before;
+                    Vector2 sideBefore = before.LengthSquared > 1e-8f ? Vector2.Normalize(new Vector2(-before.Y, before.X)) : Vector2.UnitY;
+                    Vector2 sideAfter = after.LengthSquared > 1e-8f ? Vector2.Normalize(new Vector2(-after.Y, after.X)) : sideBefore;
+                    Vector2 side = sideBefore + sideAfter;
+                    side = side.LengthSquared > 1e-6f ? Vector2.Normalize(side) : sideAfter;
+                    float stretch = Math.Min(1f / Math.Max(Vector2.Dot(side, sideAfter), 0.5f), 2f);
 
-                    if (along.LengthSquared < 1e-6f)
-                        continue;
-
-                    Vector2 side = Vector2.Normalize(new Vector2(-along.Y, along.X));
-                    float w0 = halfWidth(i - 1), w1 = halfWidth(i);
-
-                    void band(float from0, float from1, float to0, float to1, Color4 near, Color4 far)
-                    {
-                        f.stageMeshes.Add(new MeshQuad { A = a + side * from0, B = b + side * from1, C = a + side * to0, D = b + side * to1, Near = near, Far = far });
-                        f.stageMeshes.Add(new MeshQuad { A = a - side * from0, B = b - side * from1, C = a - side * to0, D = b - side * to1, Near = near, Far = far });
-                    }
-
-                    band(0f, 0f, w0 * 0.3f, w1 * 0.3f, hot, orange);
-                    band(w0 * 0.3f, w1 * 0.3f, w0, w1, orange, soft);
-                    band(w0, w1, w0 * 1.6f, w1 * 1.6f, soft, none);
+                    bandPoints.Add(points[i]);
+                    bandSides.Add(side * stretch);
+                    bandWidths.Add(halfWidths[i]);
+                    bandVeins.Add(0.08f + 0.16f * hash01(seed, i, 91)); // (the white-hot vein in the middle, unevenly wide)
                 }
+
+                bandRuns.Add((start, points.Count, heat));
+            }
+
+            /// <summary>
+            /// Every crack kept this frame, as molten rock: a soft orange glow round it, a dark crust along its edges, orange inside going yellow, and a white-hot vein down the middle. Each layer of every crack is
+            /// drawn before the next layer of any (the glows, then the crusts, then the insides), so where cracks meet or cross their insides run together and no edge lies across them.
+            /// </summary>
+            private void drawBands(BulletField f)
+            {
+                if (bandRuns.Count == 0)
+                    return;
+
+                // (from the middle out, as shares of the half width: where each layer begins and ends, and its colour at its inner and outer edge)
+                for (int layer = 0; layer < 5; layer++)
+                {
+                    foreach (var (start, count, heat) in bandRuns)
+                    {
+                        Color4 near, far;
+                        float from, to;
+                        bool vein = false;
+
+                        switch (layer)
+                        {
+                            case 0: // (the glow over the ground round it)
+                                from = 1f;
+                                to = 1.75f;
+                                near = new Color4(1f, 0.36f, 0.06f, 0.42f * heat);
+                                far = new Color4(0.9f, 0.22f, 0.04f, 0f);
+                                break;
+
+                            case 1: // (the dark crust)
+                                from = 0.74f;
+                                to = 1f;
+                                near = new Color4(0.42f, 0.09f, 0.03f, heat);
+                                far = new Color4(0.12f, 0.035f, 0.02f, heat);
+                                break;
+
+                            case 2: // (deep orange under the crust)
+                                from = 0.42f;
+                                to = 0.74f;
+                                near = new Color4(1f, 0.52f, 0.08f, heat);
+                                far = new Color4(0.85f, 0.2f, 0.03f, heat);
+                                break;
+
+                            case 3: // (yellow towards the middle)
+                                from = 0f;
+                                to = 0.42f;
+                                near = new Color4(1f, 0.86f, 0.36f, heat);
+                                far = new Color4(1f, 0.52f, 0.08f, heat);
+                                break;
+
+                            default: // (the white-hot vein)
+                                from = 0f;
+                                to = 1f;
+                                vein = true;
+                                near = new Color4(1f, 1f, 0.86f, heat);
+                                far = new Color4(1f, 0.86f, 0.36f, heat);
+                                break;
+                        }
+
+                        for (int i = start + 1; i < start + count; i++)
+                        {
+                            Vector2 a = bandPoints[i - 1], b = bandPoints[i];
+                            Vector2 sa = bandSides[i - 1] * (vein ? bandWidths[i - 1] * bandVeins[i - 1] : bandWidths[i - 1]);
+                            Vector2 sb = bandSides[i] * (vein ? bandWidths[i] * bandVeins[i] : bandWidths[i]);
+
+                            f.stageMeshes.Add(new MeshQuad { A = a + sa * from, B = b + sb * from, C = a + sa * to, D = b + sb * to, Near = near, Far = far });
+                            f.stageMeshes.Add(new MeshQuad { A = a - sa * from, B = b - sb * from, C = a - sa * to, D = b - sb * to, Near = near, Far = far });
+                        }
+                    }
+                }
+
+                bandPoints.Clear();
+                bandSides.Clear();
+                bandWidths.Clear();
+                bandVeins.Clear();
+                bandRuns.Clear();
             }
         }
     }

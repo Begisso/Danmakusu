@@ -129,6 +129,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A beam that <see cref="FollowsBoss"/> is fired from this far from the boss (Byakuren's five points round her).</summary>
         public Vector2 BossOffset { get; init; }
 
+        /// <summary>
+        /// A beam that <see cref="FollowsBoss"/> is fired from this far to the side of the boss, across the way it points (Benben's three parallel beams: -d, 0, +d); it is aimed and turned from the boss herself,
+        /// so beams that differ only in this stay parallel.
+        /// </summary>
+        public float Across { get; init; }
+
         /// <summary>When the laser starts, beam 0 points this much (radians) away from the player (π = straight away from the player: Byakuren's beams start backwards).</summary>
         public float AimOffset { get; init; }
 
@@ -157,6 +163,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>No mechanic of any boss touches the beam (Marisa's Master Spark): no op stops, turns, bends or mirrors it, no portal takes it, nothing cuts or blows up its slices, no moon swallows them, nothing hides it, it does not fade in smoke.</summary>
         public bool Immune { get; init; }
+
+        /// <summary>Tsukasa: one of every fourth beam of her section - its slices bounce once off the border of the screen (set by the planner; the bounce is an op of hers, see <see cref="TrajectoryOp.OnlyMarked"/>).</summary>
+        public bool BouncesOnce { get; set; }
 
         /// <summary>(The field's: the palette slot of the colour its slider has in its boss section, -1 none, -2 not worked out yet.)</summary>
         public int SectionStyle = -2;
@@ -244,6 +253,51 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 FanCentre = FanCentre,
                 Rotates = Rotates && HoldBeam, // (a long note's beams turn again; a spinner's are not fired again this way)
                 AngularSpeed = HoldBeam ? AngularSpeed : 0f,
+                HoldBeam = HoldBeam,
+            };
+        }
+
+        /// <summary>
+        /// The same slider's beam with its path moved by <paramref name="shift"/> (Benben's strings above and below it): aimed as it is (from the same <see cref="Origin"/>), so it stays parallel, and every slice
+        /// see-through and harmless for at least <paramref name="ghostMs"/> after it is fired (as Junko's).
+        /// </summary>
+        public LaserEmitter Shifted(Vector2 shift, double ghostMs)
+        {
+            var positions = new Vector2[BallPositions.Length];
+
+            for (int i = 0; i < positions.Length; i++)
+                positions[i] = BallPositions[i] + shift;
+
+            return new LaserEmitter
+            {
+                StartTime = StartTime,
+                EndTime = EndTime,
+                ComboIndex = ComboIndex,
+                Origin = Origin,
+                HalfWidth = HalfWidth,
+                HitHalfWidth = HitHalfWidth,
+                Speed = Speed,
+                BeamCount = BeamCount,
+                Directions = new Vector2[Directions.Length],
+                BallPositions = positions,
+                BallTimes = BallTimes,
+                FollowsBoss = FollowsBoss,
+                BossRank = BossRank,
+                PathFromOrigin = PathFromOrigin,
+                Grows = Grows,
+                StartHalfWidth = StartHalfWidth,
+                GrowthPower = GrowthPower,
+                PeakScale = PeakScale,
+                GhostMs = Math.Max(GhostMs, ghostMs),
+                CutAge = CutAge,
+                CutStretch = CutStretch,
+                ShrinkDelay = ShrinkDelay,
+                Lifetime = Lifetime,
+                Fan = Fan,
+                FanCentre = FanCentre,
+                WallSide = WallSide,
+                Rotates = Rotates,
+                AngularSpeed = AngularSpeed,
                 HoldBeam = HoldBeam,
             };
         }
@@ -580,6 +634,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (Rotates && op.SkipRotating)
                     continue;
 
+                if (op.OnlyMarked && !BouncesOnce)
+                    continue;
+
                 if ((op.Time <= StartTime && !op.Window) || StartTime >= op.BornBefore || op.Time >= EndTime + Lifetime || (op.Window && StartTime > op.End))
                     continue;
 
@@ -630,6 +687,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Trajectory.Trace(start, velocity, Vector2.Zero, fired, time, Ops, min, max, top, out TrajectoryState state);
                 position = state.Position;
                 look = state.Look;
+
+                // (an op that has taken the slice away - Reisen's freeze cuts off what is outside the playfield: gone, as a blasted one)
+                if (!state.Alive)
+                    look = BulletLook.Blasted(look);
             }
             else
                 position = start + velocity * (float)(time - fired);

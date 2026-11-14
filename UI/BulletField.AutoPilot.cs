@@ -119,10 +119,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             autoLast = now;
             autoNewFrame(now);
 
-            // (how long it has thought this frame: past AUTO_BUDGET_MS it takes the best it has)
-            long started = System.Diagnostics.Stopwatch.GetTimestamp();
-            double budget = autoThinking;
-            bool over() => (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency > budget;
+            // (a ring passed by stays passed by for a few frames: longer when the frames are long, or at a low frame rate every ring would be looked at again every frame - and the frames get longer still)
+            autoPassMs = Math.Clamp(dt * 2.5, auto_pass_ms, auto_pass_most_ms);
 
             bool keyboard = Controls.Mode == ControlMode.Keyboard;
             float speed = keyboard ? DanmakusuBalance.KEYBOARD_SPEED * (float)Controls.KeyboardSpeed : DanmakusuBalance.AUTO_CURSOR_SPEED;
@@ -156,7 +154,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             // it has to move: the nearest place it can walk to and stay at, safe all the time it looks ahead - the short walks first, with only what comes near them gathered (most dodges are short,
-            // and gathering everything within a long walk is what costs), the long ones while there is time
+            // and gathering everything within a long walk is what costs), the long ones while there is time.
+            // (how long it has thought: the search gets AUTO_BUDGET_MS whatever gathering what is near and asking whether it can stay took - those are done every frame, and when they took the whole
+            // budget it looked only at the shortest walks and was hit, 2026-11-13; past it, it takes the best it has)
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            double budget = autoThinking;
+            bool over() => (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000.0 / System.Diagnostics.Stopwatch.Frequency > budget;
+
             int latest = int.MinValue;
             Vector2 latestPlace = here;
             bool latestJump = false;
@@ -188,6 +192,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     for (int w = 0; w < DanmakusuBalance.AUTO_WAYS; w++)
                     {
+                        // (a long walk stops looking once the time is up, even within its length: what it found so far still counts)
+                        if (reach > DanmakusuBalance.AUTO_SHORT_WALK && (w & 3) == 3 && over())
+                            break;
+
                         float angle = w * MathF.Tau / DanmakusuBalance.AUTO_WAYS;
                         Vector2 place = Vector2.Clamp(here + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance, low, high);
 
@@ -232,7 +240,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // as long as there is time
             foreach (float room in new[] { DanmakusuBalance.AUTO_TELEPORT_NEAR, float.PositiveInfinity })
             {
-                if (over())
+                // (the places near it are always looked at, the first few of them even past the time: a slow frame must not leave it standing in what comes; the whole screen only while there is time)
+                bool nearOnly = !float.IsPositiveInfinity(room);
+
+                if (!nearOnly && over())
                     break;
 
                 since = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -269,7 +280,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (marked && looked++ > 200)
                         break;
 
-                    if ((++tried & 15) == 0 && over())
+                    if (++tried > (nearOnly ? auto_teleport_least : 0) && (tried & 15) == 0 && over())
                         break;
 
                     int hit = autoWay(place, place, 0f, dt, previous);
@@ -346,6 +357,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float walked = speed * (float)(dt + autoTimes[i] - autoTimes[0]);
                     autoPath[i] = Vector2.Lerp(from, to, Math.Min(walked / distance, 1f));
                 }
+
+                // (Eiki's circles hold the character in: where it would really be, on their border at most; 2026-11-14)
+                foreach (var judgement in judgementActs)
+                    autoPath[i] = judgement.Held(this, autoPath[i], autoTimes[i]);
             }
 
             return autoFirstHit(previous);
@@ -526,8 +541,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private static readonly Vector2 not_there = new Vector2(float.NaN);
 
-        /// <summary>(a ring passed by - nothing of it comes near - stays passed by this long, while the character is within this much more room of where it was: a ring is looked at again every few frames)</summary>
+        /// <summary>(a ring passed by - nothing of it comes near - stays passed by this long, while the character is within this much more room of where it was: a ring is looked at again every few frames;
+        /// with long frames up to two and a half frames, at most auto_pass_most_ms)</summary>
         private const double auto_pass_ms = 60;
+
+        private const double auto_pass_most_ms = 150;
+
+        private double autoPassMs = auto_pass_ms;
+
+        /// <summary>(the teleport places near the character that are looked at even when its time to think is up)</summary>
+        private const int auto_teleport_least = 32;
 
         private const float auto_pass_room = 40f;
 
@@ -561,7 +584,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (ownFirst > emitter.Time + emitter.Lifetime)
                 return;
 
-            double ownLast = Math.Min(emitter.WithoutFrozenTime(effects.Effective(emitter, autoTimes[auto_samples] + auto_pass_ms)), emitter.Time + emitter.Lifetime);
+            double ownLast = Math.Min(emitter.WithoutFrozenTime(effects.Effective(emitter, autoTimes[auto_samples] + autoPassMs)), emitter.Time + emitter.Lifetime);
             double ownSpan = Math.Max(ownLast - ownFirst, 0) + 30; // (and a frame: it was seen a frame ago)
 
             void passBy()
@@ -570,7 +593,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (infinite || index >= autoPassedUntil.Length || autoTimes[0] < emitter.Time)
                     return;
 
-                autoPassedUntil[index] = autoTimes[0] + auto_pass_ms;
+                autoPassedUntil[index] = autoTimes[0] + autoPassMs;
                 autoPassedAt[index] = centre;
                 autoPassedRoom[index] = room;
             }

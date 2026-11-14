@@ -258,6 +258,46 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             bakeStarTextures();
         }
 
+        /// <summary>The boss whose colour the big star is in now (it is made again when another boss is shown).</summary>
+        private BossInfo? starBoss;
+
+        /// <summary>
+        /// The colour a boss's big star is in (the big star of Marisa's that every boss has while she fires; 2026-11-14, the user: "fit boss color", it was the map's background colour): the colour that is
+        /// the most of her (the first of those when two are as much).
+        /// </summary>
+        public static Color4 MainColour(BossInfo boss)
+        {
+            if (boss.Colours.Length == 0)
+                return new Color4(1f, 0.75f, 0.85f, 1f);
+
+            int best = 0;
+
+            for (int i = 1; i < boss.Colours.Length && i < boss.Weights.Length; i++)
+            {
+                if (boss.Weights[i] > boss.Weights[best])
+                    best = i;
+            }
+
+            return boss.Colours[best];
+        }
+
+        /// <summary>The big star (and its glow) in <paramref name="colour"/>.</summary>
+        private void bakeBigStar(Color4 colour)
+        {
+            if (renderer == null)
+                return;
+
+            var bigImage = SoftStar.CreateBig(256, big_star_fraction, colour);
+            var bigTexture = renderer.CreateTexture(bigImage.Width, bigImage.Height);
+            bigTexture.SetData(new TextureUpload(bigImage));
+            bigStar.Texture = bigTexture;
+
+            var glowImage = SoftStar.CreateGlow(256, big_star_fraction, colour);
+            var glowTexture = renderer.CreateTexture(glowImage.Width, glowImage.Height);
+            glowTexture.SetData(new TextureUpload(glowImage));
+            bigStarGlow.Texture = glowTexture;
+        }
+
         /// <summary>One star picture per colour variant: the soft, glowing star shared with the spinner and boss bullets.</summary>
         private void bakeStarTextures()
         {
@@ -266,15 +306,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             Color4 baseColor = baseColour ?? new Color4(1f, 0.75f, 0.85f, 1f);
 
-            var bigImage = SoftStar.CreateBig(256, big_star_fraction, baseColor);
-            var bigTexture = renderer.CreateTexture(bigImage.Width, bigImage.Height);
-            bigTexture.SetData(new TextureUpload(bigImage));
-            bigStar.Texture = bigTexture;
-
-            var glowImage = SoftStar.CreateGlow(256, big_star_fraction, baseColor);
-            var glowTexture = renderer.CreateTexture(glowImage.Width, glowImage.Height);
-            glowTexture.SetData(new TextureUpload(glowImage));
-            bigStarGlow.Texture = glowTexture;
+            bakeBigStar(starBoss != null ? MainColour(starBoss) : baseColor);
 
             // the warning stars have exactly the colour of the beams and of the spinner / boss bullets (the map background's colour), like the big star
             var image = new Image<Rgba32>(SoftStar.CELL, SoftStar.CELL);
@@ -467,6 +499,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (latest != null && latest.BossSlot < slotTextures.Length)
                 marisa.Texture = slotTextures[latest.BossSlot] ?? fallbackTexture;
+
+            // (her big star is in her own colour: made again when another boss is shown)
+            if (latest?.Boss != null && latest.Boss != starBoss)
+            {
+                starBoss = latest.Boss;
+                bakeBigStar(MainColour(starBoss));
+            }
 
             if (dying != null)
             {

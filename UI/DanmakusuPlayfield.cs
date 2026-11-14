@@ -486,10 +486,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (flashlight != null && bulletField != null)
             {
-                Vector2? cursor = getCursorScreenPosition();
-
-                if (cursor != null && bulletField.TryGetFlashlight(out float radius, out float strength))
-                    flashlight.SetState(strength, radius, ToLocalSpace(cursor.Value));
+                // (round the character, not round the cursor: with the autoplay, and with keyboard controls, the cursor stands still while the character moves - the light stood in the middle of the screen; 2026-11-14)
+                if (bulletField.TryGetFlashlight(out float radius, out float strength))
+                    flashlight.SetState(strength, radius, ToLocalSpace(bulletField.CharacterScreenPosition));
                 else
                     flashlight.SetState(0, 0, Vector2.Zero);
             }

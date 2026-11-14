@@ -50,6 +50,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (the traces of what swims, worked out once a frame: where each starts in tracePoints and how many points it has, the bullet first)
             private readonly List<(int Start, int Count)> traces = new List<(int, int)>();
+            private readonly List<(Vector2 Min, Vector2 Max)> traceBoxes = new List<(Vector2, Vector2)>(); // (the box round each trace: what is far from it is not looked at point by point - the autoplay asks hundreds of times a frame)
             private readonly List<Vector2> tracePoints = new List<Vector2>();
             private readonly List<Vector2> traceLine = new List<Vector2>();
             private double tracedAt = double.NaN;
@@ -89,6 +90,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 tracedAt = t;
                 traces.Clear();
+                traceBoxes.Clear();
                 tracePoints.Clear();
                 traceFrame++;
 
@@ -258,8 +260,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         traces.Add((start, tracePoints.Count - start));
                         TraceProbeCount++;
 
+                        Vector2 low = tracePoints[start], high = low;
+
                         for (int i = start + 1; i < tracePoints.Count; i++)
+                        {
                             TraceProbeLongest = Math.Max(TraceProbeLongest, Vector2.Distance(tracePoints[i - 1], tracePoints[i]));
+                            low = Vector2.ComponentMin(low, tracePoints[i]);
+                            high = Vector2.ComponentMax(high, tracePoints[i]);
+                        }
+
+                        traceBoxes.Add((low, high));
                     }
                     else
                         tracePoints.RemoveRange(start, tracePoints.Count - start);
@@ -620,9 +630,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 trace(f, now);
 
                 float traceReach = traceWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE;
+                float boxRoom = traceReach + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                Vector2 player = f.characterPosition;
 
-                foreach (var (start, count) in traces)
+                for (int j = 0; j < traces.Count; j++)
                 {
+                    var (start, count) = traces[j];
+                    var (low, high) = traceBoxes[j];
+
+                    // (far from the box round the whole trace: none of it touches)
+                    if (player.X < low.X - boxRoom || player.X > high.X + boxRoom || player.Y < low.Y - boxRoom || player.Y > high.Y + boxRoom)
+                        continue;
+
                     for (int i = 1; i < count; i++)
                     {
                         float narrower = 1f - (1f - DanmakusuBalance.WAKASAGI_TRACE_END) * i / Math.Max(count - 1f, 1f);
@@ -632,8 +651,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
+                // (how far from its root's line a blade and its petals can reach at the most, to each side: it sways, it is wide, and its petals stand off it)
+                float bladeSide = f.circleRadius * DanmakusuBalance.WAKASAGI_BLADE_SWAY_CIRCLES + bladeWidth(f) + f.stageBaseRadius(Period) * DanmakusuBalance.WAKASAGI_PETAL_SIZE * 2.2f
+                                  + DanmakusuBalance.PLAYER_HITBOX_RADIUS + 1f;
+
                 foreach (var blade in blades)
                 {
+                    // (far to the side of it: none of it touches)
+                    if (MathF.Abs(player.X - blade.X) > bladeSide)
+                        continue;
+
                     // (its petals hurt while they are on it too, by their own shape, and are not used up: they fly off as bullets when it comes off the ground)
                     if (now >= blade.Born && now < blade.Born + beat * DanmakusuBalance.WAKASAGI_BLADE_BEATS)
                     {

@@ -135,6 +135,31 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return reach * Math.Min(grown, shrunk);
             }
 
+            /// <summary>
+            /// How much the cross shows its other colour at <paramref name="t"/> (0..1): over the last <see cref="DanmakusuBalance.SHOU_FLASH_BEATS"/> before it turns the other way (the start or the end of an
+            /// attack in her section), on and off <see cref="DanmakusuBalance.SHOU_FLASHES"/> times.
+            /// </summary>
+            private float switchFlash(double t)
+            {
+                double span = beat * DanmakusuBalance.SHOU_FLASH_BEATS;
+
+                foreach (var (start, end) in attacks)
+                {
+                    foreach (double turn in new[] { start, end })
+                    {
+                        if (turn <= Period.ShootStart || turn >= Period.End || t >= turn || t < turn - span)
+                            continue;
+
+                        double u = 1 - (turn - t) / span;
+                        return 0.5f - 0.5f * MathF.Cos((float)(u * DanmakusuBalance.SHOU_FLASHES * MathF.Tau));
+                    }
+                }
+
+                return 0f;
+            }
+
+            private static Color4 lerpColour(Color4 a, Color4 b, float u) => new Color4(a.R + (b.R - a.R) * u, a.G + (b.G - a.G) * u, a.B + (b.B - a.B) * u, a.A + (b.A - a.A) * u);
+
             private static Vector2 armWay(float angle, int arm)
             {
                 float a = angle + arm * MathF.PI / 2f;
@@ -213,9 +238,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 way = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
                 Vector2 across = new Vector2(-way.Y, way.X);
                 float a = (float)Math.Max(age, 0);
-                float swing = f.circleRadius * DanmakusuBalance.SHOU_WAVE_CIRCLES * MathF.Sin(a / (float)(beat * DanmakusuBalance.SHOU_WAVE_BEATS) * MathF.Tau) * smoothStep(a / (beat * 0.5));
+                float swing = f.circleRadius * DanmakusuBalance.SHOU_WAVE_CIRCLES * MathF.Sin(wavePhase(f, a)) * smoothStep(a / (beat * 0.5));
 
                 return ringFrom[ring] + way * (waveSpeed * a) + across * (swing * (beam % 2 == 0 ? 1f : -1f));
+            }
+
+            /// <summary>
+            /// How far through its waving a beam's head is <paramref name="age"/> ms after it was shot (radians): once in <see cref="DanmakusuBalance.SHOU_WAVE_BEATS"/> near her, ever faster the further out it is,
+            /// up to <see cref="DanmakusuBalance.SHOU_WAVE_FASTEST"/> times as often half a screen's diagonal out (2026-11-14) - the waving speeds up evenly with the distance, so its phase is what that adds up to.
+            /// </summary>
+            private float wavePhase(BulletField f, float age)
+            {
+                float far = Vector2.Distance(f.stageMin, f.stageMax) * 0.5f / Math.Max(waveSpeed, 1e-3f); // (ms to get half a diagonal out)
+                float gain = DanmakusuBalance.SHOU_WAVE_FASTEST - 1f;
+                float counted = age <= far ? age + gain * age * age / (2f * far) : far + gain * far / 2f + DanmakusuBalance.SHOU_WAVE_FASTEST * (age - far);
+                return counted / (float)(beat * DanmakusuBalance.SHOU_WAVE_BEATS) * MathF.Tau;
             }
 
             private double waveLife(BulletField f)
@@ -265,6 +302,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float angle = angleAt(t);
                     int piece = ++f.beamPieces;
 
+                    // (over the beat before it turns the other way it flashes another colour, on and off: 2026-11-14)
+                    Color4 body = f.palette[style % f.palette.Length], edge = f.borderPalette[style % f.borderPalette.Length];
+                    float flash = switchFlash(t);
+
+                    if (flash > 0f)
+                    {
+                        int other = f.comboStyle(3, true, Period.Rank);
+                        body = lerpColour(body, f.palette[other % f.palette.Length], flash);
+                        edge = lerpColour(edge, f.borderPalette[other % f.borderPalette.Length], flash);
+                    }
+
                     for (int arm = 0; arm < 2; arm++)
                     {
                         Vector2 way = armWay(angle, arm);
@@ -273,9 +321,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         line.Add(middle - way * length);
                         line.Add(middle);
                         line.Add(middle + way * length);
-                        f.addPlainBeam(line, crossHalf(f), f.palette[style % f.palette.Length], f.borderPalette[style % f.borderPalette.Length], ref beams, ref pointTotal);
+                        f.addPlainBeam(line, crossHalf(f), body, edge, ref beams, ref pointTotal);
                         f.laserInstances[beams - 1].Piece = piece;
-                        f.laserInstances[beams - 1].Bloom = DanmakusuBalance.SHOU_CROSS_BLOOM;
+                        f.laserInstances[beams - 1].Bloom = DanmakusuBalance.SHOU_CROSS_BLOOM * (1f + flash);
                     }
                 }
 
@@ -311,7 +359,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 middle = (f.stageMin + f.stageMax) * 0.5f;
                 float size = 2f * f.circleRadius * big_star_radius_factor / big_star_fraction * (0.4f + 0.6f * shown);
                 float rotation = (float)(-t / 1000.0 * big_star_spin);
-                Color4 colour = f.backgroundColour ?? new Color4(1f, 0.75f, 0.85f, 1f);
+                Color4 colour = BossCharacter.MainColour(Period.Boss); // (in her colour, as every boss's big star is since 2026-11-14)
 
                 f.stageFront.Add(StageTexture.Glow, middle, new Vector2(size * 1.3f), 0f, 0.6f * shown, colour, true);
                 f.stageFront.Add(StageTexture.BigStar, middle, new Vector2(size), rotation, shown, colour);

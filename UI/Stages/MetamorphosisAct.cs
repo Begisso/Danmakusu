@@ -9,9 +9,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Eternity Larva: all through her section (in a spinner too) she shoots rings of eight butterflies every four beats, the first at the player (the user's picture of a blue morpho, flapping its wings): they drift
+        // Eternity Larva: all through her section (in a spinner too) she shoots rings of sixteen butterflies every four beats (eight until 2026-11-14), the first at the player (the user's picture of a blue morpho, flapping its wings): they drift
         // out at a bit more than half a plain bullet's speed and wander from side to side as Wriggle's fireflies do, facing the way they go.
-        // When her section begins and every eight beats after, every twentieth bullet on the screen (anyone's, counted in the order of the map's rings) is warned of as Patchouli's fire is: it turns aquamarine, flies at
+        // When her section begins and every eight beats after, every twentieth bullet on the screen (anyone's, counted in the order of the map's rings, and her butterflies after them; a butterfly that is chosen
+        // goes on as a plain bullet of its colour) is warned of as Patchouli's fire is: it turns aquamarine, flies at
         // half its speed and has a red ring round it as big as it will grow, flashing faster and faster in the last two beats. Four beats later it swells, with Mokou's impact sound, to a big round bullet two circle
         // radii wide (drawn as sharp as Mokou's ball; hitbox too), glowing, and flies on at its speed; over the last beat of the next four it shrinks back, and it flies on as it was, aquamarine.
         // ======================================================================================================================================================
@@ -265,8 +266,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     seen[m].Clear();
                     all.Sort((a, b) => a.Order != b.Order ? a.Order.CompareTo(b.Order) : a.Bullet.CompareTo(b.Bullet));
 
-                    for (int i = DanmakusuBalance.LARVA_SWELL_EVERY - 1; i < all.Count; i += DanmakusuBalance.LARVA_SWELL_EVERY)
+                    // (her butterflies on the screen at the mark are counted too, after the rings: they may swell as well; 2026-11-14)
+                    var bugs = new List<int>();
+
+                    foreach (int index in butterflies)
                     {
+                        var bug = Bullets[index];
+
+                        if (bug.T0 > marks[m] || bug.Until <= marks[m] || (DanmakusuBalance.HIDE_BULLETS_AFTER_HIT && f.stageConsumed.Contains(Id * 65536 + index)))
+                            continue;
+
+                        Vector2 at = stageBulletPosition(bug, marks[m]);
+
+                        if (at.X >= f.stageMin.X && at.X <= f.stageMax.X && at.Y >= f.stageMin.Y && at.Y <= f.stageMax.Y)
+                            bugs.Add(index);
+                    }
+
+                    for (int i = DanmakusuBalance.LARVA_SWELL_EVERY - 1; i < all.Count + bugs.Count; i += DanmakusuBalance.LARVA_SWELL_EVERY)
+                    {
+                        if (i >= all.Count)
+                        {
+                            swellButterfly(f, m, bugs[i - all.Count]);
+                            continue;
+                        }
+
                         var one = all[i];
                         ulong bit = 1UL << one.Bullet;
 
@@ -274,17 +297,48 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             continue;
 
                         one.Emitter.AbsorbedMask |= bit;
-                        swell(f, m, one);
+                        var stored = f.makeStored(one.Emitter, one.Time);
+                        float big = one.Emitter.BigScale(one.Bullet);
+
+                        swell(f, m, one.At, one.Velocity, one.Time, new Look
+                        {
+                            Radius = stored.Radius * big, Hit = stored.Hit * big, Style = stored.Style, Shape = stored.Shape, Tint = stored.Tint, TintAmount = stored.Tint > 0 ? stored.TintAmount : 0f,
+                            Shade = stored.Shade, Blades = stored.Blades, BladeSpin = stored.BladeSpin,
+                        });
                     }
                 }
             }
 
-            private void swell(BulletField f, int mark, in Seen one)
+            /// <summary>What a bullet that swells looks like before and after (its own: a ring's bullet as it was; a butterfly a plain bullet of its colour).</summary>
+            private struct Look
             {
-                var stored = f.makeStored(one.Emitter, one.Time);
-                float big = one.Emitter.BigScale(one.Bullet);
-                float radius = stored.Radius * big;
-                float hit = stored.Hit * big;
+                public float Radius, Hit, TintAmount, Shade, BladeSpin;
+                public int Style, Tint, Blades;
+                public BulletShape Shape;
+            }
+
+            /// <summary>A butterfly that is chosen: it is gone from where it is at the mark, and goes on from there as a bullet of its colour that is warned of and swells, as any other.</summary>
+            private void swellButterfly(BulletField f, int mark, int index)
+            {
+                var bug = Bullets[index];
+                double at = marks[mark];
+                Vector2 position = stageBulletPosition(bug, at);
+                Vector2 velocity = stageBulletVelocity(bug, at);
+
+                bug.Until = at;
+                bug.AlphaFrom = Math.Min(bug.AlphaFrom, at);
+                bug.AlphaOver = 1;
+                Bullets[index] = bug;
+
+                swell(f, mark, position, velocity, at, new Look { Radius = bug.Radius, Hit = bug.Hit, Style = bug.Style, Shape = BulletShape.Circle, Shade = bug.Shade });
+            }
+
+            private void swell(BulletField f, int mark, Vector2 oneAt, Vector2 oneVelocity, double oneTime, in Look look)
+            {
+                var one = (At: oneAt, Velocity: oneVelocity, Time: oneTime);
+                var stored = look;
+                float radius = look.Radius;
+                float hit = look.Hit;
                 double swellsAt = swellAt(mark), backs = backAt(mark);
 
                 // the warning: aquamarine, at half its speed, with the red ring round it (drawn below)
@@ -302,7 +356,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Style = stored.Style,
                     Shape = stored.Shape,
                     Tint = stored.Tint,
-                    TintAmount = stored.Tint > 0 ? stored.TintAmount : 0f,
+                    TintAmount = stored.TintAmount,
                     Tint2At = one.Time,
                     Tint2 = BulletRenderer.TINT_AQUAMARINE,
                     Tint2Amount = 1f,

@@ -68,6 +68,8 @@
   <ItemGroup Label="Package References">
     <PackageReference Include="ppy.osu.Game" Version="2026.916.0" />
     <PackageReference Include="ppy.osu.Game.Rulesets.Osu" Version="2026.916.0" />
+    <!-- (osu!mania's converter: Yatsuhashi's beams fall where an 18-key convert of the map has its notes, see Bullets/ManiaNotes.cs; lazer ships it too) -->
+    <PackageReference Include="ppy.osu.Game.Rulesets.Mania" Version="2026.916.0" />
     <!-- (Harmony: lets maps of the other modes be offered in Danmakusu, see OtherModesInSongSelect.cs; its dll is embedded in the ruleset's, osu! loads only the ruleset) -->
     <PackageReference Include="Lib.Harmony" Version="2.4.3" GeneratePathProperty="true" />
   </ItemGroup>

@@ -20,12 +20,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public readonly int Bullet;
                 public readonly Vector2[] Outline;
                 public readonly Color4 Colour;
+                public readonly float Bloom; // (the cut bullet's)
+                public readonly float Radius; // (the cut bullet's: how big its glow is)
 
-                public Piece(int bullet, Vector2[] outline, Color4 colour)
+                public Piece(int bullet, Vector2[] outline, Color4 colour, float bloom, float radius)
                 {
                     Bullet = bullet;
                     Outline = outline;
                     Colour = colour;
+                    Bloom = bloom;
+                    Radius = radius;
                 }
             }
 
@@ -52,11 +56,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float big = emitter.BigScale(bullet);
                 Vector2 velocity = (to - from) / (float)Math.Max(t - ScanPrevious, 1e-3);
 
-                CutInTwo(f, t, to, velocity, normal, along, stored.Radius * big, stored.Hit * big, stored.Style, stored.Shape, stored.Tint);
+                // (its glow goes with the pieces: its own, a flashing one's, a golden one's - 2026-11-14, "sliced bullets should not lose their bloom and glow")
+                bool golden = emitter.GoldMask != 0 && bullet < 64 && (emitter.GoldMask & (1UL << bullet)) != 0;
+                float bloom = Math.Max(emitter.Bloom, golden ? DanmakusuBalance.TOYOHIME_GOLD_BLOOM : emitter.Flashes ? flashBloom(t - emitter.Time, emitter.RemoveAfter) : 0f);
+
+                CutInTwo(f, t, to, velocity, normal, along, stored.Radius * big, stored.Hit * big, stored.Style, stored.Shape, stored.Tint, bloom);
             }
 
             /// <summary>The piece on the one side of the line and the piece on the other, the one flying on, the other flying back.</summary>
-            protected void CutInTwo(BulletField f, double t, Vector2 position, Vector2 velocity, Vector2 normal, float along, float radius, float hit, int style, BulletShape shape, int tint)
+            protected void CutInTwo(BulletField f, double t, Vector2 position, Vector2 velocity, Vector2 normal, float along, float radius, float hit, int style, BulletShape shape, int tint, float bloom = 0f)
             {
                 Vector2 facing = velocity.LengthSquared > 1e-8f ? Vector2.Normalize(velocity) : normal;
                 var whole = outlineOf(shape, radius, facing);
@@ -67,8 +75,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float at = evenEnough(whole, normal, along);
 
-                AddPiece(f, t, position, velocity, radius * DanmakusuBalance.CLAW_PIECE_HIT, hit * DanmakusuBalance.CLAW_PIECE_HIT, style, tint, clip(whole, normal, at));
-                AddPiece(f, t, position, -velocity, radius * DanmakusuBalance.CLAW_PIECE_HIT, hit * DanmakusuBalance.CLAW_PIECE_HIT, style, tint, clip(whole, -normal, -at));
+                AddPiece(f, t, position, velocity, radius * DanmakusuBalance.CLAW_PIECE_HIT, hit * DanmakusuBalance.CLAW_PIECE_HIT, style, tint, clip(whole, normal, at), bloom, radius);
+                AddPiece(f, t, position, -velocity, radius * DanmakusuBalance.CLAW_PIECE_HIT, hit * DanmakusuBalance.CLAW_PIECE_HIT, style, tint, clip(whole, -normal, -at), bloom, radius);
 
                 // (and it flashes where it was cut)
                 f.addFlash(t, position, radius * DanmakusuBalance.RICOCHET_FLASH_SIZE);
@@ -126,7 +134,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return MathF.Abs(sum) * 0.5f;
             }
 
-            protected void AddPiece(BulletField f, double t, Vector2 position, Vector2 velocity, float radius, float hit, int style, int tint, Vector2[] outline)
+            protected void AddPiece(BulletField f, double t, Vector2 position, Vector2 velocity, float radius, float hit, int style, int tint, Vector2[] outline, float bloom = 0f, float wholeRadius = 0f)
             {
                 if (outline.Length < 3 || f.palette.Length == 0)
                     return;
@@ -147,7 +155,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 });
 
                 if (Bullets.Count > before)
-                    pieces.Add(new Piece(before, outline, tint > 0 ? BulletRenderer.SpecialBodies[tint - 1] : f.palette[style % f.palette.Length]));
+                    pieces.Add(new Piece(before, outline, tint > 0 ? BulletRenderer.SpecialBodies[tint - 1] : f.palette[style % f.palette.Length], bloom, wholeRadius > 0f ? wholeRadius : radius));
             }
 
             /// <summary>The outline of a bullet of this shape, facing the way it flies.</summary>
@@ -257,6 +265,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         middle += corner;
 
                     middle = at + middle / piece.Outline.Length;
+
+                    // (it glows as the bullet did: a soft light of its colour round it, as strong as the bullet's bloom - or the glow every bullet has then, Remilia's, the flash before an attack - and always
+                    // a little; 2026-11-14, the pieces had lost it)
+                    float bloom = Math.Max(piece.Bloom, f.pieceBloom);
+                    f.stageOrbs.Add(StageTexture.Glow, middle, new Vector2(piece.Radius * (2.6f + 2.4f * bloom)), 0f, 0.3f + 0.55f * Math.Min(bloom, 1f), piece.Colour, true);
 
                     for (int k = 0; k < piece.Outline.Length; k++)
                     {

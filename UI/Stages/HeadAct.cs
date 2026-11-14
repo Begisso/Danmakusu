@@ -108,6 +108,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly double beat;
             private readonly List<(double Time, Vector2? Spot)> throws; // (no spot: from round the boss)
             private readonly List<Head> heads = new List<Head>();
+            private readonly MomentShapes shapes = new MomentShapes(); // (the beams at the moments the autoplay asks about, kept for the frame)
             private int nextThrow;
             private double soundedAt = double.NegativeInfinity;
 
@@ -150,6 +151,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Reset(BulletField f, double time)
             {
+                shapes.Forget();
                 heads.Clear();
                 ClearBullets();
                 nextThrow = 0;
@@ -158,6 +160,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Update(BulletField f, double now)
             {
+                shapes.Forget(); // (the heads move on)
+
                 if (f.failed)
                     return;
 
@@ -413,6 +417,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>
+            /// Where a head that still flies will be at <paramref name="t"/>, past the last step worked out (the autoplay asks about the time to come): straight on from where it is, laying its beam on the way.
+            /// False for a moment it has been worked out up to (or that the next step will reach: the game's own hit check, a frame's time after the last step, stays as it was), and for a head that has stopped.
+            /// </summary>
+            private bool ahead(Head head, double t, out Vector2 at)
+            {
+                at = head.Position;
+
+                if (!double.IsNaN(head.Ended) || t <= head.Time + step_ms || t > head.Born + lifetime)
+                    return false;
+
+                at = head.Position + head.Velocity * (float)(t - head.Time);
+                return true;
+            }
+
             /// <summary>The heads and their beams hurt like a slider body.</summary>
             public override bool Hurts(BulletField f, double now)
             {
@@ -425,9 +444,51 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     var bullet = Bullets[head.Index];
 
-                    if ((style.DrawHeads || style.StarHeads) && now >= bullet.T0 && now <= bullet.Until && Vector2.Distance(player, stageBulletPosition(bullet, now)) <= bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                    if ((style.DrawHeads || style.StarHeads) && now >= bullet.T0 && now <= bullet.Until
+                        && Vector2.Distance(player, ahead(head, now, out Vector2 coming) ? coming : stageBulletPosition(bullet, now)) <= bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
                 }
+
+                float widest = trailHalfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                // (asked about the same moment again - the autoplay, for many places: every beam of that moment is worked out once, slice by slice, and kept for the frame)
+                var kept = shapes.Kept(now);
+
+                if (kept == null && shapes.Begin(now) is MomentShapes.Moment fresh)
+                {
+                    foreach (var head in heads)
+                    {
+                        int from = firstSlice(head, now);
+
+                        if (from < 0)
+                            continue;
+
+                        for (int k = from; k < head.Trail.Count; k += DanmakusuBalance.SEKIBANKI_TRAIL_SLICE_STEPS)
+                        {
+                            if (!sliceAt(f, head, k, now, out Vector2 position))
+                            {
+                                fresh.EndRun();
+                                continue;
+                            }
+
+                            fresh.Point(position, sliceWidth(f, head, k, now) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS);
+                        }
+
+                        fresh.EndRun();
+
+                        if (ahead(head, now, out Vector2 coming))
+                        {
+                            fresh.Point(head.Position, widest);
+                            fresh.Point(coming, widest);
+                            fresh.EndRun();
+                        }
+                    }
+
+                    kept = fresh;
+                }
+
+                if (kept != null)
+                    return kept.Touches(player);
 
                 foreach (var head in heads)
                 {
@@ -435,6 +496,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (first < 0)
                         continue;
+
+                    if (ahead(head, now, out Vector2 coming) && distanceToSegment(player, head.Position, coming) <= widest)
+                        return true;
+
+                    // (a beam whose slices are just gone when their time is up - Byakuren's: what is left of it was laid along the head's way since then, so all of it is within as far as the head has
+                    // flown since of where the head is - the autoplay asks hundreds of times a frame, and most beams are far away)
+                    if (!style.FlyAway)
+                    {
+                        double since = Math.Max(head.Time - (now - beat * style.StayBeats), 0) + step_ms;
+                        float within = head.Velocity.Length * (float)since + widest;
+
+                        if ((player - head.Position).LengthSquared > within * within)
+                            continue;
+                    }
 
                     bool havePrevious = false;
                     Vector2 previous = default;

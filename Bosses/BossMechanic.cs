@@ -248,7 +248,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         /// <summary>Eika: ellipses in rings; every four beats everything gets as much speed again sideways, the way depending on the distance from her; in her attacks bullets that touch stick together, as the law of impulse says.</summary>
         Stacking,
 
-        /// <summary>Futo: everything loses speed the nearer it gets to the wall; when a pause starts she throws a boat at the player, and what it touches goes straight up or down at twice its speed.</summary>
+        /// <summary>Futo: everything loses speed the nearer it gets to the wall; when a pause starts a boat comes at the player out of the wall nearest her, from behind her; what it touches slides out and is turned once to fly straight out of it.</summary>
         Drift,
 
         /// <summary>Shion: talismans in hexagons that come back once from the border; every eight beats everything turns dark blue and flies back the way it came, with red arrows as a warning.</summary>
@@ -406,8 +406,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         Pagoda,
 
         /// <summary>
-        /// Eirin Yagokoro: every eight beats the four nearest bullets of every group are joined into a constellation by a beam (see-through for four beats first), and every bullet stands still for four beats while the beams
-        /// hurt; then the beams are gone and everything flies on.
+        /// Eirin Yagokoro: every eight beats the four nearest bullets of every group are joined into a constellation by a beam (see-through for four beats first), and the bullets of the constellations (only those)
+        /// stand still for four beats while the beams hurt; then the beams are gone and they fly on. Constellations do not overlap.
         /// </summary>
         Constellation,
 
@@ -428,5 +428,60 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         /// a red ring round it (as Patchouli's fire) for four beats; then it swells to a big round bullet two circle radii wide, with Mokou's impact sound, and shrinks back over the next four beats.
         /// </summary>
         Metamorphosis,
+
+        /// <summary>
+        /// Nitori Kawashiro: in every attack a giant spinning icosahedron of beams (one for every edge) fades in round the middle of the playfield, turning about the line through two corners across the screen, every
+        /// next attack the other way; it grows to as wide as the playfield over eight beats and lasts the whole attack, and in the pause it comes apart into plain bullets half the size. She shoots an arc of beam ten
+        /// degrees wide at the player every quarter beat.
+        /// </summary>
+        Icosahedron,
+
+        /// <summary>
+        /// Mai: no pauses; one giant snowflake of beams after another, standing where she was: it grows from the middle out over eight beats as Yuyuko's tree does, then goes again from the middle out over the next
+        /// eight, coming apart into plain bullets half the size that fly out from its middle.
+        /// </summary>
+        Snowflake,
+
+        /// <summary>
+        /// Benben Tsukumo: every slider's beam in her section has another above and below it (harmless for four beats); she throws three parallel beams at the player in her attacks; every second bullet that crosses a
+        /// beam becomes a note that flies at half speed, swelling to twice it and back, and turns towards the player once.
+        /// </summary>
+        Strings,
+
+        /// <summary>
+        /// Ellen: rings of talismans every two beats, every two neighbouring talismans joined by a beam (harmless for four beats); Socrates, her cat, comes out of her and every two beats jumps onto the bullet
+        /// within four circle radii nearest the player, rides it, and hurts like a slider body.
+        /// </summary>
+        Familiar,
+
+        /// <summary>
+        /// Yoshika Miyako: as Seiga, but every fourth bullet that leaves the playfield in her section comes back, at its own speed, leaving static copies of the talisman behind it, end to end, each there for eight
+        /// beats. She throws fans of five knives with red handles at the player.
+        /// </summary>
+        Jiangshi,
+
+        /// <summary>
+        /// Matenshi: always in the middle; her big wings come out of her and open, then sway, and hurt like a slider body; every second bullet fired comes out of the wings as a glowing feather, flying away from
+        /// her. Every four beats two beams three circle radii wide come down from the top, one over the player and one elsewhere, after a preview of four beats, and last four beats.
+        /// </summary>
+        FallenAngel,
+
+        /// <summary>
+        /// Yatsuhashi Tsukumo: no pauses. Her section is an 18-key osu!mania convert of the map (osu!mania's own converter): every note falls down its lane from the top of the screen as a beam four times as thick as a
+        /// normal one, in four beats from top to bottom, reaching the bottom on its note (an approach circle closes at the top of its lane first); held notes are long beams. The map's own objects stay.
+        /// </summary>
+        Koto,
+
+        /// <summary>
+        /// Keiki Haniyasushin: in her section the rings come half as often with twice as many bullets, and every ring is a square; every fifth bullet that goes out of the screen comes back the way it came as a
+        /// beam four beats long. She shoots very dense squares of plain bullets every four beats.
+        /// </summary>
+        Haniwa,
+
+        /// <summary>
+        /// Tsukasa Kudamaki: every fourth beam of her section bounces once off the border of the screen. She shoots rings of six big balls (two circle radii, drawn sharp); every tenth bullet fired in her section
+        /// comes out of the edge of the balls instead, the six in turn, and flies on as it was fired.
+        /// </summary>
+        PipeFox,
     }
 }

@@ -347,6 +347,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The op is not for the beams that turn (a spinner's, a boss's), only for the others (a slider's).</summary>
         public bool SkipRotating { get; init; }
 
+        /// <summary>A freeze (Reisen's, on beams): what is outside the osu! playfield (0..512 x 0..384) as it begins is not frozen but cut off, gone from then on.</summary>
+        public bool CutOutsidePlayfield { get; init; }
+
+        /// <summary>The op is only for the beams the planner has marked (<see cref="LaserEmitter.BouncesOnce"/>: every fourth of Tsukasa's section).</summary>
+        public bool OnlyMarked { get; init; }
+
         /// <summary>Glass: the walls come from the top and the bottom (otherwise from the left and the right).</summary>
         public bool Horizontal { get; init; }
 
@@ -486,6 +492,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             break;
 
                         step(ref position, ref v, acc, ref now, op.Time);
+
+                        // (Reisen's: a slice of a beam that is outside the osu! playfield as the freeze begins is not frozen - it is cut off then and there; 2026-11-14)
+                        if (op.CutOutsidePlayfield && (position.X < 0f || position.Y < 0f || position.X > 512f || position.Y > 384f))
+                        {
+                            result.Position = position;
+                            result.Velocity = v;
+                            result.Alive = false;
+                            return;
+                        }
+
                         // (a beam's slices slide by the way they were fired, which they all share: by the way they fly now, after Eiki's circle has turned each to its middle a little differently, every one went its own way, the
                         // beam a zigzag of slices half a screen apart)
                         int side = op.Slides ? slideSide(op, position, op.SlideByDirection ? velocity : v) : 0;

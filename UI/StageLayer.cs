@@ -171,6 +171,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>A red circle with a rim, with an eye in it (white lines): Flandre's eye; the circle is as big as her explosion. (Drawn from shapes; there is a vector file of the same picture.)</summary>
         Eye,
 
+        /// <summary>Socrates, Ellen's cat: a white cat's face with a brown outline and whiskers (full colour, drawn white).</summary>
+        CatFace,
+
+        /// <summary>Matenshi's wings (the user's picture, cut out by Tools\Bake wings): the right wing, its shoulder at the left (see <see cref="StageLayer.WING_ROOT"/>); the left one its mirror image.</summary>
+        WingRight,
+
+        WingLeft,
+
         /// <summary>The frames of a flapping bat (black, with a white outline that fades inwards), Koakuma's: <see cref="StageLayer.BatFrames"/> of them, one after the other; the bat is as wide as the picture over <see cref="StageLayer.BatExtent"/> (see <see cref="StageLayer.BatFrame"/>).</summary>
         Bat0,
         Bat1,
@@ -453,6 +461,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Eye => bake(renderer, makeEye()),
                     StageTexture.BigStar => bake(renderer, SoftStar.CreateBig(256, 0.6f, Color4.White)), // (to be tinted: Sanae's star behind her attacks)
                     StageTexture.HorseHead => bake(renderer, makeHorseHead()),
+                    StageTexture.CatFace => bake(renderer, makeCatFace()),
+                    StageTexture.WingRight => BossCharacter.LoadResource(renderer, "Textures.matenshi_wing_right.png"),
+                    StageTexture.WingLeft => BossCharacter.LoadResource(renderer, "Textures.matenshi_wing_left.png"),
                     StageTexture.Boat => BossCharacter.LoadResource(renderer, "Textures.futo_boat.png"),
                     StageTexture.BearTrapOpen => bake(renderer, makeBearTrap(false)),
                     StageTexture.BearTrapClosed => bake(renderer, makeBearTrap(true)),
@@ -835,11 +846,38 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return outside + distance[row * columns + column];
         }
 
-        private static (float[], int, int, int, int) makeAnchorShape()
+        /// <summary>Matenshi's right wing picture as a shape to touch, as the anchor's (the left wing is its mirror image).</summary>
+        private static readonly Lazy<(float[] Distance, int Columns, int Rows, int Width, int Height)> wing_shape = new Lazy<(float[], int, int, int, int)>(() => makePictureShape("matenshi_wing_right.png"));
+
+        /// <summary>Makes the shape of the wing now (at load), so that her section does not make a frame wait.</summary>
+        public static void PrepareWingShape() => _ = wing_shape.Value;
+
+        /// <summary>The size of the wing picture in pixels.</summary>
+        public static (int Width, int Height) WingPictureSize => (wing_shape.Value.Width, wing_shape.Value.Height);
+
+        /// <summary>How far (pixels of the picture) the point (from the picture's top left) is from the right wing: 0 on it.</summary>
+        public static float WingDistance(float x, float y) => pictureDistance(wing_shape.Value, x, y);
+
+        private static float pictureDistance((float[] Distance, int Columns, int Rows, int Width, int Height) shape, float x, float y)
+        {
+            var (distance, columns, rows, width, height) = shape;
+
+            if (columns == 0)
+                return float.PositiveInfinity;
+
+            float cx = Math.Clamp(x, 0f, width - 1f), cy = Math.Clamp(y, 0f, height - 1f);
+            float outside = MathF.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            int column = Math.Min((int)(cx / anchor_cell), columns - 1), row = Math.Min((int)(cy / anchor_cell), rows - 1);
+            return outside + distance[row * columns + column];
+        }
+
+        private static (float[], int, int, int, int) makeAnchorShape() => makePictureShape("murasa_anchor.png");
+
+        private static (float[], int, int, int, int) makePictureShape(string picture)
         {
             try
             {
-                using var stream = typeof(StageLayer).Assembly.GetManifestResourceStream("osu.Game.Rulesets.Danmakusu.Resources.Textures.murasa_anchor.png");
+                using var stream = typeof(StageLayer).Assembly.GetManifestResourceStream($"osu.Game.Rulesets.Danmakusu.Resources.Textures.{picture}");
 
                 if (stream == null)
                     return (Array.Empty<float>(), 0, 0, 0, 0);
@@ -1470,6 +1508,125 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float a = 0.2f + 0.55f * edge + 0.22f * glint;
                     image[x, y] = new Rgba32(255, 255, 255, (byte)Math.Clamp((int)(a * 255f), 0, 255));
+                }
+            }
+
+            return image;
+        }
+
+        /// <summary>Where the wing's root (its shoulder) is in Matenshi's wing picture (the right wing, as a share of its width and height; the left one is its mirror image): it turns about this point.</summary>
+        public static readonly Vector2 WING_ROOT = new Vector2(0.04f, 0.722f);
+
+        /// <summary>How tall the wing picture is for its width.</summary>
+        public const float WING_ASPECT = 0.846f;
+
+        /// <summary>
+        /// The places on the right wing the feathers come out of (from the root, in shares of the picture's width; +x outwards, +y down; the left wing's are mirrored): a grid over everything the wing covers
+        /// (made by Tools\Bake wings with the pictures).
+        /// </summary>
+        public static readonly Vector2[] WING_SPOTS =
+        {
+            new Vector2(0.882f, -0.591f), new Vector2(0.759f, -0.55f), new Vector2(0.595f, -0.509f), new Vector2(0.718f, -0.509f), new Vector2(0.882f, -0.509f), new Vector2(0.554f, -0.468f),
+            new Vector2(0.677f, -0.468f), new Vector2(0.8f, -0.468f), new Vector2(0.513f, -0.427f), new Vector2(0.636f, -0.427f), new Vector2(0.759f, -0.427f), new Vector2(0.882f, -0.427f),
+            new Vector2(0.513f, -0.386f), new Vector2(0.636f, -0.386f), new Vector2(0.759f, -0.386f), new Vector2(0.431f, -0.345f), new Vector2(0.554f, -0.345f), new Vector2(0.677f, -0.345f),
+            new Vector2(0.8f, -0.345f), new Vector2(0.39f, -0.304f), new Vector2(0.513f, -0.304f), new Vector2(0.636f, -0.304f), new Vector2(0.759f, -0.304f), new Vector2(0.39f, -0.263f),
+            new Vector2(0.513f, -0.263f), new Vector2(0.636f, -0.263f), new Vector2(0.759f, -0.263f), new Vector2(0.308f, -0.222f), new Vector2(0.431f, -0.222f), new Vector2(0.554f, -0.222f),
+            new Vector2(0.677f, -0.222f), new Vector2(0.185f, -0.181f), new Vector2(0.308f, -0.181f), new Vector2(0.431f, -0.181f), new Vector2(0.554f, -0.181f), new Vector2(0.677f, -0.181f),
+            new Vector2(0.185f, -0.14f), new Vector2(0.308f, -0.14f), new Vector2(0.431f, -0.14f), new Vector2(0.554f, -0.14f), new Vector2(0.677f, -0.14f), new Vector2(0.103f, -0.099f),
+            new Vector2(0.226f, -0.099f), new Vector2(0.349f, -0.099f), new Vector2(0.472f, -0.099f), new Vector2(0.595f, -0.099f), new Vector2(0.021f, -0.058f), new Vector2(0.144f, -0.058f),
+            new Vector2(0.267f, -0.058f), new Vector2(0.39f, -0.058f), new Vector2(0.513f, -0.058f), new Vector2(0.636f, -0.058f), new Vector2(0.103f, -0.017f), new Vector2(0.226f, -0.017f),
+            new Vector2(0.349f, -0.017f), new Vector2(0.472f, -0.017f), new Vector2(0.021f, 0.024f), new Vector2(0.144f, 0.024f), new Vector2(0.267f, 0.024f), new Vector2(0.39f, 0.024f),
+            new Vector2(0.513f, 0.024f), new Vector2(0.103f, 0.065f), new Vector2(0.226f, 0.065f), new Vector2(0.349f, 0.065f), new Vector2(0.021f, 0.106f), new Vector2(0.144f, 0.106f),
+            new Vector2(0.267f, 0.106f), new Vector2(0.39f, 0.106f), new Vector2(0.103f, 0.147f), new Vector2(0.226f, 0.147f), new Vector2(0.349f, 0.147f), new Vector2(0.103f, 0.188f),
+            new Vector2(0.226f, 0.188f),
+        };
+
+        /// <summary>
+        /// Socrates, Ellen's cat (2026-11-13): a white cat's face, drawn from shapes in the style of the user's picture (not the picture: it was a watermarked stock image) - a round head with two pointed ears, a
+        /// brown outline, dark brown eyes, a pink nose, a small mouth, pink cheeks and two whiskers to each side, reaching out past the head. Full colour (drawn white, not tinted).
+        /// </summary>
+        private static Image<Rgba32> makeCatFace()
+        {
+            const int size = 256;
+            var image = new Image<Rgba32>(size, size);
+
+            var brown = new Vector3(0.42f, 0.22f, 0.12f);
+            var white = new Vector3(1f, 1f, 1f);
+            var pink = new Vector3(1f, 0.72f, 0.78f);
+            var eyeColour = new Vector3(0.32f, 0.17f, 0.08f);
+
+            Vector2[] earLeft = { new Vector2(-0.74f, -0.05f), new Vector2(-0.58f, -0.78f), new Vector2(-0.18f, -0.38f) };
+            Vector2[] earRight = { new Vector2(0.74f, -0.05f), new Vector2(0.18f, -0.38f), new Vector2(0.58f, -0.78f) };
+            const float aa = 0.012f;
+            const float outlineWidth = 0.035f;
+
+            // (the head: a wide ellipse, with the ears)
+            float headDistance(Vector2 p)
+            {
+                Vector2 q = new Vector2(p.X / 0.76f, (p.Y - 0.16f) / 0.58f);
+                float ellipse = (q.Length - 1f) * 0.58f;
+                return Math.Min(ellipse, Math.Min(Bullets.PolygonShape.SignedDistance(p, earLeft), Bullets.PolygonShape.SignedDistance(p, earRight)));
+            }
+
+            static float segment(Vector2 p, Vector2 a, Vector2 b)
+            {
+                Vector2 ab = b - a;
+                float t = Math.Clamp(Vector2.Dot(p - a, ab) / Math.Max(ab.LengthSquared, 1e-9f), 0f, 1f);
+                return (p - (a + ab * t)).Length;
+            }
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var p = new Vector2((x + 0.5f - size / 2f) / (size / 2f), (y + 0.5f - size / 2f) / (size / 2f));
+                    float head = headDistance(p);
+                    float inside = Math.Clamp(-(head) / aa + 0.5f, 0f, 1f);
+                    Vector3 colour = white;
+                    float alpha = inside;
+
+                    // cheeks (soft pink), eyes, nose, mouth
+                    float cheek = Math.Max(Math.Clamp((0.11f - (p - new Vector2(-0.5f, 0.32f)).Length) / 0.04f, 0f, 1f), Math.Clamp((0.11f - (p - new Vector2(0.5f, 0.32f)).Length) / 0.04f, 0f, 1f));
+                    colour = Vector3.Lerp(colour, pink, cheek * 0.85f);
+
+                    float eye = Math.Max(line((p - new Vector2(-0.3f, 0.1f)).Length, 0.085f, aa), line((p - new Vector2(0.3f, 0.1f)).Length, 0.085f, aa));
+                    colour = Vector3.Lerp(colour, eyeColour, eye);
+
+                    float nose = line((p - new Vector2(0f, 0.25f)) .Length, 0.045f, aa);
+                    colour = Vector3.Lerp(colour, pink * 0.9f, nose);
+
+                    // (the mouth: two little arcs under the nose, a "w")
+                    float mouth = 1f;
+
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        Vector2 c = new Vector2(side * 0.075f, 0.3f);
+                        Vector2 d = p - c;
+
+                        if (d.Y > 0f)
+                            mouth = Math.Min(mouth, MathF.Abs(d.Length - 0.075f));
+                    }
+
+                    colour = Vector3.Lerp(colour, brown, line(mouth, 0.016f, aa) * inside);
+
+                    // the outline of the head
+                    float outline = line(MathF.Abs(head), outlineWidth, aa);
+
+                    // whiskers, two to each side, out past the head
+                    float whisker = float.MaxValue;
+
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        whisker = Math.Min(whisker, segment(p, new Vector2(side * 0.5f, 0.22f), new Vector2(side * 0.98f, 0.17f)));
+                        whisker = Math.Min(whisker, segment(p, new Vector2(side * 0.5f, 0.34f), new Vector2(side * 0.95f, 0.46f)));
+                    }
+
+                    float whiskers = line(whisker, 0.018f, aa);
+                    float dark = Math.Max(outline, whiskers);
+                    colour = Vector3.Lerp(colour, brown, dark);
+                    alpha = Math.Max(alpha, dark);
+
+                    image[x, y] = new Rgba32(colour.X, colour.Y, colour.Z, alpha);
                 }
             }
 

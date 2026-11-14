@@ -136,7 +136,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             public PickerControl()
             {
                 RelativeSizeAxes = Axes.X;
-                Height = 286;
+                Height = 426; // (286 until 2026-11-14: the bosses' part under the bar, 140, is twice as tall - "Double its boss selection part height")
 
                 tiles = BossRoster.All.Select(boss => new Tile(boss, this)).ToArray();
 

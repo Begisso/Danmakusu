@@ -129,6 +129,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>The bullet is drawn turned <see cref="Face"/> all along, whichever way it moves (Yuyuko's petals that fall straight down keep the angle they had on the flower).</summary>
             public bool KeepFace;
 
+            /// <summary>
+            /// The bullet stands at <see cref="P0"/> all its life and nothing moves it (Yoshika's echoes): the hit check passes over it at once when the character is nowhere near (2026-11-14: thousands of echoes
+            /// were looked at closely every frame).
+            /// </summary>
+            public bool Still;
+
             /// <summary>A picture in the bullet's body; when <see cref="FadeIn"/> is above 0 the tint and the picture fade in over that long (ms) from <see cref="T0"/>.</summary>
             public BulletDecal Decal;
 
@@ -144,6 +150,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public double TurnT;
 
             public float TurnOmega;
+
+            /// <summary>
+            /// When above 0 the bullet's speed swells and falls back every this many ms (Benben's notes): from <see cref="PulseLow"/> times the speed of <see cref="V"/> up to <see cref="PulseHigh"/> times it and back, as a
+            /// cosine; it flies the way <see cref="V"/> points, and from <see cref="Switch"/> on (when the act has set it) the way <see cref="V2"/> points.
+            /// </summary>
+            public double PulseMs;
+
+            public float PulseLow, PulseHigh;
 
             /// <summary>When <see cref="ScaleOver"/> is above 0 the bullet (and its hitbox) goes from its own size to <see cref="ScaleTo"/> times that, over <see cref="ScaleOver"/> ms from <see cref="ScaleFrom"/> (Patchouli's fire).</summary>
             public double ScaleFrom;
@@ -448,6 +462,209 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Is a traced stage bullet surely gone at <paramref name="t"/>? (Its own clock is past its life plus every freeze there is: no op keeps it longer than that.)</summary>
         private bool tracedStageBulletGone(in StageBullet bullet, double t, double allFreezes)
             => effects.Effective(bullet.T0, t) > bullet.Until + allFreezes;
+
+        /// <summary>
+        /// What of an act hurts at one moment - runs of points (a beam: every point as far as it reaches there, and the box round the run) - worked out once for that moment and kept until the act's next
+        /// <see cref="StageAct.Update"/>. The autoplay asks an act hundreds of times a frame whether a place hurts, at only a few moments; working all of it out again for every place was what cost
+        /// (Ringo, 14 ms a frame; 2026-11-13). Only the second question about a moment makes the moment: the hit check asks once a frame, and works it out as before.
+        /// </summary>
+        private sealed class MomentShapes
+        {
+            public sealed class Moment
+            {
+                public double Time;
+                public readonly List<Vector2> Points = new List<Vector2>();
+                public readonly List<float> Reaches = new List<float>();
+                public readonly List<(int Start, int Count, Vector2 Min, Vector2 Max)> Runs = new List<(int, int, Vector2, Vector2)>();
+
+                private int runStart = -1;
+
+                /// <summary>
+                /// The next point of the run being made (<see cref="EndRun"/> ends it): the first of a run is touched within its reach, every other along the way from the one before within its own.
+                /// </summary>
+                public void Point(Vector2 point, float reach)
+                {
+                    if (runStart < 0)
+                        runStart = Points.Count;
+
+                    Points.Add(point);
+                    Reaches.Add(reach);
+                }
+
+                public void EndRun()
+                {
+                    if (runStart < 0)
+                        return;
+
+                    Vector2 min = new Vector2(float.PositiveInfinity), max = new Vector2(float.NegativeInfinity);
+
+                    for (int i = runStart; i < Points.Count; i++)
+                    {
+                        Vector2 r = new Vector2(Reaches[i]);
+                        min = Vector2.ComponentMin(min, Points[i] - r);
+                        max = Vector2.ComponentMax(max, Points[i] + r);
+                    }
+
+                    Runs.Add((runStart, Points.Count - runStart, min, max));
+                    runStart = -1;
+                }
+
+                public void Clear(double time)
+                {
+                    Time = time;
+                    Points.Clear();
+                    Reaches.Clear();
+                    Runs.Clear();
+                    runStart = -1;
+                    gridMade = false;
+                }
+
+                // (with many runs, a grid over them: each square lists the runs whose boxes reach into it, so a place is only compared with the runs of its own square)
+                private const float grid_cell = 48f;
+                private const int grid_from_runs = 16;
+                private const int grid_most_cells = 4096;
+
+                private bool gridMade;
+                private Vector2 gridMin;
+                private int columns, rows;
+                private List<int>[] cells = Array.Empty<List<int>>();
+
+                private void makeGrid()
+                {
+                    gridMade = true;
+                    Vector2 min = new Vector2(float.PositiveInfinity), max = new Vector2(float.NegativeInfinity);
+
+                    foreach (var run in Runs)
+                    {
+                        min = Vector2.ComponentMin(min, run.Min);
+                        max = Vector2.ComponentMax(max, run.Max);
+                    }
+
+                    gridMin = min;
+                    columns = Math.Clamp((int)((max.X - min.X) / grid_cell) + 1, 1, 64);
+                    rows = Math.Clamp((int)((max.Y - min.Y) / grid_cell) + 1, 1, grid_most_cells / 64);
+
+                    if (cells.Length < columns * rows)
+                    {
+                        Array.Resize(ref cells, columns * rows);
+
+                        for (int i = 0; i < cells.Length; i++)
+                            cells[i] ??= new List<int>();
+                    }
+
+                    for (int i = 0; i < columns * rows; i++)
+                        cells[i].Clear();
+
+                    for (int r = 0; r < Runs.Count; r++)
+                    {
+                        var run = Runs[r];
+                        int x0 = column(run.Min.X), x1 = column(run.Max.X), y0 = row(run.Min.Y), y1 = row(run.Max.Y);
+
+                        for (int y = y0; y <= y1; y++)
+                        {
+                            for (int x = x0; x <= x1; x++)
+                                cells[y * columns + x].Add(r);
+                        }
+                    }
+                }
+
+                private int column(float x) => Math.Clamp((int)((x - gridMin.X) / grid_cell), 0, columns - 1);
+                private int row(float y) => Math.Clamp((int)((y - gridMin.Y) / grid_cell), 0, rows - 1);
+
+                public bool Touches(Vector2 p)
+                {
+                    if (Runs.Count < grid_from_runs)
+                    {
+                        for (int r = 0; r < Runs.Count; r++)
+                        {
+                            if (touches(r, p))
+                                return true;
+                        }
+
+                        return false;
+                    }
+
+                    if (!gridMade)
+                        makeGrid();
+
+                    // (a place off the grid is off every box; on its edge squares, the box tests in touches still decide)
+                    foreach (int r in cells[row(p.Y) * columns + column(p.X)])
+                    {
+                        if (touches(r, p))
+                            return true;
+                    }
+
+                    return false;
+                }
+
+                private bool touches(int r, Vector2 p)
+                {
+                    var (start, count, min, max) = Runs[r];
+
+                    if (p.X < min.X || p.X > max.X || p.Y < min.Y || p.Y > max.Y)
+                        return false;
+
+                    if (Vector2.Distance(p, Points[start]) <= Reaches[start])
+                        return true;
+
+                    for (int i = start + 1; i < start + count; i++)
+                    {
+                        if (distanceToSegment(p, Points[i - 1], Points[i]) <= Reaches[i])
+                            return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            private const int most_moments = 48;
+
+            private readonly List<Moment> moments = new List<Moment>();
+            private readonly List<double> asked = new List<double>();
+            private int used;
+
+            /// <summary>Everything kept is out of date (the act has moved on).</summary>
+            public void Forget()
+            {
+                used = 0;
+                asked.Clear();
+            }
+
+            /// <summary>The moment <paramref name="t"/> as it is kept, if it is.</summary>
+            public Moment? Kept(double t)
+            {
+                for (int i = 0; i < used; i++)
+                {
+                    if (moments[i].Time == t)
+                        return moments[i];
+                }
+
+                return null;
+            }
+
+            /// <summary>An empty moment <paramref name="t"/> to fill and keep (it is kept as soon as it is handed out) - or null the first time <paramref name="t"/> is asked about: the asker works it out as before.</summary>
+            public Moment? Begin(double t)
+            {
+                if (!asked.Contains(t))
+                {
+                    if (asked.Count >= most_moments * 2)
+                        asked.Clear();
+
+                    asked.Add(t);
+                    return null;
+                }
+
+                if (used == most_moments)
+                    used = 0; // (a frame that asks about this many moments starts over)
+
+                if (used == moments.Count)
+                    moments.Add(new Moment());
+
+                var moment = moments[used++];
+                moment.Clear(t);
+                return moment;
+            }
+        }
 
         private abstract class StageAct
         {
@@ -783,6 +1000,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         }
 
         /// <summary>How much a flashing bullet (Lily White's flowers) glows <paramref name="age"/> ms after it was fired, <paramref name="life"/> ms before it bursts: it pulses sixteen times, brighter towards the end.</summary>
+        /// <summary>How much every bullet glows in the frame being drawn (Remilia's, Saki's, the flash before an attack): the cut pieces glow as much (they are drawn by their act, not the renderer).</summary>
+        private float pieceBloom;
+
         private static float flashBloom(double age, double life)
         {
             float u = (float)Math.Clamp(age / Math.Max(life, 1.0), 0.0, 1.0);
@@ -1551,6 +1771,69 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         // Megumu's beams (that everything turns into stars is BossOps')
                         if (period.End > period.ShootStart)
                             registerStage(new GalaxyAct(period));
+
+                        break;
+
+                    case BossMechanic.Icosahedron:
+                        // Nitori's icosahedron of beams in every attack, what it comes apart into, and her arcs
+                        if (period.End > period.ShootStart && attacks.Exists(a => a.End > a.Start))
+                            registerStage(new IcosahedronAct(period, attacks));
+
+                        break;
+
+                    case BossMechanic.Snowflake:
+                        // Mai's snowflakes, and what they come apart into
+                        if (period.End > period.ShootStart)
+                            registerStage(new SnowflakeAct(period));
+
+                        break;
+
+                    case BossMechanic.Strings:
+                        // Benben's notes (her beams and the copies of the sliders' beams are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new StringsAct(period));
+
+                        break;
+
+                    case BossMechanic.Familiar:
+                        // Ellen's beams between her talismans (the rings are the planner's), and Socrates
+                        if (period.End > period.ShootStart)
+                            registerStage(new FamiliarAct(period));
+
+                        break;
+
+                    case BossMechanic.FallenAngel:
+                        // Matenshi's wings, the feathers that come out of them, and her beams
+                        if (period.End > period.ShootStart)
+                            registerStage(new FallenAngelAct(period));
+
+                        break;
+
+                    case BossMechanic.PipeFox:
+                        // Tsukasa: every tenth bullet comes out of her big balls (the balls and the bouncing beams are the planner's and BossOps')
+                        if (period.End > period.ShootStart)
+                            registerStage(new FoxBallAct(period));
+
+                        break;
+
+                    case BossMechanic.Haniwa:
+                        // Keiki: every fifth bullet that goes out of the screen comes back as a beam (her squares, and the halved, doubled square rings, are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new HaniwaAct(period));
+
+                        break;
+
+                    case BossMechanic.Koto:
+                        // Yatsuhashi's beams, falling where the map's 18-key osu!mania convert has its notes (the notes are the planner's)
+                        if (period.End > period.ShootStart && period.FallingNotes.Count > 0)
+                            registerStage(new KotoAct(period));
+
+                        break;
+
+                    case BossMechanic.Jiangshi:
+                        // Yoshika: Seiga's returning talismans, every fourth, at their own speed, with their copies (her fans of knives are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new NecromancyAct(this, period, period.ShootStart, period.End, echoes: true));
 
                         break;
 
@@ -2517,6 +2800,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (b.A <= 0f && b.TurnT > 0)
                 return turnedPoint(b, t, out _);
 
+            if (b.A <= 0f && b.PulseMs > 0)
+                return pulsedPoint(b, t);
+
             if (b.A <= 0f && b.Switch > 0 && t > b.Switch)
             {
                 float first = (float)(b.Switch - b.T0);
@@ -2557,6 +2843,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             Vector2 velocity = (orbitPoint(b, b.Release + 1) - orbitPoint(b, b.Release - 1)) * 0.5f;
             return orbitPoint(b, b.Release) + velocity * (float)(t - b.Release);
+        }
+
+        /// <summary>How far a bullet whose speed pulses (<see cref="StageBullet.PulseMs"/>) has flown <paramref name="age"/> ms after it set off: the speed of its V times the integral of the swelling factor.</summary>
+        private static double pulsedFlown(in StageBullet b, double age)
+        {
+            age = Math.Max(age, 0);
+            double w = Math.Tau / b.PulseMs;
+            return b.V.Length * (b.PulseLow * age + (b.PulseHigh - b.PulseLow) * 0.5 * (age - Math.Sin(w * age) / w));
+        }
+
+        /// <summary>Where a bullet whose speed pulses is at <paramref name="t"/>: along V, and from the switch on along V2.</summary>
+        private static Vector2 pulsedPoint(in StageBullet b, double t)
+        {
+            float speed = b.V.Length;
+            Vector2 way = speed > 1e-9f ? b.V / speed : Vector2.UnitX;
+
+            if (b.Switch > 0 && t > b.Switch && b.V2.LengthSquared > 1e-12f)
+            {
+                double before = pulsedFlown(b, b.Switch - b.T0);
+                Vector2 turned = b.P0 + way * (float)before;
+                return turned + Vector2.Normalize(b.V2) * (float)(pulsedFlown(b, t - b.T0) - before);
+            }
+
+            return b.P0 + way * (float)pulsedFlown(b, t - b.T0);
         }
 
         /// <summary>Which way a bullet that turns by itself points at <paramref name="t"/> (see <see cref="StageBullet.Spin"/>).</summary>
@@ -2639,6 +2949,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 turnedPoint(b, t, out Vector2 turned);
                 return turned;
+            }
+
+            if (b.A <= 0f && b.PulseMs > 0)
+            {
+                // (the swelling speed, the way it flies then)
+                double age = Math.Max(t - b.T0, 0);
+                float factor = b.PulseLow + (b.PulseHigh - b.PulseLow) * 0.5f * (1f - MathF.Cos((float)(Math.Tau * age / b.PulseMs)));
+                Vector2 way = b.Switch > 0 && t > b.Switch && b.V2.LengthSquared > 1e-12f ? Vector2.Normalize(b.V2) : b.V.LengthSquared > 1e-12f ? Vector2.Normalize(b.V) : Vector2.UnitX;
+                return way * (b.V.Length * factor);
             }
 
             if (b.A <= 0f && b.Switch > 0 && t > b.Switch)
@@ -2926,6 +3245,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (bullet.Slider || bullet.Harmless || t1 < bullet.T0 || t1 < bullet.GhostUntil || t0 > bullet.Until + (traced ? slack : 0))
                         continue;
 
+                    // (one that stands still and is nowhere near the way the character went: passed over at once - Shinmyoumaru makes things up to half as big again, the margin covers twice that)
+                    if (bullet.Still && !traced && distanceToSegment(bullet.P0, p0, p1) > bullet.Hit * 3f + DanmakusuBalance.PLAYER_HITBOX_RADIUS + 4f)
+                        continue;
+
                     int key = act.Id * 65536 + i;
 
                     if (stageConsumed.Contains(key))
@@ -3200,6 +3523,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.Purification: // Junko never leaves the middle
                 case BossMechanic.Anchors: // nor does Murasa
                 case BossMechanic.Pagoda: // Shou stands in the middle of her cross
+                case BossMechanic.FallenAngel: // Matenshi too, with her wings
                     return true;
 
                 case BossMechanic.Unknown:

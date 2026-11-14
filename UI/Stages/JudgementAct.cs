@@ -104,6 +104,31 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return position;
             }
 
+            /// <summary>
+            /// Where the character would be held at <paramref name="t"/> if it tried to be at <paramref name="position"/> - as <see cref="Limit"/>, but only by circles already placed, and placing none: the
+            /// autoplay asks this for the places it looks at, so that it sees where it would really end up (2026-11-14: it walked to places outside the circles, was held on their border, and was hit there).
+            /// </summary>
+            public Vector2 Held(BulletField f, Vector2 position, double t)
+            {
+                for (int k = 0; k < attacks.Count; k++)
+                {
+                    var (start, end) = attacks[k];
+
+                    if (end <= start || t < start || t >= end || !known[k])
+                        continue;
+
+                    Vector2 away = position - centres[k], awayMirror = position - mirrors[k];
+                    float reach = radius(f);
+
+                    if (away.LengthSquared <= reach * reach || awayMirror.LengthSquared <= reach * reach)
+                        return position;
+
+                    return away.LengthSquared <= awayMirror.LengthSquared ? centres[k] + Vector2.Normalize(away) * reach : mirrors[k] + Vector2.Normalize(awayMirror) * reach;
+                }
+
+                return position;
+            }
+
             public override void Dims(BulletField f, double t, List<StageDim> into)
             {
                 int k = circleAt(t);

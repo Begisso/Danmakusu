@@ -66,6 +66,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 case BulletShape.Maple:
                     return PolygonShape.SegmentDistance(a, b, DanmakusuBalance.MAPLE, size) <= playerRadius;
 
+                case BulletShape.Note:
+                    return PolygonShape.SegmentDistance(a, b, DanmakusuBalance.NOTE, size) <= playerRadius;
+
+                case BulletShape.Feather:
+                    return PolygonShape.SegmentDistance(a, b, DanmakusuBalance.FEATHER, size) <= playerRadius;
+
                 case BulletShape.Slice:
                     return PolygonShape.SegmentDistance(a, b, DanmakusuBalance.SLICE, size) <= playerRadius;
 
@@ -107,6 +113,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 case BulletShape.Maple:
                     return polygonReach(DanmakusuBalance.MAPLE, size, seen);
+
+                case BulletShape.Note:
+                    return polygonReach(DanmakusuBalance.NOTE, size, seen);
+
+                case BulletShape.Feather:
+                    return polygonReach(DanmakusuBalance.FEATHER, size, seen);
 
                 default:
                     return size;

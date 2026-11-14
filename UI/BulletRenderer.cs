@@ -220,7 +220,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private int sheetStyles;
         private int sheetBase; // the rows of the palette; the special colours (TINT_) are the rows after them
         private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, trainTexture, snowflakeTexture, haloTexture; // pictures that are drawn as they are (Resources/Textures); null if missing
-        private Texture? smileTexture, skullTexture;
+        private Texture? smileTexture, skullTexture, featherTexture;
         private Texture? cloudTexture, flashTexture;
         private CloudSprite[] clouds = new CloudSprite[64];
         private int cloudCount;
@@ -281,7 +281,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private const int petal_x = heart_x + triangle_cell + cell_gap * 2;
         private const int slice_x = petal_x + triangle_cell + cell_gap * 2;
         private const int maple_x = slice_x + triangle_cell + cell_gap * 2;
-        private const int sheet_width = maple_x + triangle_cell + cell_gap;
+        private const int note_x = maple_x + triangle_cell + cell_gap * 2;
+        private const int feather_x = note_x + triangle_cell + cell_gap * 2;
+        private const int sheet_width = feather_x + triangle_cell + cell_gap;
 
         public BulletRenderer()
         {
@@ -299,6 +301,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             knifeYellowTexture = blueKnife(renderer, true);
             haloTexture = createTexture(renderer, true); // (the soft light of the bloom)
             trainTexture = BossCharacter.LoadResource(renderer, "Textures.train.png");
+            featherTexture = BossCharacter.LoadResource(renderer, "Textures.matenshi_feather.png"); // (Matenshi's feathers: the user's picture)
             snowflakeTexture = BossCharacter.LoadResource(renderer, "Textures.snowflake.png");
             smileTexture = BossCharacter.LoadResource(renderer, "Textures.smile.png");
             skullTexture = BossCharacter.LoadResource(renderer, "Textures.skull_decal.png");
@@ -358,6 +361,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bakePolygon(image, petalField!, petal_x, top, border, body, glow);
                 bakePolygon(image, sliceField!, slice_x, top, border, body, glow);
                 bakePolygon(image, mapleField!, maple_x, top, border, body, glow);
+                bakePolygon(image, noteField!, note_x, top, border, body, glow);
+                bakePolygon(image, featherField!, feather_x, top, border, body, glow);
                 SoftStar.Bake(image, soft_star_x, top, body);
             }
 
@@ -419,7 +424,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private static Image<Rgba32> makeSoft(Image<Rgba32> sharp, int styles)
         {
             var soft = new Image<Rgba32>(sharp.Width, sharp.Height);
-            var cells = new (int X, int Size)[] { (circle_x, circle_cell), (triangle_x, triangle_cell), (star_x, triangle_cell), (soft_star_x, SoftStar.CELL), (heart_x, triangle_cell), (petal_x, triangle_cell), (slice_x, triangle_cell), (maple_x, triangle_cell) };
+            var cells = new (int X, int Size)[] { (circle_x, circle_cell), (triangle_x, triangle_cell), (star_x, triangle_cell), (soft_star_x, SoftStar.CELL), (heart_x, triangle_cell), (petal_x, triangle_cell), (slice_x, triangle_cell), (maple_x, triangle_cell), (note_x, triangle_cell), (feather_x, triangle_cell) };
 
             for (int style = 0; style < styles; style++)
             {
@@ -478,9 +483,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private static PolygonField? petalField;
         private static PolygonField? sliceField;
         private static PolygonField? mapleField;
+        private static PolygonField? noteField;
+        private static PolygonField? featherField;
 
         private static void ensureFields()
         {
+            noteField ??= createField(DanmakusuBalance.NOTE);
+            featherField ??= createField(DanmakusuBalance.FEATHER);
             arrowheadField ??= createField(DanmakusuBalance.ARROWHEAD);
             starField ??= createField(DanmakusuBalance.STAR);
             heartField ??= createField(DanmakusuBalance.HEART);
@@ -540,6 +549,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 BulletShape.Heart => new RectangleF(heart_x, top, triangle_cell, triangle_cell),
                 BulletShape.Petal => new RectangleF(petal_x, top, triangle_cell, triangle_cell),
                 BulletShape.Maple => new RectangleF(maple_x, top, triangle_cell, triangle_cell),
+                BulletShape.Note => new RectangleF(note_x, top, triangle_cell, triangle_cell),
+                BulletShape.Feather => new RectangleF(feather_x, top, triangle_cell, triangle_cell),
                 BulletShape.Slice => new RectangleF(slice_x, top, triangle_cell, triangle_cell),
                 _ => new RectangleF(circle_x, top, circle_cell, circle_cell),
             };
@@ -687,7 +698,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private Texture? softSheet;
             private int sheetStyles;
             private int sheetBase;
-            private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, haloTexture, trainTexture, snowflakeTexture, talismanBack, talismanLines, smileTexture, skullTexture;
+            private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, haloTexture, trainTexture, snowflakeTexture, talismanBack, talismanLines, smileTexture, skullTexture, featherTexture;
             private Color4[] bodyColours = [];
             private Vector2[] drawPoints = new Vector2[1024];
             private float[] drawWidths = new float[1024];
@@ -720,6 +731,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 sheetStyles = Source.sheetStyles;
                 sheetBase = Source.sheetBase;
                 knifeTexture = Source.knifeTexture;
+                featherTexture = Source.featherTexture;
                 knifeRedTexture = Source.knifeRedTexture;
                 knifeBlueTexture = Source.knifeBlueTexture;
                 knifeYellowTexture = Source.knifeYellowTexture;
@@ -1068,7 +1080,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return;
                 }
 
-                if (b.Shape is BulletShape.Knife or BulletShape.Train)
+                if (b.Shape is BulletShape.Knife or BulletShape.Train || (b.Shape == BulletShape.Feather && featherTexture != null))
                 {
                     drawPicture(renderer, b, bright, alpha);
                     return;
@@ -1145,6 +1157,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private static readonly float heartInside = insideOf(DanmakusuBalance.HEART);
             private static readonly float petalInside = insideOf(DanmakusuBalance.PETAL);
             private static readonly float mapleInside = insideOf(DanmakusuBalance.MAPLE);
+            private static readonly float noteInside = insideOf(DanmakusuBalance.NOTE);
+            private static readonly float featherInside = insideOf(DanmakusuBalance.FEATHER);
             private static readonly float sliceInside = insideOf(DanmakusuBalance.SLICE);
 
             /// <summary>The radius of the biggest disc that fits into a bullet's body, as a fraction of the body of a round bullet (the shapes are smaller than their cell).</summary>
@@ -1157,6 +1171,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 BulletShape.Heart => heartInside,
                 BulletShape.Petal => petalInside,
                 BulletShape.Maple => mapleInside,
+                BulletShape.Note => noteInside,
+                BulletShape.Feather => featherInside,
                 BulletShape.Slice => sliceInside,
                 _ => 0.4f,
             };
@@ -1246,9 +1262,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private void drawPicture(IRenderer renderer, BulletInstance b, float bright, float alpha)
             {
                 bool train = b.Shape == BulletShape.Train;
-                Texture? picture = train ? trainTexture : b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.YellowHandle && knifeYellowTexture != null ? knifeYellowTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
-                float along = b.Radius * (train ? DanmakusuBalance.TRAIN_LENGTH_FACTOR : DanmakusuBalance.KNIFE_LENGTH_FACTOR * (b.Stretch > 0f ? b.Stretch : 1f));
-                float across = along * (train ? DanmakusuBalance.TRAIN_ASPECT : DanmakusuBalance.KNIFE_ASPECT);
+                bool feather = b.Shape == BulletShape.Feather; // (Matenshi's: the user's picture, as long as its outline)
+                Texture? picture = train ? trainTexture : feather ? featherTexture : b.BlueHandle && knifeBlueTexture != null ? knifeBlueTexture : b.YellowHandle && knifeYellowTexture != null ? knifeYellowTexture : b.RedHandle && knifeRedTexture != null ? knifeRedTexture : knifeTexture;
+                float along = feather ? b.Radius * DanmakusuBalance.FEATHER_PICTURE_HALF : b.Radius * (train ? DanmakusuBalance.TRAIN_LENGTH_FACTOR : DanmakusuBalance.KNIFE_LENGTH_FACTOR * (b.Stretch > 0f ? b.Stretch : 1f));
+                float across = along * (train ? DanmakusuBalance.TRAIN_ASPECT : feather ? DanmakusuBalance.FEATHER_ASPECT : DanmakusuBalance.KNIFE_ASPECT);
 
                 if (b.Direction.X < 0f)
                     across = -across; // (turned over, so the picture stays the right way up)
@@ -1271,7 +1288,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 var pictureCoords = new RectangleF(0, 0, picture.DisplayWidth, picture.DisplayHeight);
 
-                if (!train && b.Blades > 1)
+                if (!train && !feather && b.Blades > 1)
                 {
                     // a knife with more blades: every blade is a knife of its own, all of them start at the handle end of the first one
                     for (int blade = 0; blade < b.Blades; blade++)

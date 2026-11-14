@@ -71,7 +71,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.TimeStop] = 4, // Sakuya
             [BossMechanic.Unconscious] = 4, // Koishi
             [BossMechanic.SevenElements] = 4, // Patchouli
-            [BossMechanic.Recollection] = 4, // Satori
+            [BossMechanic.Recollection] = 5, // Satori (4 until 2026-11-13: her trail behind the player)
             [BossMechanic.Death] = 4, // Zanmu
             [BossMechanic.Scrolls] = 4, // Byakuren
             [BossMechanic.Dream] = 4, // Doremy
@@ -102,6 +102,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Pagoda] = 3, // Shou (4 until her cross turned half as fast, 2026-11-13)
             [BossMechanic.Constellation] = 3, // Eirin
             [BossMechanic.Galaxy] = 5, // Megumu
+            [BossMechanic.Icosahedron] = 5, // Nitori
+            [BossMechanic.Snowflake] = 4, // Mai
+            [BossMechanic.Strings] = 4, // Benben
+            [BossMechanic.Familiar] = 3, // Ellen
+            [BossMechanic.Jiangshi] = 3, // Yoshika
+            [BossMechanic.FallenAngel] = 4, // Matenshi (3 until 2026-11-14: her wings hurt, beams twice as often and two at a time)
+            [BossMechanic.Koto] = 4, // Yatsuhashi
+            [BossMechanic.Haniwa] = 4, // Keiki
+            [BossMechanic.PipeFox] = 3, // Tsukasa
             [BossMechanic.Poltergeist] = 3, // Kana Anaberal
             [BossMechanic.Metamorphosis] = 3, // Eternity Larva
 

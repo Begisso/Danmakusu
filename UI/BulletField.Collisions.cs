@@ -47,7 +47,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (laser.BeamFinished[beam])
                         continue;
 
-                    int n = laser.GetPoints(now, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer);
+                    int n = beamPoints(i, beam, now, true); // (kept for the drawing, at the same moment)
 
                     // a ripple that is going over the beam makes it fatter there, and so does smoke
                     if ((stageRippleCount > 0 || stageSmokeCount > 0 || sukunaLevel > 0f) && !laser.KeepsSize)

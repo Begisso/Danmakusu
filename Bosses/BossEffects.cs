@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Danmakusu.Bullets;
@@ -13,6 +13,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
     /// Mystia (<see cref="BossMechanic.Blindness"/>) is the first: every attack of hers (a laser burst's time - or a whole spinner) halves all bullet speeds and turns
     /// the flashlight on; the pauses between the attacks restore both. In a kiai section the circle of sight is 4x the radius of an osu! circle for the first attack,
     /// then 3x, then 2x, then 4x again and so on; in a break or a spinner it is always 4x, and such a section starts the kiai count over.
+    /// The windows of different bosses in one section overlap and their speeds multiply (Saki's speeding up and Mystia's slowing down both count); the flashlight goes by Mystia's windows alone.
     /// </summary>
     public sealed class BossEffects
     {
@@ -27,47 +28,98 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         private const float other_sight = 4f;
 
-        public static readonly BossEffects None = new BossEffects(new List<(double, double, float, double, double)>());
+        public static readonly BossEffects None = new BossEffects(new List<(double, double, float, double, double, int)>());
 
+        // (the clock: pieces of time in which the speed of every bullet goes evenly from the first to the second, in order, not overlapping; outside them it is 1)
         private readonly double[] starts;
         private readonly double[] ends;
-        private readonly float[] sights; // (0: no flashlight in this window, only the speed)
-        private readonly double[] speedsFrom, speedsTo; // (the speed of every bullet goes evenly from the first to the second over the window)
-        private readonly double[] removedBefore; // the time that the windows before window i took away in total (negative where they sped the bullets up)
+        private readonly double[] speedsFrom, speedsTo;
+        private readonly double[] removedBefore; // the time that the pieces before piece i took away in total (negative where they sped the bullets up)
 
-        private BossEffects(List<(double start, double end, float sight, double speedFrom, double speedTo)> windows)
+        // (the flashlight: Mystia's windows, with the radius of sight of each)
+        private readonly double[] lightStarts;
+        private readonly double[] lightEnds;
+        private readonly float[] lightSights;
+
+        /// <summary>
+        /// The windows of every boss (<paramref name="windows"/>: each with the boss it is of, <c>source</c>). The windows of one boss do not overlap (a later one starts where the one before ended); the windows of
+        /// different bosses do, and where they do their speeds multiply (2026-11-14: Saki's windows cover all of her section, attacks and pauses, and used to hide Mystia's - her flashlight and her slowing never
+        /// came in a section they shared). Over a piece of time where more than one is on, the speed goes evenly from what they make together at its start to what they make together at its end.
+        /// </summary>
+        private BossEffects(List<(double start, double end, float sight, double speedFrom, double speedTo, int source)> windows)
         {
-            windows.Sort((a, b) => a.start.CompareTo(b.start));
+            // (one boss's windows: in order, none overlapping the one before)
+            var cleaned = new List<(double Start, double End, float Sight, double From, double To)>();
+
+            foreach (var group in windows.GroupBy(window => window.source))
+            {
+                double previousEnd = double.NegativeInfinity;
+
+                foreach (var (start, end, sight, speedFrom, speedTo, _) in group.OrderBy(window => window.start))
+                {
+                    double from = Math.Max(start, previousEnd);
+
+                    if (end <= from)
+                        continue;
+
+                    // (cut at its start: the speed it has there, so that it still ends at its own)
+                    double cutFrom = end > start ? speedFrom + (speedTo - speedFrom) * (from - start) / (end - start) : speedFrom;
+                    cleaned.Add((from, end, sight, cutFrom, speedTo));
+                    previousEnd = end;
+                }
+            }
+
+            var light = cleaned.Where(window => window.Sight > 0f).OrderBy(window => window.Start).ToList();
+            lightStarts = light.Select(window => window.Start).ToArray();
+            lightEnds = light.Select(window => window.End).ToArray();
+            lightSights = light.Select(window => window.Sight).ToArray();
+
+            // (the pieces of the clock: between every two neighbouring starts or ends of any window, the speeds of all the windows that are on there, multiplied)
+            var marks = cleaned.SelectMany(window => new[] { window.Start, window.End }).Distinct().OrderBy(time => time).ToArray();
+            var ordered = cleaned.OrderBy(window => window.Start).ToList();
 
             var s = new List<double>();
             var e = new List<double>();
-            var f = new List<float>();
             var a = new List<double>();
             var b = new List<double>();
             var removed = new List<double>();
             double total = 0;
-            double previousEnd = double.NegativeInfinity;
 
-            foreach (var (start, end, sight, speedFrom, speedTo) in windows)
+            static double speedAt((double Start, double End, float Sight, double From, double To) window, double time)
+                => window.End > window.Start ? window.From + (window.To - window.From) * Math.Clamp((time - window.Start) / (window.End - window.Start), 0, 1) : window.From;
+
+            for (int m = 0; m + 1 < marks.Length; m++)
             {
-                double from = Math.Max(start, previousEnd);
+                double from = marks[m], to = marks[m + 1];
+                double speedFrom = 1, speedTo = 1;
+                bool any = false;
 
-                if (end <= from)
+                foreach (var window in ordered)
+                {
+                    if (window.Start > from)
+                        break;
+
+                    if (window.End < to)
+                        continue;
+
+                    any = true;
+                    speedFrom *= speedAt(window, from);
+                    speedTo *= speedAt(window, to);
+                }
+
+                if (!any)
                     continue;
 
                 s.Add(from);
-                e.Add(end);
-                f.Add(sight);
+                e.Add(to);
                 a.Add(speedFrom);
                 b.Add(speedTo);
                 removed.Add(total);
-                total += (end - from) * (1 - (speedFrom + speedTo) / 2);
-                previousEnd = end;
+                total += (to - from) * (1 - (speedFrom + speedTo) / 2);
             }
 
             starts = s.ToArray();
             ends = e.ToArray();
-            sights = f.ToArray();
             speedsFrom = a.ToArray();
             speedsTo = b.ToArray();
             removedBefore = removed.ToArray();
@@ -116,20 +168,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             sight = 0;
             strength = 0;
 
-            int index = windowAtOrBefore(now);
+            int index = atOrBefore(lightStarts, now);
 
-            // (a window without a flashlight - Gengetsu's - hides the one before it: they do not overlap, so that is only its fade-out)
-            if (index < 0 || now > ends[index] + FLASHLIGHT_FADE_MS || sights[index] <= 0f)
+            if (index < 0 || now > lightEnds[index] + FLASHLIGHT_FADE_MS)
                 return false;
 
-            double fadeIn = (now - starts[index]) / FLASHLIGHT_FADE_MS;
-            double fadeOut = (ends[index] + FLASHLIGHT_FADE_MS - now) / FLASHLIGHT_FADE_MS;
+            double fadeIn = (now - lightStarts[index]) / FLASHLIGHT_FADE_MS;
+            double fadeOut = (lightEnds[index] + FLASHLIGHT_FADE_MS - now) / FLASHLIGHT_FADE_MS;
             strength = (float)Math.Clamp(Math.Min(fadeIn, fadeOut), 0, 1);
-            sight = sights[index];
+            sight = lightSights[index];
             return strength > 0;
         }
 
-        private int windowAtOrBefore(double time)
+        private int windowAtOrBefore(double time) => atOrBefore(starts, time);
+
+        private static int atOrBefore(double[] starts, double time)
         {
             int lo = 0, hi = starts.Length - 1, found = -1;
 
@@ -151,8 +204,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         public static BossEffects Build(IEnumerable<BossPeriod> bosses)
         {
-            var windows = new List<(double start, double end, float sight, double speedFrom, double speedTo)>();
-            var stops = new List<(double start, double end, float sight, double speedFrom, double speedTo)>(); // (Utsuho's: her big balls do not stop)
+            var windows = new List<(double start, double end, float sight, double speedFrom, double speedTo, int source)>();
+            var stops = new List<(double start, double end, float sight, double speedFrom, double speedTo, int source)>(); // (Utsuho's: her big balls do not stop)
             int kiaiAttacks = 0;
 
             foreach (var period in bosses.OrderBy(p => p.ShootStart))
@@ -163,7 +216,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                     foreach (var (start, end) in BossOps.Attacks(period))
                     {
                         if (end > start)
-                            windows.Add((start, end, 0f, 1.0, DanmakusuBalance.GENGETSU_SPEED_UP));
+                            windows.Add((start, end, 0f, 1.0, DanmakusuBalance.GENGETSU_SPEED_UP, (int)BossMechanic.Haste));
                     }
 
                     continue;
@@ -178,8 +231,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                     {
                         double slowed = i + 1 < hers.Count ? hers[i + 1].Start : hers[i].End + Math.Max(period.BeatLength, 1) * DanmakusuBalance.BOSS_LASER_PAUSE_BEATS;
 
-                        windows.Add((hers[i].Start, hers[i].End, 0f, 1.0, DanmakusuBalance.SAKI_SPEED_UP));
-                        windows.Add((hers[i].End, slowed, 0f, DanmakusuBalance.SAKI_SPEED_UP, 1.0));
+                        windows.Add((hers[i].Start, hers[i].End, 0f, 1.0, DanmakusuBalance.SAKI_SPEED_UP, (int)BossMechanic.Stampede));
+                        windows.Add((hers[i].End, slowed, 0f, DanmakusuBalance.SAKI_SPEED_UP, 1.0, (int)BossMechanic.Stampede));
                     }
 
                     continue;
@@ -197,9 +250,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                         double stopFrom = BossOps.UtsuhoStopFrom(period, start);
                         double pull = start + DanmakusuBalance.UTSUHO_PULL_DELAY_MS;
 
-                        stops.Add((stopFrom, start, 0f, 1.0, 0.0));
-                        stops.Add((start, pull, 0f, 0.0, 0.0));
-                        stops.Add((pull, pull + DanmakusuBalance.UTSUHO_RESUME_MS, 0f, 0.0, 1.0));
+                        stops.Add((stopFrom, start, 0f, 1.0, 0.0, (int)BossMechanic.Nuclear));
+                        stops.Add((start, pull, 0f, 0.0, 0.0, (int)BossMechanic.Nuclear));
+                        stops.Add((pull, pull + DanmakusuBalance.UTSUHO_RESUME_MS, 0f, 0.0, 1.0, (int)BossMechanic.Nuclear));
                     }
 
                     continue;
@@ -217,14 +270,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                 for (int i = 0; i < attacks; i++)
                 {
                     float sight = period.Kind == BossKind.Kiai ? kiai_sight[kiaiAttacks++ % kiai_sight.Length] : other_sight;
-                    windows.Add((period.LaserStarts[i], period.LaserEnds[i], sight, SLOWED_SPEED, SLOWED_SPEED));
+                    windows.Add((period.LaserStarts[i], period.LaserEnds[i], sight, SLOWED_SPEED, SLOWED_SPEED, (int)BossMechanic.Blindness));
                 }
             }
 
             if (stops.Count == 0)
                 return new BossEffects(windows);
 
-            var all = new List<(double start, double end, float sight, double speedFrom, double speedTo)>(windows);
+            var all = new List<(double start, double end, float sight, double speedFrom, double speedTo, int source)>(windows);
             all.AddRange(stops);
 
             return new BossEffects(all) { unstopped = new BossEffects(windows) };

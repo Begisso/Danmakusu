@@ -12,7 +12,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Soga no Tojiko: heavy thunderclouds hang along the top of the dark grey screen, over the lightning and the rain and under every other bullet, and flash where a bolt starts as it drops. Every bullet that goes out of the top falls back from there as an ellipse half its size, at half of Zanmu's pull, twice as bright and never dim, and a second one
         // from somewhere else along the top. Every two beats a bolt of lightning (a zigzag of a beam that glows, light blue while it is see-through and white once it is solid, drawn in one piece with its branches, with stretches of every length at about one angle and small kinks all along it, and thin, fainter branches that end in narrow tips, with smaller branches off those) grows from the top to the bottom in one beat; it is see-through and harmless for four beats, then solid for four, half again as thick, hurting like a slider body, and goes the way it came in one beat.
-        // Bullets near a bolt that is solid are dim; every second bolt thunders, heard only while it is solid (the thunder fades out as it stops hurting). As a bolt turns solid five bullets of its colour, half a plain bullet's size and never dim, fly back from where it ends (or leaves the playfield), spread over 120 degrees. She shoots lightning too: every four beats of an attack a bolt grows from her at where the player is then, and stays that way. In a spinner the clouds are in the middle of the
+        // Bullets near a bolt that is solid are dim; every second bolt thunders, heard only while it is solid (the thunder fades out as it stops hurting). As a bolt turns solid five bullets of its colour, half a plain bullet's size and never dim, fly back from where it ends (or leaves the playfield), spread over 120 degrees. She shoots lightning too: every four beats of an attack a bolt grows from her at where the player is then, and stays that way; it is see-through and harmless for four beats first, as every bolt is. In a spinner the clouds are in the middle of the
         // screen, and the ellipses and bolts go from there outwards. The bolts are worked out from their number, so a replay and a seek give the same.
         // ======================================================================================================================================================
 
@@ -21,7 +21,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private sealed class Bolt
             {
                 public double Time;
-                public bool Aimed; // (hers: no see-through time)
+                public bool Aimed; // (hers: from her at the player; see-through for as long as the others first, since 2026-11-14 - they struck at once before)
                 public bool Struck; // (it has turned solid: its thunder has been heard, its bullets thrown)
                 public bool Thunders; // (every second bolt is heard)
                 public SampleChannel? Thunder; // (its thunder while it plays: it is heard only while the bolt is solid)
@@ -68,7 +68,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private double growMs => beat * DanmakusuBalance.TOJIKO_GROW_BEATS;
 
-            private double ghostMs(Bolt bolt) => bolt.Aimed ? 0 : beat * DanmakusuBalance.TOJIKO_GHOST_BEATS;
+            private double ghostMs(Bolt bolt) => beat * DanmakusuBalance.TOJIKO_GHOST_BEATS; // (every bolt warns for the same time, hers too: "some lightnings become active instantly", the user, 2026-11-14)
 
             private double solidMs(Bolt bolt) => beat * (bolt.Aimed ? DanmakusuBalance.TOJIKO_HER_SOLID_BEATS : DanmakusuBalance.TOJIKO_SOLID_BEATS);
 

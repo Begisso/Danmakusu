@@ -31,6 +31,66 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Beams are only checked for being gone this often (game time), and only once the slider is over.</summary>
         private const double finish_check_interval_ms = 200;
 
+        // (the points of the beams as the hit check worked them out this frame, as they came out of GetPoints: drawing them at the same moment takes them from here instead of working them out a second time.
+        // With beams that the bosses steer - Eiki, Shion, Youmu, Mima, Zanmu - working them out is what costs, 2-6 ms a frame twice over; 2026-11-13)
+        private double keptBeamTime = double.NaN;
+        private readonly Dictionary<long, (int Start, int Count)> keptBeams = new Dictionary<long, (int, int)>();
+        private Vector2[] keptBeamPoints = new Vector2[1024];
+        private float[] keptBeamWidths = new float[1024];
+        private float[] keptBeamDistances = new float[1024];
+        private BulletLook?[] keptBeamLooks = new BulletLook?[1024];
+        private int keptBeamUsed;
+
+        /// <summary>
+        /// The points of beam <paramref name="beam"/> of laser <paramref name="index"/> at <paramref name="time"/> into the laser buffers, as <see cref="LaserEmitter.GetPoints"/> gives them - taken from what this
+        /// frame's hit check kept, if it worked them out for the same moment; <paramref name="keep"/>: kept for the drawing.
+        /// </summary>
+        private int beamPoints(int index, int beam, double time, bool keep)
+        {
+            long key = ((long)index << 16) | (uint)beam;
+
+            if (time == keptBeamTime && keptBeams.TryGetValue(key, out var kept))
+            {
+                Array.Copy(keptBeamPoints, kept.Start, laserBuffer, 0, kept.Count);
+                Array.Copy(keptBeamWidths, kept.Start, laserWidthBuffer, 0, kept.Count);
+                Array.Copy(keptBeamDistances, kept.Start, laserDistanceBuffer, 0, kept.Count);
+                Array.Copy(keptBeamLooks, kept.Start, laserLookBuffer, 0, kept.Count);
+                return kept.Count;
+            }
+
+            int n = lasers[index].GetPoints(time, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer);
+
+            if (!keep)
+                return n;
+
+            if (time != keptBeamTime)
+            {
+                keptBeams.Clear();
+                keptBeamUsed = 0;
+                keptBeamTime = time;
+            }
+
+            if (keptBeamUsed + n > keptBeamPoints.Length)
+            {
+                int size = Math.Max(keptBeamUsed + n, keptBeamPoints.Length * 2);
+                Array.Resize(ref keptBeamPoints, size);
+                Array.Resize(ref keptBeamWidths, size);
+                Array.Resize(ref keptBeamDistances, size);
+                Array.Resize(ref keptBeamLooks, size);
+            }
+
+            Array.Copy(laserBuffer, 0, keptBeamPoints, keptBeamUsed, n);
+            Array.Copy(laserWidthBuffer, 0, keptBeamWidths, keptBeamUsed, n);
+            Array.Copy(laserDistanceBuffer, 0, keptBeamDistances, keptBeamUsed, n);
+            Array.Copy(laserLookBuffer, 0, keptBeamLooks, keptBeamUsed, n);
+            keptBeams[key] = (keptBeamUsed, n);
+            keptBeamUsed += n;
+            return n;
+        }
+
+        /// <summary>What the hit check kept of the beams is out of date (a beam was changed after it: the window was resized, or a beam made to last longer).</summary>
+        private void forgetKeptBeams() => keptBeamTime = double.NaN;
+
         /// <summary>
         /// Feeds the beams of all lasers that are alive to the renderer. A beam is a polyline with few points (straight parts are single
         /// segments); only the segments that touch the screen are handed over. Beams that are over and flying away from the screen are
@@ -79,7 +139,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!failed && laser.BeamFinished[beam])
                         continue;
 
-                    int n = laser.GetPoints(drawTime, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer);
+                    int n = failed ? laser.GetPoints(drawTime, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer) : beamPoints(i, beam, drawTime, false);
 
                     if (ProfileTicks != null)
                     {
@@ -433,7 +493,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private int beamPieces;
 
         /// <summary>A beam through <paramref name="points"/>, <paramref name="halfWidth"/> wide everywhere (or <paramref name="widths"/> at each point, at most that), that glows like a boss's beam (the beams behind Sekibanki's heads).</summary>
-        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null)
+        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null)
         {
             int length = points.Count;
 
@@ -460,7 +520,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Array.Fill(laserWidthPointBuffer, halfWidth, pointTotal, length);
 
             Array.Clear(laserDistancePointBuffer, pointTotal, length);
-            Array.Fill(laserFadePointBuffer, 1f, pointTotal, length);
+
+            // (how visible every point is: Satori's trail is see-through where it does not hurt yet, and fades out)
+            if (fades != null)
+                fades.CopyTo(0, laserFadePointBuffer, pointTotal, length);
+            else
+                Array.Fill(laserFadePointBuffer, 1f, pointTotal, length);
 
             laserInstances[beams++] = new LaserInstance
             {

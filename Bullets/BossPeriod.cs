@@ -95,8 +95,22 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Ringo: the numbers of the threes of her attacks (every ring fired in them and the two copies right behind it, see <see cref="BulletEmitter.SkewerId"/>; filled by the planner): every fourth of their threes is joined by a beam.</summary>
         public System.Collections.Generic.List<int> Skewers { get; } = new System.Collections.Generic.List<int>();
 
+        /// <summary>
+        /// Yatsuhashi: the notes of an 18-key osu!mania convert of the map that fall in her section (filled by the planner, see <see cref="ManiaNotes"/>): the lane, when the note is (its beam reaches the bottom of the
+        /// screen then) and when it ends (a held note's end; the note's time for a tap).
+        /// </summary>
+        public System.Collections.Generic.List<(int Column, double Start, double End)> FallingNotes { get; } = new System.Collections.Generic.List<(int Column, double Start, double End)>();
+
         /// <summary>The section after the last one, where a boss that cannot die (Mokou) comes back until the map ends.</summary>
         public bool Revival { get; init; }
+
+        /// <summary>
+        /// How wide a spinner's beam is on this map (see BulletPlanner.addRotatingLaser): its half width at its widest before the peak factor (by the OD), and where its slices are fired (an osu! circle's radius).
+        /// Yuki's beams are as thick and grow as a spinner's (2026-11-14).
+        /// </summary>
+        public float SpinnerBeamHalfWidth { get; init; }
+
+        public float SpinnerBeamStartHalfWidth { get; init; }
 
         /// <summary>The pull of an arrowhead on this map (what turns it towards the player): the arrowheads that Nazrin makes out of bullets use it.</summary>
         public float ArrowGravity { get; init; }

@@ -41,6 +41,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>A maple leaf (Shizuha's autumn leaves), the one on the flag of Canada: its top points along the direction of travel.</summary>
         Maple,
+
+        /// <summary>An eighth note (Benben's notes; the outline of the user's picture): its stem points along the way it faces (the notes keep facing up, so they stand upright), the flag to the right.</summary>
+        Note,
+
+        /// <summary>A feather (Matenshi's; a picture, the user's): its tip points along the direction of travel. The hitbox is its outline (<see cref="DanmakusuBalance.FEATHER"/>).</summary>
+        Feather,
     }
 
     /// <summary>The shape the bullets of a ring are arranged in (the bullets themselves keep their own <see cref="BulletShape"/>).</summary>
