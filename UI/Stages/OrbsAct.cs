@@ -583,7 +583,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 at = positionOf(orb, t);
 
                     f.stageBack.Add(StageTexture.Glow, at, new Vector2(radius * 5f * grown), 0f, 0.35f * grown, new Color4(1f, 0.45f, 0.45f, 1f), true);
-                    f.stageFront.Add(StageTexture.YinYang, at, new Vector2(radius * 2f * grown), (float)(t * DanmakusuBalance.REIMU_ORB_SPIN), 1f, Color4.White);
+                    f.stageBack.Add(StageTexture.YinYang, at, new Vector2(radius * 2f * grown), (float)(t * DanmakusuBalance.REIMU_ORB_SPIN), 1f, Color4.White); // (under the bullets, 2026-11-14)
                 }
             }
         }

@@ -8,6 +8,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 {
     public partial class BulletField
     {
+        /// <summary>(the bench, CUT_PROBE=1) Print every cut made near the character.</summary>
+        public static bool CutProbeOn;
+
         // ======================================================================================================================================================
         // What Kagerou's and Elly's claws, Youmu's slashes and the tips of Ran's spirals have in common: they cut a bullet in two along a line, where the line runs through it but never more unevenly than 8 to 2, and the two cut shapes fly on from there: one the way the bullet was going, the other the opposite way.
         // A cut flashes where it is made, as a ricochet does. The pieces are polygons the act draws itself, cut exactly, on hidden stage bullets that hit as bullets do. Not what is a boss's own object (Yukari's train, Hecatia's worlds, Utsuho's big balls...: those are no bullets it can get hold of).
@@ -60,8 +63,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bool golden = emitter.GoldMask != 0 && bullet < 64 && (emitter.GoldMask & (1UL << bullet)) != 0;
                 float bloom = Math.Max(emitter.Bloom, golden ? DanmakusuBalance.TOYOHIME_GOLD_BLOOM : emitter.Flashes ? flashBloom(t - emitter.Time, emitter.RemoveAfter) : 0f);
 
+                if (CutProbe && (to - f.characterPosition).Length < 40f)
+                    Console.WriteLine($"    cut at {t / 1000:F2} s: ring {emitter.Shape} fired {emitter.Time / 1000:F2}, {(to - f.characterPosition).Length:F0} px from the character, hit {stored.Hit * big:F1}, own {emitter.OwnShot}, boss rank {emitter.BossRank}, speed {emitter.Speed:F3}, age {t - emitter.Time:F0} ms, flies {(to - from).Length:F1} px since the scan before");
+
                 CutInTwo(f, t, to, velocity, normal, along, stored.Radius * big, stored.Hit * big, stored.Style, stored.Shape, stored.Tint, bloom);
             }
+
+            protected static bool CutProbe => CutProbeOn;
 
             /// <summary>The piece on the one side of the line and the piece on the other, the one flying on, the other flying back.</summary>
             protected void CutInTwo(BulletField f, double t, Vector2 position, Vector2 velocity, Vector2 normal, float along, float radius, float hit, int style, BulletShape shape, int tint, float bloom = 0f)

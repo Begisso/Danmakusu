@@ -73,6 +73,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     Width = 0.5f,
                     Children = new Drawable[]
                     {
+                        starsLine = new SpriteText
+                        {
+                            Font = FontUsage.Default.With(size: 16),
+                            Colour = new Color4(1f, 0.85f, 0.4f, 0.9f),
+                            Anchor = Anchor.TopCentre,
+                            Origin = Anchor.TopCentre,
+                            Y = 4,
+                        },
                         new SpriteText
                         {
                             Text = selection.Triple ? "Choose the bosses (three at a time)" : selection.Double ? "Choose the bosses (two at a time)" : "Choose the bosses",
@@ -302,6 +310,41 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
             info.ShowBosses(bosses, selection.Double, selection.Triple);
             preview.ShowBosses(bosses, selection.Triple);
+            rateWith(bosses);
+        }
+
+        private SpriteText starsLine = null!;
+        private int rating;
+
+        /// <summary>
+        /// (2026-11-14) The line above the title: the map's stars with these bosses and without them, worked out off the game's thread (it plans the whole map) and shown when it comes in, if the choice has
+        /// not changed again by then. It counts the bosses' sections, shots and the mechanics the planner applies; what their stages do live on the field is not in it.
+        /// </summary>
+        private void rateWith(BossInfo[] bosses)
+        {
+            int version = ++rating;
+            starsLine.Text = "Stars with these bosses: …";
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                (double Without, double With)? stars = null;
+
+                try
+                {
+                    stars = playfield.StarsWith(bosses);
+                }
+                catch
+                {
+                }
+
+                Schedule(() =>
+                {
+                    if (version != rating)
+                        return;
+
+                    starsLine.Text = stars == null ? string.Empty : $"Stars with these bosses: {stars.Value.With:0.00} (without bosses: {stars.Value.Without:0.00}; their stages' own bullets not counted)";
+                });
+            });
         }
 
         protected override bool OnClick(ClickEvent e) => true;

@@ -82,18 +82,6 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
             // (song select shows a map's counts at once and counts the rest in the background: CountsInBackground)
             CountsInBackground.Enabled = true;
 
-            // (songs without maps are shown while Map Generation is on: song select filters again when it is turned on or off)
-            selectedMods?.BindValueChanged(changed =>
-            {
-                bool on = changed.NewValue.Any(mod => mod is Mods.DanmakusuModMapGeneration);
-
-                if (on == Generation.Placeholders.MapGenerationOn)
-                    return;
-
-                Generation.Placeholders.MapGenerationOn = on;
-                SongSelectStars.Refilter();
-            }, true);
-
             new Thread(() => run(store, manager, ruleset, file, play)) { IsBackground = true, Name = "Danmakusu stars", Priority = ThreadPriority.Lowest }.Start();
         }
 
@@ -137,17 +125,6 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
 
             while (true)
             {
-                // (songs put in the folder for songs without maps: a placeholder each, imported before they are rated)
-                try
-                {
-                    waitWhilePlaying(play);
-                    Generation.Placeholders.ImportNew(manager, Path.Combine(Path.GetDirectoryName(file) ?? string.Empty, "danmakusu_songs.txt"));
-                }
-                catch (Exception e)
-                {
-                    Logger.Log($"Danmakusu: songs without maps could not be looked at ({e.Message})");
-                }
-
                 try
                 {
                     var todo = unrated(store);

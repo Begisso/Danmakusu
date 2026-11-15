@@ -12,7 +12,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Eirin Yagokoro: every eight beats of her section every four bullets on the screen that are nearest each other are joined into a constellation by a thin silver beam, from one to the next nearest, that
         // hurts like a slider body while they stand still: only the bullets of the constellations stop (since 2026-11-14; everything stopped before), a little lighter, for four beats, then the beams are gone and
         // they fly on the way they went. Constellations do not overlap: one whose beams would cross or touch those of another is not made. For the four beats before, the beams are already there, see-through
-        // and harmless, where the bullets will stop (worked out from their flight).
+        // and harmless, where the bullets will stop (worked out from their flight); a constellation is made a beat before they stop at the latest, so every one is warned of.
         // The bullets are looked at as they fly (Takes, which takes nothing): where each will be when they stop. They are joined a beat at a time - first what is on the screen when the preview begins, then what
         // was fired in each beat after it - each time in the order the rings come in the map, so the same bullets always make the same constellations (a replay and a seek show the same).
         // ======================================================================================================================================================
@@ -180,8 +180,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (now < mark.Time - previewMs || now > mark.Time + holdMs)
                         continue;
 
-                    // (a beat at a time: what was on the screen when the preview began, then what was fired in each beat after it)
-                    while (mark.Batches <= (int)Math.Round(DanmakusuBalance.EIRIN_PREVIEW_BEATS))
+                    // (a beat at a time: what was on the screen when the preview began, then what was fired in each beat after it - the last time a beat before they stop, so that every constellation is warned
+                    // of for a beat at least: 2026-11-14, the user: "warn about constellations spawning with laserbeam preview" - what was fired in the last beat was joined as they stopped, with no warning)
+                    while (mark.Batches < (int)Math.Round(DanmakusuBalance.EIRIN_PREVIEW_BEATS))
                     {
                         double boundary = mark.Time - previewMs + mark.Batches * beat;
 

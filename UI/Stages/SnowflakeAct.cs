@@ -10,8 +10,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Mai: no pauses. A giant snowflake of beams, one after the other all through her section: it stands still where she was when it began (turned so that the player is between two of its arms), six arms
-        // as long as MAI_ARM_SIZE of the playfield's width, each with side branches at 60 degrees (the longest in the middle of the arm) and the longest of those with a twig to either side, round a small hexagon
-        // in the middle. Every beam is as wide as a slider's and ends in a sharp tip; a branch starts on the middle line of the one it grows out of, so the snowflake is one piece. It grows from nothing over
+        // as long as MAI_ARM_SIZE of the playfield's width, twice as thick as the rest at the middle and narrowing towards the tip, each with pairs of side branches at 60 degrees (the longest near the middle,
+        // shorter and further apart the further out), every branch with pairs of twigs (the same way) and the longest twigs with twigs of their own, round a small hexagon in the middle. Every other beam is as
+        // wide as a slider's; every beam ends in a sharp tip; a branch starts on the middle line of the one it grows out of, and the whole snowflake is drawn as one piece, so its joints are seamless. A
+        // see-through, harmless preview grows MAI_PREVIEW_BEATS ahead of it. It grows from nothing over
         // eight beats as Yuyuko's tree does: a front runs out from the middle along every beam at the same speed, and a branch starts growing when the front gets to it. Then over the next eight beats it goes
         // again from the middle out to the tips (another front, the same way), and what the front leaves behind comes apart into plain bullets half the size, one every MAI_BULLET_EVERY_CIRCLES circle radii,
         // flying straight out from the snowflake's middle. When it is all gone the next one begins. The beams hurt like a slider body.
@@ -29,22 +31,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 var list = new List<(Vector2, Vector2, float, float)>();
                 const float hexagon = 0.09f;
 
-                // (how long a side branch is by where it leaves the arm: short near the middle and the tip, the longest a little inside the middle of the arm)
-                float[] profileAt = { 0.12f, 0.22f, 0.38f, 0.54f, 0.68f, 0.8f, 0.9f, 0.97f };
-                float[] profileLength = { 0.12f, 0.24f, 0.34f, 0.33f, 0.26f, 0.17f, 0.09f, 0.03f };
-
-                static float profile(float[] at, float[] length, float a)
-                {
-                    for (int i = 1; i < at.Length; i++)
-                    {
-                        if (a <= at[i])
-                            return length[i - 1] + (length[i] - length[i - 1]) * (a - at[i - 1]) / (at[i] - at[i - 1]);
-                    }
-
-                    return length[^1];
-                }
-
                 static Vector2 way(float degrees) => new Vector2(MathF.Cos(degrees * MathF.PI / 180f), MathF.Sin(degrees * MathF.PI / 180f));
+
+                // (the six arms first: they are the first six beams, drawn thicker - see armOf)
+                for (int arm = 0; arm < 6; arm++)
+                    list.Add((Vector2.Zero, way(arm * 60f), 0f, 1f));
 
                 // (a pair of twigs at 60 degrees to either side of a beam, leaving it <paramref name="p"/> along)
                 void pair(Vector2 root, float angle, float begin, float p, float twig, bool more)
@@ -62,10 +53,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
-                // (the twigs of a branch: pairs one every MAI_TWIG_STEP along it from a fifth of the way, shorter towards its tip)
+                // (the twigs of a branch: pairs from a fifth of the way, further apart and shorter towards its tip)
                 void twigs(Vector2 root, float angle, float begin, float length)
                 {
-                    for (float p = length * 0.2f; p <= length * 0.85f; p += DanmakusuBalance.MAI_TWIG_STEP)
+                    for (float p = length * 0.2f; p <= length * 0.85f; p += DanmakusuBalance.MAI_TWIG_STEP * (1f + DanmakusuBalance.MAI_THINNING * p / length))
                     {
                         float twig = Math.Min(0.45f * (length - p), 0.14f);
 
@@ -78,16 +69,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     float armAngle = arm * 60f;
                     Vector2 armWay = way(armAngle);
-                    list.Add((Vector2.Zero, armWay, 0f, 1f));
 
                     // (the hexagon in the middle: from this arm's corner to the next one's)
                     Vector2 corner = armWay * hexagon, next = way(armAngle + 60f) * hexagon;
                     list.Add((corner, Vector2.Normalize(next - corner), hexagon, hexagon));
 
-                    // (side branches in pairs all along the arm, each with twigs of its own)
-                    for (float a = 0.14f; a <= 0.92f; a += DanmakusuBalance.MAI_BRANCH_STEP)
+                    // (side branches in pairs all along the arm, each with twigs of its own: the longest near the middle, shorter and further apart the further out - 2026-11-14, "length and amount of
+                    // branches are also gradually decrease to the out"; they were longest a little inside the middle of the arm, evenly spaced)
+                    for (float a = 0.12f; a <= 0.93f; a += DanmakusuBalance.MAI_BRANCH_STEP * (1f + DanmakusuBalance.MAI_THINNING * a))
                     {
-                        float length = profile(profileAt, profileLength, a);
+                        float length = DanmakusuBalance.MAI_BRANCH_LONGEST * MathF.Pow(1f - a, 0.8f);
                         Vector2 root = armWay * a;
 
                         for (int side = -1; side <= 1; side += 2)
@@ -116,6 +107,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly double[] starts; // (when every snowflake begins)
             private double growMs => beat * DanmakusuBalance.MAI_GROW_BEATS;
             private double outMs => beat * DanmakusuBalance.MAI_OUT_BEATS;
+            private double leadMs => beat * DanmakusuBalance.MAI_PREVIEW_BEATS; // (how far the see-through preview grows ahead of the snowflake)
 
             // (the snowflake that is there now, placed when it began)
             private int placed = -1;
@@ -138,10 +130,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 beat = Math.Max(period.BeatLength, 1);
 
                 var list = new List<double>();
-                double cycle = beat * (DanmakusuBalance.MAI_GROW_BEATS + DanmakusuBalance.MAI_OUT_BEATS);
+                double cycle = leadMs + growMs + outMs;
 
-                // (one begins as long as it can grow whole in her section; the last one goes away after it)
-                for (double t = period.ShootStart; t + beat * DanmakusuBalance.MAI_GROW_BEATS <= period.End && list.Count < 10000; t += cycle)
+                // (one begins as long as it can grow whole in her section, its preview first; the last one goes away after it)
+                for (double t = period.ShootStart; t + leadMs + growMs <= period.End && list.Count < 10000; t += cycle)
                     list.Add(t);
 
                 if (list.Count == 0)
@@ -160,7 +152,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>The snowflake that is there at <paramref name="t"/> (from its beginning until it is all gone), or -1.</summary>
             private int flakeAt(double t)
             {
-                double cycle = growMs + outMs;
+                double cycle = leadMs + growMs + outMs;
                 int k = (int)Math.Floor((t - Start) / cycle);
                 return k >= 0 && k < starts.Length && t >= starts[k] && t < starts[k] + cycle ? k : -1;
             }
@@ -209,7 +201,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 spots.Clear();
                 spawned = 0;
                 float every = Math.Max(f.circleRadius * DanmakusuBalance.MAI_BULLET_EVERY_CIRCLES, 4f);
-                double goesFrom = starts[k] + growMs;
+                double goesFrom = starts[k] + leadMs + growMs;
 
                 for (int i = 0; i < shape.Length; i++)
                 {
@@ -270,12 +262,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// What is there of beam <paramref name="i"/> at <paramref name="t"/>: from <paramref name="near"/> to <paramref name="far"/> along it (px), and whether each of those ends is a sharp tip (the front, or
             /// the beam's own tip; its root, where it grows out of another, is not). False when nothing of it is there.
             /// </summary>
-            private bool partOf(int k, int i, double t, out float near, out float far)
+            private bool partOf(int k, int i, double t, out float near, out float far, bool preview = false)
             {
                 near = far = 0f;
                 float deep = deepest * size;
-                float grown = deep * (float)Math.Clamp((t - starts[k]) / growMs, 0, 1);
-                float gone = deep * (float)Math.Clamp((t - starts[k] - growMs) / outMs, 0, 1);
+                float grown = deep * (float)Math.Clamp((t - starts[k] - (preview ? 0 : leadMs)) / growMs, 0, 1); // (the preview grows ahead of it)
+                float gone = deep * (float)Math.Clamp((t - starts[k] - leadMs - growMs) / outMs, 0, 1);
                 float begin = shape[i].Begin * size, length = shape[i].Length * size;
 
                 near = Math.Clamp(gone - begin, 0f, length);
@@ -285,6 +277,49 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>How long the sharp tip at the end of a beam is: a few beam widths, at most a third of what is there of it.</summary>
             private static float tipOf(float half, float near, float far) => Math.Min(half * DanmakusuBalance.MAI_TIP_WIDTHS, (far - near) / 3f);
+
+            /// <summary>How wide beam <paramref name="i"/> is (half width) <paramref name="along"/> px from its root: an arm is twice as thick at the middle, narrowing evenly towards its tip; the rest as thick as a slider (2026-11-14).</summary>
+            private float widthAt(int i, float along, float half)
+            {
+                if (i >= 6)
+                    return half;
+
+                float u = Math.Clamp(along / Math.Max(shape[i].Length * size, 1f), 0f, 1f);
+                return half * (DanmakusuBalance.MAI_ARM_WIDTH + (DanmakusuBalance.MAI_ARM_TIP_WIDTH - DanmakusuBalance.MAI_ARM_WIDTH) * u);
+            }
+
+            /// <summary>What is there of beam <paramref name="i"/> from <paramref name="near"/> to <paramref name="far"/> (into <see cref="line"/> and <see cref="widths"/>): sharp tips at its ends but where it grows out of another; an arm in steps, so that it narrows.</summary>
+            private void runOf(int i, float near, float far, float half)
+            {
+                line.Clear();
+                widths.Clear();
+
+                float tip = tipOf(widthAt(i, far, half), near, far);
+                bool sharpNear = near > 0f; // (gone from its root on: the front that takes it away leaves a sharp end too)
+
+                void add(float along, float width)
+                {
+                    line.Add(roots[i] + ways[i] * along);
+                    widths.Add(width);
+                }
+
+                add(near, sharpNear ? 0f : widthAt(i, near, half));
+
+                float from = sharpNear ? near + tip : near, to = far - tip;
+
+                if (sharpNear)
+                    add(from, widthAt(i, from, half));
+
+                int steps = i < 6 ? 4 : 1;
+
+                for (int s = 1; s <= steps; s++)
+                {
+                    float along = from + (to - from) * s / steps;
+                    add(along, widthAt(i, along, half));
+                }
+
+                add(far, 0f);
+            }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
             {
@@ -299,6 +334,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float half = halfWidth(f);
                 var ice = new Color4(0.84f, 0.94f, 1f, 1f);
                 var border = DanmakusuBalance.BorderColour(new Color4(0.45f, 0.7f, 0.95f, 1f));
+
+                // (the preview: see-through and harmless, a little thinner, growing ahead of the snowflake from where it has got to - 2026-11-14, "warn about snowflake branches with a preview that grows beforehand")
+                int ghost = ++f.beamPieces;
+
+                for (int i = 0; i < shape.Length; i++)
+                {
+                    partOf(k, i, t, out _, out float solidFar);
+
+                    if (!partOf(k, i, t, out float near, out float far, true))
+                        continue;
+
+                    near = Math.Max(near, solidFar);
+
+                    if (far - near < 0.5f || offScreen(f, roots[i] + ways[i] * near, roots[i] + ways[i] * far, half))
+                        continue;
+
+                    runOf(i, near, far, half * 0.7f);
+                    f.addPlainBeam(line, half * DanmakusuBalance.MAI_ARM_WIDTH, ice, border, ref beams, ref pointTotal, widths);
+                    f.laserInstances[beams - 1].Piece = ghost;
+                    Array.Fill(f.laserFadePointBuffer, DanmakusuBalance.MAI_PREVIEW_ALPHA, pointTotal - line.Count, line.Count);
+                }
+
                 int piece = ++f.beamPieces; // (the whole snowflake drawn layer by layer together: every edge under every inside, so the joints are seamless)
 
                 for (int i = 0; i < shape.Length; i++)
@@ -306,26 +363,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!partOf(k, i, t, out float near, out float far) || offScreen(f, roots[i] + ways[i] * near, roots[i] + ways[i] * far, half))
                         continue;
 
-                    float tip = tipOf(half, near, far);
-                    bool sharpNear = near > 0f; // (gone from its root on: the front that takes it away leaves a sharp end too)
-
-                    line.Clear();
-                    widths.Clear();
-                    line.Add(roots[i] + ways[i] * near);
-                    widths.Add(sharpNear ? 0f : half);
-
-                    if (sharpNear)
-                    {
-                        line.Add(roots[i] + ways[i] * (near + tip));
-                        widths.Add(half);
-                    }
-
-                    line.Add(roots[i] + ways[i] * (far - tip));
-                    widths.Add(half);
-                    line.Add(roots[i] + ways[i] * far);
-                    widths.Add(0f);
-
-                    f.addPlainBeam(line, half, ice, border, ref beams, ref pointTotal, widths);
+                    runOf(i, near, far, half);
+                    f.addPlainBeam(line, half * DanmakusuBalance.MAI_ARM_WIDTH, ice, border, ref beams, ref pointTotal, widths);
                     f.laserInstances[beams - 1].Piece = piece;
                 }
             }
@@ -362,8 +401,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (!partOf(k, i, now, out float near, out float far) || offScreen(f, roots[i] + ways[i] * near, roots[i] + ways[i] * far, half))
                             continue;
 
-                        fresh.Point(roots[i] + ways[i] * near, half * scale + room);
-                        fresh.Point(roots[i] + ways[i] * far, half * scale + room);
+                        // (an arm in steps, each as wide as it is there)
+                        runOf(i, near, far, half);
+
+                        for (int p = 0; p < line.Count; p++)
+                            fresh.Point(line[p], Math.Max(widths[p], p > 0 ? widths[p - 1] : 0f) * scale + room);
+
                         fresh.EndRun();
                     }
 
@@ -378,27 +421,26 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!partOf(k, i, now, out float near, out float far) || offScreen(f, roots[i] + ways[i] * near, roots[i] + ways[i] * far, half))
                         continue;
 
-                    float tip = tipOf(half, near, far);
-                    bool sharpNear = near > 0f;
-                    Vector2 a = roots[i] + ways[i] * (sharpNear ? near + tip : near), b = roots[i] + ways[i] * (far - tip);
+                    // (every step of it, its width going evenly from one end to the other: the tips narrow to nothing)
+                    runOf(i, near, far, half);
 
-                    // (the full part, then the tips, narrowing to nothing)
-                    if (distanceToSegment(player, a, b) <= half * scale + room
-                        || touchesTip(player, b, roots[i] + ways[i] * far, half * scale, room)
-                        || (sharpNear && touchesTip(player, a, roots[i] + ways[i] * near, half * scale, room)))
-                        return true;
+                    for (int p = 0; p + 1 < line.Count; p++)
+                    {
+                        if (touchesTapered(player, line[p], line[p + 1], widths[p] * scale, widths[p + 1] * scale, room))
+                            return true;
+                    }
                 }
 
                 return false;
             }
 
-            /// <summary>Does <paramref name="p"/> touch a tip that is <paramref name="width"/> wide at <paramref name="from"/> and narrows to nothing at <paramref name="to"/>?</summary>
-            private static bool touchesTip(Vector2 p, Vector2 from, Vector2 to, float width, float room)
+            /// <summary>Does <paramref name="p"/> touch a piece of beam from <paramref name="a"/> (<paramref name="wa"/> wide) to <paramref name="b"/> (<paramref name="wb"/> wide), its width going evenly between them?</summary>
+            private static bool touchesTapered(Vector2 p, Vector2 a, Vector2 b, float wa, float wb, float room)
             {
-                Vector2 along = to - from;
+                Vector2 along = b - a;
                 float lengthSquared = along.LengthSquared;
-                float u = lengthSquared < 1e-9f ? 0f : Math.Clamp(Vector2.Dot(p - from, along) / lengthSquared, 0f, 1f);
-                return Vector2.Distance(p, from + along * u) <= width * (1f - u) + room;
+                float u = lengthSquared < 1e-9f ? 0f : Math.Clamp(Vector2.Dot(p - a, along) / lengthSquared, 0f, 1f);
+                return Vector2.Distance(p, a + along * u) <= wa + (wb - wa) * u + room;
             }
         }
     }

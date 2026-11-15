@@ -11,8 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Yatsuhashi Tsukumo: no pauses. Her section is an 18-key osu!mania convert of the map (osu!mania's own converter, see ManiaNotes; the planner keeps the notes of her section in
         // BossPeriod.FallingNotes). The field (the whole screen, where the player can go) is cut into YATSUHASHI_COLUMNS lanes; every note is a beam YATSUHASHI_BEAM_WIDTH times as thick as a normal one that falls straight down its lane from the top
-        // of the screen, its front reaching the bottom on the note, in YATSUHASHI_FALL_BEATS beats from top to bottom (osu!mania's notes come down to the hit line the same way). A tap is a short beam (as long
-        // as YATSUHASHI_TAP_BEATS of its fall), a held note one as long as it is held. They hurt like a slider body all the way down. Before a beam starts falling, an approach circle closes onto the top of the
+        // of the screen, its front reaching the bottom on the note, in YATSUHASHI_FALL_BEATS beats from top to bottom (osu!mania's notes come down to the hit line the same way). A tap is a round dot of beam as
+        // thick (since 2026-11-14), a held note a beam exactly as long as it is held, round ends included. They hurt like a slider body all the way down. Before a beam starts falling, an approach circle closes onto the top of the
         // screen where it will come in, over the map's approach time. The map's own circles and sliders stay, and shoot as always.
         // (Nothing in it changes at runtime: where every beam is comes from the time alone, so the autoplay sees them all coming.)
         // ======================================================================================================================================================
@@ -38,14 +38,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Start = period.ShootStart;
                 End = period.End;
 
-                double tap = beat * DanmakusuBalance.YATSUHASHI_TAP_BEATS;
                 var perLane = new List<(double Start, double End)>[columns];
 
                 for (int c = 0; c < columns; c++)
                     perLane[c] = new List<(double Start, double End)>();
 
+                // (a tap ends where it starts: a round dot; a held note as long as it is held)
                 foreach (var (column, start, end) in period.FallingNotes)
-                    perLane[Math.Clamp(column, 0, columns - 1)].Add((start, Math.Max(end, start + tap)));
+                    perLane[Math.Clamp(column, 0, columns - 1)].Add((start, Math.Max(end, start)));
 
                 lanes = new (double Start, double End)[columns][];
                 endsSoFar = new double[columns][];
@@ -131,11 +131,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private float laneX(BulletField f, int column) => f.stageMin.X + (column + 0.5f) * (f.stageMax.X - f.stageMin.X) / columns;
 
-            /// <summary>Where a note's beam is at <paramref name="t"/>: its front (lower end) and its back (upper end); the front reaches the bottom of the screen on the note.</summary>
-            private (float Front, float Back) span(BulletField f, (double Start, double End) note, double t)
+            /// <summary>
+            /// Where a note's beam is at <paramref name="t"/>: the middles of its two round ends, the front (lower) and the back (upper). The beam with its round ends is exactly as long as the note's time on
+            /// the screen: its very front reaches the bottom of the screen on the note, its very back as it ends; a tap (or a note held less long than the beam is thick) is a round dot round its middle.
+            /// </summary>
+            private (float Front, float Back) span(BulletField f, (double Start, double End) note, double t, float half)
             {
                 float speed = (float)((bottom(f) - top(f)) / fall);
-                return (bottom(f) - (float)(note.Start - t) * speed, bottom(f) - (float)(note.End - t) * speed);
+                float front = bottom(f) - (float)(note.Start - t) * speed, back = bottom(f) - (float)(note.End - t) * speed;
+
+                if (front - back <= half * 2f)
+                {
+                    float middle = (front + back) * 0.5f;
+                    return (middle + 0.25f, middle - 0.25f);
+                }
+
+                return (front - half, back + half);
             }
 
             /// <summary>The first note of a lane whose beam has not gone past the bottom by <paramref name="t"/>.</summary>
@@ -172,14 +183,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var lane = lanes[c];
                     float x = laneX(f, c);
 
-                    for (int k = firstLeft(c, t); k < lane.Length && lane[k].Start - fall <= t; k++)
+                    for (int k = firstLeft(c, t - fall * 0.1); k < lane.Length && lane[k].Start - fall <= t; k++)
                     {
-                        var (front, back) = span(f, lane[k], t);
-                        front = Math.Min(front, lower);
-                        back = Math.Max(back, upper);
+                        var (front, back) = span(f, lane[k], t, half);
 
-                        if (front <= back)
+                        if (back > lower || front < upper)
                             continue;
+
+                        // (a long beam is cut at the edges of the screen; a dot stays whole)
+                        if (front - back > 1f)
+                        {
+                            front = Math.Min(front, lower);
+                            back = Math.Max(back, upper);
+                        }
 
                         line.Clear();
                         line.Add(new Vector2(x, back));
@@ -196,7 +212,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return false;
 
                 Vector2 player = f.characterPosition;
-                float reach = halfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;                float width = (f.stageMax.X - f.stageMin.X) / columns;
+                float half = halfWidth(f);
+                float reach = half * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                float width = (f.stageMax.X - f.stageMin.X) / columns;
                 int from = Math.Max(0, (int)MathF.Floor((player.X - reach - f.stageMin.X) / width));
                 int to = Math.Min(columns - 1, (int)MathF.Floor((player.X + reach - f.stageMin.X) / width));
 
@@ -206,12 +224,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     var lane = lanes[c];
+                    float x = laneX(f, c);
 
-                    for (int k = firstLeft(c, now); k < lane.Length && lane[k].Start - fall <= now; k++)
+                    // (the beam with its round ends: within reach of the line between the middles of its ends)
+                    for (int k = firstLeft(c, now - fall * 0.1); k < lane.Length && lane[k].Start - fall <= now; k++)
                     {
-                        var (front, back) = span(f, lane[k], now);
+                        var (front, back) = span(f, lane[k], now, half);
 
-                        if (player.Y <= front + reach && player.Y >= back - reach)
+                        if (distanceToSegment(player, new Vector2(x, back), new Vector2(x, front)) <= reach)
                             return true;
                     }
                 }

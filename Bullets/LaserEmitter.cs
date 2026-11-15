@@ -7,8 +7,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
     /// <summary>Something that stops the slices of a beam where they are and lets them fall later (Zanmu's ripple): a closed form of time, like everything that happens to a slice.</summary>
     public interface IBeamFreezer
     {
-        /// <summary>Has the slice that was fired at <paramref name="fired"/> from <paramref name="start"/> with <paramref name="velocity"/> been stopped by <paramref name="time"/>? Then it is at <paramref name="position"/> (stopped at <paramref name="stoppedAt"/>).</summary>
-        bool Stops(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out double stoppedAt, out BulletLook look);
+        /// <summary>
+        /// Has the slice that was fired at <paramref name="fired"/> from <paramref name="start"/> with <paramref name="velocity"/> been stopped by <paramref name="time"/>? Then it is at <paramref name="position"/> (stopped at
+        /// <paramref name="stoppedAt"/>). <paramref name="beamStart"/>: when its beam began to be fired (a beam is stopped whole or not at all).
+        /// </summary>
+        bool Stops(Vector2 start, Vector2 velocity, double fired, double time, double beamStart, out Vector2 position, out double stoppedAt, out BulletLook look);
 
         /// <summary>After this (game time) the stopped slices are gone (they have fallen out of the screen). <paramref name="look"/> in <c>Stops</c> is how a stopped slice looks.</summary>
         double DoneAt { get; }
@@ -52,7 +55,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             }
         }
 
-        public bool Stops(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out double stoppedAt, out BulletLook look)
+        public bool Stops(Vector2 start, Vector2 velocity, double fired, double time, double beamStart, out Vector2 position, out double stoppedAt, out BulletLook look)
         {
             position = default;
             stoppedAt = 0;
@@ -61,7 +64,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             foreach (var freezer in all)
             {
-                if (freezer.Stops(start, velocity, fired, time, out Vector2 stoppedPlace, out double at, out BulletLook how) && (!stopped || at < stoppedAt))
+                if (freezer.Stops(start, velocity, fired, time, beamStart, out Vector2 stoppedPlace, out double at, out BulletLook how) && (!stopped || at < stoppedAt))
                 {
                     position = stoppedPlace;
                     stoppedAt = at;
@@ -747,7 +750,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             shown = time;
             stopped = false;
 
-            if (Freezer != null && Freezer.Stops(start, velocity, fired, time, out Vector2 frozenAt, out double stoppedAt, out BulletLook frozenLook))
+            if (Freezer != null && Freezer.Stops(start, velocity, fired, time, StartTime, out Vector2 frozenAt, out double stoppedAt, out BulletLook frozenLook))
             {
                 position = frozenAt;
                 look = frozenLook;

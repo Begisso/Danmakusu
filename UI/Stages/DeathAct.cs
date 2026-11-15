@@ -11,7 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Zanmu Nippaku: every sixteen beats one smooth, see-through grey ripple goes out from her. It does not hurt, but everything it has gone over stops: a bullet becomes a bullet of the act (it slows down to
         // nothing over a beat while it turns grey and a skull fades in on it; it still hurts), a slice of a beam stops the same way (the beam asks the act: it is a closed form of time, the slices fly straight until the
-        // ripple catches them). A ripple catches everything that was fired before the moment its stopped things fall, also what is fired after the ripple started. Eight beats after the ripple started (at the latest when her
+        // ripple catches them). A ripple catches everything that was fired before the moment its stopped things fall, also what is fired after the ripple started; a beam is caught whole or not at all (one that
+        // began to be fired before the fall is caught all of it: what it fires after the fall has begun falls at once from where it is fired, so no part flies on). Eight beats after the ripple started (at the latest when her
         // section ends) what it has stopped falls like it does when the player dies, getting darker as it falls. A giant skull (grey, see-through) shows over a dimmed grey background and fades out until the next ripple.
         // ======================================================================================================================================================
 
@@ -172,24 +173,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return (float)(s - s * s / (2.0 * slowdown));
             }
 
-            /// <summary>(a ripple can only have stopped a slice once it has started, if the slice was fired before what it stops falls, and before the ripple has gone over the whole screen)</summary>
+            /// <summary>(a ripple can only have stopped a beam once it has started, if the beam began to be fired before what it stops falls)</summary>
             public bool CanHaveStopped(double oldestFired, double time)
             {
-                double span = life();
-
                 for (int k = 0; k < marks.Length; k++)
                 {
                     if (time < marks[k])
                         break;
 
-                    if (known[k] && oldestFired < falls[k] && oldestFired <= marks[k] + span)
+                    if (known[k] && oldestFired < falls[k])
                         return true;
                 }
 
                 return false;
             }
 
-            public bool Stops(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out double stoppedAt, out BulletLook look)
+            public bool Stops(Vector2 start, Vector2 velocity, double fired, double time, double beamStart, out Vector2 position, out double stoppedAt, out BulletLook look)
             {
                 position = default;
                 stoppedAt = 0;
@@ -201,24 +200,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (time < marks[k] || !known[k])
                         break;
 
-                    if (fired >= falls[k])
-                        continue; // (fired after what this ripple has stopped has fallen: it is not touched)
+                    // a beam is this ripple's whole or not at all (2026-11-14, the user: "prevent any partial laserbeam falling ... it causes abnormal stretching": the slices fired after the fall had begun, and
+                    // those caught out of the screen, flew on while the rest fell, and the beam between them was stretched across the screen). A beam that began to be fired before the fall is the ripple's, all of
+                    // it; one that began after is not touched
+                    if (beamStart >= falls[k])
+                        continue;
 
                     // a slice of a beam is stopped when the front gets to the place it was fired from (the slider ball, or wherever the beam comes from): every slice that has been fired by then is stopped at the
-                    // same moment, wherever it has got to, and every one fired after that is stopped as it is fired. So the beam stands as it was, whole (stopping each slice where the front meets it would tear it
-                    // up: a slice that flies away almost as fast as the front is met far away, and its neighbour not at all)
+                    // same moment, wherever it has got to, and every one fired after that is stopped as it is fired (after the fall has begun it falls at once, from where it was fired: the rest of the beam pours
+                    // down after what has fallen). So the beam stands as it was, whole (stopping each slice where the front meets it would tear it up: a slice that flies away almost as fast as the front is met
+                    // far away, and its neighbour not at all)
                     double at = Math.Max(fired, marks[k] + Vector2.Distance(start, centres[k]) / DanmakusuBalance.ZANMU_RIPPLE_SPEED);
-
-                    if (at - marks[k] > span)
-                        continue;
 
                     if (at > time)
                         continue; // (the front has not got to it yet)
 
                     Vector2 caughtAt = start + velocity * (float)(at - fired);
-
-                    if (!onScreen(caughtAt, 24f))
-                        continue;
 
                     // the slices that one ripple has stopped fall all at once, together (they were stopped at different moments, but if each fell on its own the beam would be torn apart as it falls):
                     // eight beats after the ripple has gone over the whole screen, or when her section ends if that is sooner

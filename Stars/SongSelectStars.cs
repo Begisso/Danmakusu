@@ -259,13 +259,6 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         /// <summary>(instead of osu!'s check, when Danmakusu filters by stars) the stars are checked as osu! checks them, by the Danmakusu stars; everything else by osu!'s own check, with its star filters left out.</summary>
         private static bool matchPrefix(BeatmapInfo beatmap, FilterCriteria criteria, ref bool __result)
         {
-            // (a song without a map of its own - a placeholder - is shown only in Danmakusu with Map Generation on, which makes its map; never in osu!'s own modes)
-            if (!matching && Generation.Placeholders.IsPlaceholder(beatmap) && !(ours(criteria) && Generation.Placeholders.MapGenerationOn))
-            {
-                __result = false;
-                return false;
-            }
-
             if (matching || !ours(criteria) || (!criteria.StarDifficulty.HasFilter && !criteria.UserStarDifficulty.HasFilter))
                 return true;
 

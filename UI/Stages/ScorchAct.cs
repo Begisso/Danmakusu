@@ -12,8 +12,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Yuki: in her attacks the laser bursts every boss had before Marisa's Master Spark: five beams evenly round her (three with another boss on the screen, two with two more), the first aimed at the player
         // when the attack begins, turning slowly together (as fast as a spinner's beams) so that the nearest comes round to the player; their slices fly out twice as fast as a plain bullet. Since 2026-11-14 they
         // are as thick as a spinner's beams and grow as theirs do (an osu! circle's radius where they are fired, widening to the spinner beam's widest; they were thin). But every slice goes out (fading) as far
-        // from her as the player was when it was fired, and every third leaves a scorch mark where it went out: a charred disc with a glowing edge, all the marks one seamless outline where they overlap, that
-        // burns for eight beats and hurts like a slider body. Slices still flying when her attack ends (or she leaves) fly on out to the edge of the screen instead, and leave no mark.
+        // from her as the player was when it was fired, and every third leaves a scorch mark where it went out: a round spot that looks like the beam (its edge, its colour, its white core), as wide as the
+        // beam was there, all the marks one seamless spot where they overlap, that burns for eight beats and hurts like a slider body. Slices still flying when her attack ends (or she leaves) fly on out to the
+        // edge of the screen instead, and leave no mark. Marisa's big star is on her while she fires (BossCharacter).
         // The beams turn the way the player has gone, so it is all worked out step by step (a slice every 30 ms) and kept; time going back throws away what came after.
         // Her own shots, all through her section (in a spinner too): every four beats five rings of five ricochet stars, each from one of five places round her, two and a half circle radii away; a star ricochets
         // once off the edge of the screen and then flies out.
@@ -355,20 +356,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Vector2 markOf(in Slice slice, int beam) => slice.From + wayOf(slice.Angle + beam * MathF.Tau / beamCount) * slice.Reach;
 
+            /// <summary>How big (radius) the mark a slice leaves is: as wide as the beam was where it went out (2026-11-14, "scorch should be same radius as laserbeam when it landed").</summary>
+            private float markRadius(in Slice slice) => widthAt(slice.Reach);
+
             /// <summary>
-            /// The scorch marks (2026-11-14: more visible, with an edge): every mark is a charred disc with a glowing ember edge round it. The edges of all of them are drawn first and the charred insides over
-            /// them, so where marks overlap the inner edges are covered: one seamless outline round all of the burnt ground. Embers flicker in the middles.
+            /// The scorch marks (2026-11-14: they look like the beam that left them - "make scorch area look same as laserbeam"): a round spot of beam, its dark edge, its colour and its white core, as wide as the
+            /// beam where it went out. Every edge of every mark is drawn first, then every colour, then every core, so where marks overlap they run into one seamless spot (no edge across another).
             /// </summary>
             public override void Draw(BulletField f, double t)
             {
-                if (f.failed || slices.Count == 0)
+                if (f.failed || slices.Count == 0 || f.palette.Length == 0)
                     return;
 
-                float radius = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE;
-                float edge = Math.Max(radius * DanmakusuBalance.YUKI_SCORCH_EDGE, 2f);
-                var char_colour = new Color4(0.13f, 0.065f, 0.035f, 1f);
-                var rim = new Color4(1f, 0.5f, 0.12f, 1f);
-                var ember = new Color4(1f, 0.42f, 0.08f, 1f);
+                int style = f.comboStyle(1, true, Period.Rank);
+                Color4 body = f.palette[style % f.palette.Length], edge = f.borderPalette[style % f.borderPalette.Length];
+                var core = DanmakusuBalance.IsWhiteBullet(body) ? DanmakusuBalance.WHITE_BULLET_CENTRE_COLOUR : Color4.White;
                 int first = firstShown(f, t);
 
                 for (int pass = 0; pass < 3; pass++)
@@ -381,23 +383,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (level < 0.01f)
                             continue;
 
+                        float radius = markRadius(slice);
+
                         for (int beam = 0; beam < beamCount; beam++)
                         {
                             Vector2 at = markOf(slice, beam);
 
+                            // (the layers of a beam: the edge as wide as it, the colour inside, the white core in the middle)
                             switch (pass)
                             {
-                                case 0: // (the edges, under everything of the marks)
-                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * (radius + edge)), 0f, level, rim);
+                                case 0:
+                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius), 0f, level, edge);
                                     break;
 
-                                case 1: // (the charred insides, over every edge)
-                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius), 0f, level, char_colour);
+                                case 1:
+                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius * DanmakusuBalance.YUKI_SCORCH_BODY), 0f, level, body);
                                     break;
 
-                                default: // (embers)
-                                    float flicker = 0.75f + 0.25f * MathF.Sin((float)(t * 0.013) + slice.Number * 1.7f + beam * 2.3f);
-                                    f.stageOrbs.Add(StageTexture.Glow, at, new Vector2(radius * 1.6f), 0f, 0.5f * level * flicker, ember, true);
+                                default:
+                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius * DanmakusuBalance.YUKI_SCORCH_CORE), 0f, level, core);
                                     break;
                             }
                         }
@@ -427,15 +431,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 int from = firstShown(f, now);
 
-                // the marks
-                float markHit = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
-
+                // the marks (each as wide as the beam that left it)
                 for (int i = from; i < slices.Count; i++)
                 {
                     var slice = slices[i];
 
                     if (burning(slice, now) < 0.5f)
                         continue;
+
+                    float markHit = markRadius(slice) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                     for (int beam = 0; beam < beamCount; beam++)
                     {
@@ -463,7 +467,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private void shapesAt(BulletField f, double now, MomentShapes.Moment moment)
             {
                 int from = firstShown(f, now);
-                float markHit = scorchHalf * DanmakusuBalance.YUKI_SCORCH_SIZE * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                 for (int i = from; i < slices.Count; i++)
                 {
@@ -471,6 +474,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (burning(slice, now) < 0.5f)
                         continue;
+
+                    float markHit = markRadius(slice) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                     for (int beam = 0; beam < beamCount; beam++)
                     {

@@ -256,6 +256,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 slotTextures[i] = LoadResource(renderer, $"Bosses.Sprites.{slotBosses[i].Id}.png") ?? fallbackTexture;
 
             bakeStarTextures();
+
+            // (the stars of every boss of the map, drawn in the background now: the first boss's star is made into a texture when she comes, the rest are ready by then)
+            drawStarsAhead(slotBosses);
         }
 
         /// <summary>The boss whose colour the big star is in now (it is made again when another boss is shown).</summary>
@@ -281,21 +284,76 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return boss.Colours[best];
         }
 
-        /// <summary>The big star (and its glow) in <paramref name="colour"/>.</summary>
+        // (the big stars, one pair of pictures for every colour, shared by every boss drawn - three, three more for those who linger and Seija's clone - and drawn once: 2026-11-14, each of them drew the
+        // star again in the new colour whenever another boss came, 300 ms all together, and the game stood still at the start and at every new section)
+        private static readonly object star_gate = new object();
+        private static readonly Dictionary<(byte, byte, byte), (Texture Big, Texture Glow)> baked_stars = new Dictionary<(byte, byte, byte), (Texture, Texture)>();
+        private static IRenderer? starsFor;
+
+        /// <summary>The pictures drawn ahead, in the background as the map loads, for the colours of the bosses of the map (made into textures when they are first needed).</summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(byte, byte, byte), (Image<Rgba32> Big, Image<Rgba32> Glow)> drawn_stars = new System.Collections.Concurrent.ConcurrentDictionary<(byte, byte, byte), (Image<Rgba32>, Image<Rgba32>)>();
+
+        private static (byte, byte, byte) starKey(Color4 colour) => ((byte)(colour.R * 255f + 0.5f), (byte)(colour.G * 255f + 0.5f), (byte)(colour.B * 255f + 0.5f));
+
+        private static (Image<Rgba32> Big, Image<Rgba32> Glow) drawStar(Color4 colour) => (SoftStar.CreateBig(256, big_star_fraction, colour), SoftStar.CreateGlow(256, big_star_fraction, colour));
+
+        /// <summary>Draws the stars of these bosses' colours in the background (each colour once), so that none has to be drawn while the map is played.</summary>
+        private static void drawStarsAhead(IEnumerable<BossInfo> bosses)
+        {
+            var colours = new List<Color4>();
+
+            foreach (var boss in bosses)
+                colours.Add(MainColour(boss));
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                foreach (var colour in colours)
+                {
+                    var key = starKey(colour);
+
+                    lock (star_gate)
+                    {
+                        if (baked_stars.ContainsKey(key) || drawn_stars.ContainsKey(key))
+                            continue;
+                    }
+
+                    drawn_stars.TryAdd(key, drawStar(colour));
+                }
+            });
+        }
+
+        /// <summary>The big star (and its glow) in <paramref name="colour"/>: made into textures once for each colour, from the pictures drawn ahead when they are there.</summary>
         private void bakeBigStar(Color4 colour)
         {
             if (renderer == null)
                 return;
 
-            var bigImage = SoftStar.CreateBig(256, big_star_fraction, colour);
-            var bigTexture = renderer.CreateTexture(bigImage.Width, bigImage.Height);
-            bigTexture.SetData(new TextureUpload(bigImage));
-            bigStar.Texture = bigTexture;
+            var key = starKey(colour);
+            (Texture Big, Texture Glow) pair;
 
-            var glowImage = SoftStar.CreateGlow(256, big_star_fraction, colour);
-            var glowTexture = renderer.CreateTexture(glowImage.Width, glowImage.Height);
-            glowTexture.SetData(new TextureUpload(glowImage));
-            bigStarGlow.Texture = glowTexture;
+            lock (star_gate)
+            {
+                if (!ReferenceEquals(starsFor, renderer))
+                {
+                    baked_stars.Clear();
+                    starsFor = renderer;
+                }
+
+                if (!baked_stars.TryGetValue(key, out pair))
+                {
+                    var (bigImage, glowImage) = drawn_stars.TryRemove(key, out var ready) ? ready : drawStar(colour);
+
+                    var bigTexture = renderer.CreateTexture(bigImage.Width, bigImage.Height);
+                    bigTexture.SetData(new TextureUpload(bigImage));
+                    var glowTexture = renderer.CreateTexture(glowImage.Width, glowImage.Height);
+                    glowTexture.SetData(new TextureUpload(glowImage));
+
+                    baked_stars[key] = pair = (bigTexture, glowTexture);
+                }
+            }
+
+            bigStar.Texture = pair.Big;
+            bigStarGlow.Texture = pair.Glow;
         }
 
         /// <summary>One star picture per colour variant: the soft, glowing star shared with the spinner and boss bullets.</summary>
@@ -479,7 +537,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 double fadeOut = period.IsLast ? 1 : (period.End - now) / fade;
                 alpha = Math.Max(alpha, (float)Math.Clamp(Math.Min((now - period.Start) / fade, fadeOut), 0, 1));
 
-                for (int i = 0; period.HasLasers && i < period.LaserStarts.Length && i < period.LaserEnds.Length; i++)
+                // (Yuki has no big beams, but shoots her own in her attacks: the star is on her then too - 2026-11-14)
+                bool shoots = period.HasLasers || period.Boss?.Mechanic == BossMechanic.Scorch;
+
+                for (int i = 0; shoots && i < period.LaserStarts.Length && i < period.LaserEnds.Length; i++)
                 {
                     double start = period.LaserStarts[i], end = period.LaserEnds[i];
 

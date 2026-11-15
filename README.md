@@ -69,7 +69,7 @@ To build for another osu!lazer version, change the version of `ppy.osu.Game` and
 The working notes are in the repo too:
 
 - [`CLAUDE.md`](CLAUDE.md): what is where in the code, and how the project is built and checked.
-- [`SKILLS.md`](SKILLS.md): step-by-step procedures (benchmarks, tuning the boss sections, retraining the map generator).
+- [`SKILLS.md`](SKILLS.md): step-by-step procedures (benchmarks, tuning the boss sections).
 - [`HISTORY.md`](HISTORY.md): every change so far, by date and by boss, with old and new values.
 
 They mention tools from outside this repo (`..\Tools\...`), which are not published.

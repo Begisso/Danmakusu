@@ -571,6 +571,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             bool infinite = float.IsPositiveInfinity(radius);
 
+            // (a ring aimed at the player and not fired yet is foreseen aimed at where the character is now, from where its boss will fire it: until 2026-11-15 it was foreseen as planned, pointing
+            // anywhere, so a stream of aimed shots - Toyohime's ellipses, one every eighth of a beat from close by - was seen only once each was flying, too late on a busy frame, and the autoplay failed
+            // in it. The field aims it again when it fires, from where the character is then: what is fired does not change)
+            if (autoTimes[0] < emitter.Time && (emitter.AimAtPlayer || emitter.FollowsBoss) && !emitter.FromPlayer && emitter.Derive == DeriveKind.None && !emitter.Homing)
+                aim(emitter);
+
             // (passed by a moment ago, while the character has not gone far: passed by again)
             if (!infinite && index < autoPassedUntil.Length && autoTimes[0] < autoPassedUntil[index] && Vector2.Distance(centre, autoPassedAt[index]) + radius <= autoPassedRoom[index])
                 return;
@@ -634,7 +640,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         return; // (nothing of it is left)
 
                     float out_ = fastest * Math.Max(emitter.SpeedRampTo, 1f) * (emitter.Falling ? 3f : 1.25f) * (float)ownSpan
-                                 + Math.Max(emitter.HitRadius, emitter.FlowerScale > 1f || treeActs.Count > 0 ? fallFlowerRadius * emitter.FlowerScale : 0f) * growMax * emitter.BigScaleMax
+                                 + Math.Max(ringHitRadius(emitter, growMax), emitter.FlowerScale > 1f || treeActs.Count > 0 ? fallFlowerRadius * emitter.FlowerScale : 0f) * growMax * emitter.BigScaleMax
                                  + emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * 2f + auto_bend + room;
 
                     if (centre.X < minX - out_ || centre.X > maxX + out_ || centre.Y < minY - out_ || centre.Y > maxY + out_)
@@ -645,7 +651,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            float body = Math.Max(emitter.HitRadius, treeActs.Count > 0 || emitter.FlowerScale > 1f ? fallFlowerRadius * emitter.FlowerScale : 0f);
+            float body = Math.Max(ringHitRadius(emitter, growMax), treeActs.Count > 0 || emitter.FlowerScale > 1f ? fallFlowerRadius * emitter.FlowerScale : 0f);
             float bladeReach = emitter.Blades > 1 ? emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * growMax * emitter.BigScaleMax * DanmakusuBalance.KNIFE_PIVOT * 2f : 0f;
             float extra = bladeReach + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
 
@@ -1043,7 +1049,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (grown < 0.02f)
                         continue;
 
-                    float reach = bullet.Hit * grown * sukuna + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
+                    float reach = Math.Max(bullet.Hit * grown, bullet.Shape == BulletShape.Circle && bullet.Elongate <= 1f ? bigBallHit(bullet.Radius * grown) : 0f) * sukuna + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN; // (a big ball by its whole radius)
                     TracedAt kept = seen ? act.Traced[i] : default;
 
                     Vector2 placeAt(double t) => seen ? kept.Position + kept.Velocity * (float)(t - kept.Time) : stageBulletPosition(bullet, stageClock(bullet, t));

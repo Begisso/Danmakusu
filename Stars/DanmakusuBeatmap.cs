@@ -150,8 +150,7 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
         /// </summary>
         public static DanmakusuStars.Rating Count(IBeatmap beatmap, string? md5, bool keep = true)
         {
-            bool ownObjects = !Mods.SectionMarks.Generated(beatmap);
-            var rating = ownObjects && DanmakusuStars.TryGetRating(md5, out var kept) && kept.Bullets >= 0 && kept.Beams >= 0 ? kept : fromRate(StarRating.Rate(beatmap));
+            var rating = DanmakusuStars.TryGetRating(md5, out var kept) && kept.Bullets >= 0 && kept.Beams >= 0 ? kept : fromRate(StarRating.Rate(beatmap));
 
             bool neededSong = false;
             int bosses = keep && rating.Bosses > 0 ? rating.Bosses : BulletPlanner.MostBosses(beatmap, () =>

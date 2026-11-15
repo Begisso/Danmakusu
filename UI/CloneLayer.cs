@@ -77,8 +77,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 marks.Add(markOf[circle] = mark = makeMark());
 
             mark.Position = marks.ToLocalSpace(circle.ScreenSpaceDrawQuad.Centre);
-            mark.Alpha = circle.IsPresent ? circle.DrawColourInfo.Colour.MaxAlpha : 0f;
+
+            // (once the copy is hit it goes, as the number would: the circle's own container stays opaque through the hit animation, so the white bullet stayed on after the circle had gone; 2026-11-14)
+            double sinceHit = Time.Current - circle.HitObject.StartTime;
+            float going = sinceHit <= 0 ? 1f : (float)Math.Max(0, 1 - sinceHit / mark_fade_ms);
+            mark.Alpha = circle.IsPresent ? circle.DrawColourInfo.Colour.MaxAlpha * going : 0f;
         }
+
+        /// <summary>How long (ms) the white bullet of a copied circle takes to go once the circle is hit.</summary>
+        private const double mark_fade_ms = 120;
 
         private void unmark(DrawableOsuHitObject drawable)
         {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
@@ -200,7 +200,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     var body = Bullets[ball.Index];
                     body.Radius = Math.Min(MathF.Sqrt(ball.Area), biggest(f));
-                    body.Hit = body.Radius * DanmakusuBalance.BULLET_HITBOX_SCALE;
+                    body.Hit = DanmakusuBalance.BigHit(body.Radius);
                     Bullets[ball.Index] = body;
                     return true;
                 }
@@ -298,7 +298,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Switch = over + first,
                         V2 = away,
                         Radius = radius,
-                        Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                        Hit = DanmakusuBalance.BigHit(radius),
                         Style = 0,
                         Shape = BulletShape.Circle,
                         Until = over + first + second,
@@ -433,7 +433,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float r = ballRadius(f, k, now);
 
-                return r >= 1f && Vector2.Distance(f.characterPosition, centre(f)) <= r * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                return r >= 1f && Vector2.Distance(f.characterPosition, centre(f)) <= DanmakusuBalance.BigHit(r) + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
             }
 
             public override void Draw(BulletField f, double t)

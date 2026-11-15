@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,11 +33,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The drum hits that come at half that frequency (twice as far apart: half-time, a dubstep drop), in order.</summary>
         private readonly List<(double Time, float Strength)> halfTimeHits;
 
-        /// <summary>Every drum hit (kicks and snares), in order: when (ms) and how hard (how many times the band's average it jumped). The map generator puts objects on them.</summary>
+        /// <summary>Every drum hit (kicks and snares), in order: when (ms) and how hard (how many times the band's average it jumped).</summary>
         public IReadOnlyList<(double Time, float Strength)> Hits { get; }
-
-        /// <summary>The hits of the bass alone (kicks), in order: where the beats of a song without a map are put (<see cref="Generation.Tempo"/>).</summary>
-        public IReadOnlyList<(double Time, float Strength)> Kicks { get; private init; } = Array.Empty<(double, float)>();
 
         /// <summary>How long the song is that the bands were read from (ms).</summary>
         public double Length => low.Length * (double)bucket_ms * scale;
@@ -351,11 +348,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 var hits = new List<(double Time, float Strength)>();
                 findHits(points, point => point.LowIntensity, hits, scale); // (kicks)
-                var kicks = hits.ToList();
                 findHits(points, point => point.MidIntensity, hits, scale); // (snares)
                 hits.Sort((a, b) => a.Time.CompareTo(b.Time));
 
-                return new SongBands(low, mid, high, hits, scale) { Kicks = kicks };
+                return new SongBands(low, mid, high, hits, scale);
             }
             catch
             {
@@ -374,18 +370,6 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>How loud the song is on average between <paramref name="from"/> and <paramref name="to"/>: its three bands together.</summary>
         public float Loudness(double from, double to) => Bass(from, to) + Mid(from, to) + Treble(from, to);
-
-        /// <summary>The drum hit nearest to <paramref name="time"/> within <paramref name="reach"/> ms: how hard it is (0 = none that near).</summary>
-        public float HitNear(double time, double reach)
-        {
-            int at = lowerBound(Hits as List<(double Time, float Strength)> ?? Hits.ToList(), time - reach);
-            float best = 0f;
-
-            for (int i = at; i < Hits.Count && Hits[i].Time <= time + reach; i++)
-                best = Math.Max(best, Hits[i].Strength);
-
-            return best;
-        }
 
         /// <summary>(<paramref name="from"/> and <paramref name="to"/> in points of the waveform)</summary>
         private static float average(float[] buckets, double from, double to)

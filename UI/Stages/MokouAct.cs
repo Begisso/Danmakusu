@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
@@ -207,7 +207,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     P0 = leg.To,
                     V = Vector2.Zero,
                     Radius = bigRadius,
-                    Hit = bigRadius * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                    Hit = DanmakusuBalance.BigHit(bigRadius),
                     Style = 0,
                     Shape = BulletShape.Circle,
                     Until = leg.HoldEnd,
@@ -333,7 +333,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return false;
 
                 float grown = smoothStep((now - leg.HitTime) / DanmakusuBalance.MOKOU_BIG_GROW_MS) * (1f - smoothStep((now - (leg.HoldEnd - DanmakusuBalance.MOKOU_BIG_FADE_MS)) / DanmakusuBalance.MOKOU_BIG_FADE_MS));
-                float bigHit = f.circleRadius * DanmakusuBalance.MOKOU_BIG_SIZE * revived * DanmakusuBalance.BULLET_HITBOX_SCALE * grown;
+                float bigHit = DanmakusuBalance.BigHit(f.circleRadius * DanmakusuBalance.MOKOU_BIG_SIZE * revived * grown);
 
                 return grown >= 0.02f && Vector2.Distance(f.characterPosition, leg.To) <= bigHit + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
             }

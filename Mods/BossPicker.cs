@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -462,7 +462,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
                 /// <summary>The chosen mods that change the map's sections (Always Boss, Map Generation).</summary>
                 private osu.Game.Rulesets.Mods.Mod[] sectionMods()
-                    => mods?.Value?.Where(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration).ToArray() ?? [];
+                    => mods?.Value?.Where(mod => mod is DanmakusuModAlwaysBoss).ToArray() ?? [];
                 private BossInfo[] fromColours = [];
                 private IReadOnlyList<BossInfo> picked = [];
                 private BossHud? hud;
@@ -481,8 +481,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     // (Always Boss or Map Generation put on or taken off: the map is read again)
                     mods?.BindValueChanged(changed =>
                     {
-                        bool had = changed.OldValue?.Any(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration) ?? false;
-                        bool has = changed.NewValue?.Any(mod => mod is DanmakusuModAlwaysBoss or DanmakusuModMapGeneration) ?? false;
+                        bool had = changed.OldValue?.Any(mod => mod is DanmakusuModAlwaysBoss) ?? false;
+                        bool has = changed.NewValue?.Any(mod => mod is DanmakusuModAlwaysBoss) ?? false;
 
                         if (had || has)
                             loadMap(beatmap?.Value);

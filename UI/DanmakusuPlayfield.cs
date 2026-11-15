@@ -74,6 +74,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The bosses that the combo colours of the map choose.</summary>
         public BossInfo[] BossesFromColours => fromColours;
 
+        /// <summary>
+        /// (the boss menu, 2026-11-14) The map's stars without bosses and with <paramref name="bosses"/> (as many at a time as the mod has: see <see cref="StarRating.RateWithBosses"/>); null when there is no
+        /// map. Slow (it plans the whole map twice): call it off the game's thread.
+        /// </summary>
+        public (double Without, double With)? StarsWith(BossInfo[] bosses)
+        {
+            var beatmap = plannedBeatmap;
+
+            if (beatmap == null)
+                return null;
+
+            double without = StarRating.Rate(beatmap).Stars;
+            double with = StarRating.RateWithBosses(beatmap, withEnough(bosses), alwaysDouble, alwaysTriple, songBands).Stars;
+            return (without, with);
+        }
+
         [BackgroundDependencyLoader]
         private void load(IBeatmap beatmap)
         {
@@ -243,7 +259,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 RelativeSizeAxes = Axes.Both,
                 PlainBulletSpeed = DanmakusuBalance.BaseBulletSpeed(difficulty.ApproachRate) / 1000f, // (what a fast bullet is, for the whooshes as they fly past)
-                FlyBySpeedScale = ringMap ? DanmakusuBalance.CONVERT_RING_BULLET_SPEED : 1f, // (a mania or taiko map's objects shoot twice as fast)
                 ColourSections = bossColours != null ? colourSections : null, // (the palette is the bosses' colours, four each: what circles and sliders fire takes the colours they have)
                 FallbackSongEndTime = beatmap.HitObjects.Count > 0 ? beatmap.HitObjects.Max(h => h.GetEndTime()) : double.PositiveInfinity,
                 // (taiko's big notes: a ring of arcs each, as many as a plain ring has bullets)

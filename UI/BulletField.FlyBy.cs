@@ -7,16 +7,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Fly-bys: a bullet that comes near the player (within three circle radii) flying at least one and a half times as fast as a plain bullet whooshes past, once: one of the seven whooshes of the "Fast Fly By" recording,
-        // chosen at random but never the one that came just before, at most one every 0.3 s. How fast it flies is how far it has moved since the frame before, so whatever makes it fast counts (its ring, a boss's speeding up).
-        // Each whoosh plays twice at the same moment, which makes it twice as loud without changing the sound (in step, so nothing cancels out).
+        // Fly-bys: a bullet that comes near the player (within FLYBY_CIRCLES circle radii) flying at least FLYBY_SPEED (200 px/s, the same on every map: about twice a plain bullet on the usual maps) whooshes past,
+        // once: one of the whooshes, chosen at random but never the one that came just before, at most one every 0.3 s. How fast it flies is how far it has moved since the frame before, so whatever makes it fast
+        // counts (its ring, a boss's speeding up). Each whoosh plays twice at the same moment, which makes it twice as loud without changing the sound (in step, so nothing cancels out).
         // ======================================================================================================================================================
 
         /// <summary>The speed of a plain bullet on this map (px per ms; the playfield sets it from the approach rate). 0: unknown, nothing whooshes.</summary>
         public float PlainBulletSpeed { get; set; }
-
-        /// <summary>(a mania or taiko map: its objects' bullets fly this many times as fast, so a whoosh takes this many times the speed too)</summary>
-        public float FlyBySpeedScale { get; init; } = 1f;
 
         /// <summary>(How many whooshes have sounded, over every field: for the bench.)</summary>
         public static int FlyBysHeard;
@@ -64,8 +61,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             float speed = Vector2.Distance(position, before) / (float)flyByStep;
 
-            // (fast enough; not a jump - through a portal, mirrored - that only looks fast)
-            if (speed < PlainBulletSpeed * FlyBySpeedScale * DanmakusuBalance.FLYBY_SPEED_FACTOR || speed > PlainBulletSpeed * FlyBySpeedScale * DanmakusuBalance.FLYBY_JUMP_FACTOR)
+            // (fast enough - the same speed on every map, whatever its bullets' speed is; not a jump - through a portal, mirrored - that only looks fast)
+            if (speed < DanmakusuBalance.FLYBY_SPEED / 1000f || speed > DanmakusuBalance.FLYBY_JUMP_SPEED / 1000f)
                 return;
 
             flyByDone.Add(key);

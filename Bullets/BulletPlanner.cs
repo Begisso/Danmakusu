@@ -2315,6 +2315,30 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
+            // Ellen's own shots (2026-11-14, were rings of 16 talismans): a fan of 20 ellipses at the player, ELLEN_FAN_DEGREES apart, every two beats (FamiliarAct joins every two of them with a beam now and then)
+            void addEllenFans(Vector2 origin, double startTime, double endTime)
+            {
+                double beatLength = Math.Max(DanmakusuBalance.BossBeat(beatmap.ControlPointInfo.TimingPointAt(startTime).BeatLength), 1);
+                double step = beatLength * DanmakusuBalance.ELLEN_RING_EVERY_BEATS;
+                int count = DanmakusuBalance.ELLEN_FAN_BULLETS;
+                float between = DanmakusuBalance.ELLEN_FAN_DEGREES * MathF.PI / 180f;
+                float spread = between * (count - 1);
+
+                for (double t = startTime; t < endTime; t += step)
+                {
+                    // (the field turns the fan so that its first bullet points at the player, and then back by the offset: the fan is centred on the player)
+                    var fan = new Vector2[count];
+
+                    for (int i = 0; i < count; i++)
+                        fan[i] = new Vector2(MathF.Cos(i * between), MathF.Sin(i * between));
+
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, radius, BulletShape.Ellipse, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: -spread / 2f);
+                    ring.OwnShot = true;
+                    ring.KeepCount = true; // (twenty with another boss on the screen too: the beams go by pairs)
+                    emitters.Add(ring);
+                }
+            }
+
             // Patchouli's own shots (squares), Sunny Milk's (triangles) and Kaku's (talismans in ellipses): rings of plain bullets in that shape, one every few beats, aimed at nothing (in a spinner it is the spinner's stars, as plain bullets in the same shape)
             void addShapeRings(Vector2 origin, double startTime, double endTime, RingShape shape, int count, double everyBeats, BulletShape bulletShape = BulletShape.Circle)
             {
@@ -2593,7 +2617,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     else if (boss.Mechanic == BossMechanic.Judgement)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Circle, DanmakusuBalance.EIKI_RING_BULLETS, DanmakusuBalance.EIKI_RING_EVERY_BEATS, BulletShape.Talisman);
                     else if (boss.Mechanic == BossMechanic.Familiar)
-                        addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Circle, DanmakusuBalance.ELLEN_RING_TALISMANS, DanmakusuBalance.ELLEN_RING_EVERY_BEATS, BulletShape.Talisman); // (Ellen: the beams between every two of them are FamiliarAct's)
+                        addEllenFans(bossPlanOrigin, attackStart, end); // (Ellen: the beams between every two of them are FamiliarAct's)
                     else if (boss.Mechanic == BossMechanic.Recording)
                         addDoubleRings(bossPlanOrigin, attackStart, end, DanmakusuBalance.HISAMI_RING_LAYERS, DanmakusuBalance.HISAMI_RING_EVERY_BEATS, DanmakusuBalance.HISAMI_RING_BULLETS);
                     else if (boss.Mechanic == BossMechanic.Crescent)

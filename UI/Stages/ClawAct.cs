@@ -325,14 +325,53 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 slashCount++;
             }
 
+            /// <summary>Where she is at <paramref name="t"/> during <paramref name="jump"/> (flying from where she was to where the player was, then staying there).</summary>
+            private static Vector2 placeIn(Jump jump, double t)
+                => Vector2.Lerp(jump.From, jump.To, (float)Math.Clamp((t - jump.Start) / Math.Max(jump.Arrive - jump.Start, 1e-3), 0, 1));
+
+            /// <summary>How fast the bullets of a ring she fires at <paramref name="t"/> fly (while she stays, half as fast as while she flies).</summary>
+            private float ringSpeed(Jump jump, double t) => stageBulletSpeed(Period) * DanmakusuBalance.KAGEROU_RING_SPEED * (t >= jump.Arrive ? DanmakusuBalance.KAGEROU_STAY_RING_SPEED : 1f);
+
+            /// <summary>
+            /// (the autoplay) A ring of hers fired within the time, from where she is then, with the place in its reach as it comes out: she lands where the player was and shoots there, so a character that
+            /// has not gone away is hit by a whole ring at once (2026-11-15, the user: "Auto failed super easy section" - 11 bullets in one frame, twice). What has been fired is a stage bullet like any other.
+            /// </summary>
+            public override bool Springs(BulletField f, Vector2 at, double from, double to)
+            {
+                if (!wolf || f.failed || jumps.Count == 0)
+                    return false;
+
+                double every = beat * DanmakusuBalance.KAGEROU_RING_EVERY_BEATS;
+
+                if (every <= 0)
+                    return false;
+
+                float reach = f.stageBaseRadius(Period) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
+
+                foreach (var jump in jumps)
+                {
+                    if (jump.StayUntil < from || jump.Start > to)
+                        continue;
+
+                    int k = Math.Max((int)Math.Ceiling((from - jump.Start) / every - 1e-9), 0);
+
+                    for (double t = jump.Start + k * every; t <= to && t < jump.StayUntil; t += every)
+                    {
+                        // (as far as the ring has spread by the end of the time)
+                        if (Vector2.Distance(placeIn(jump, t), at) <= reach + ringSpeed(jump, t) * (float)Math.Max(to - t, 0))
+                            return true;
+                    }
+                }
+
+                return false;
+            }
+
             /// <summary>A ring of bright white bullets from where she is now, each ring turned a little further.</summary>
             private void fireRing(BulletField f, Jump jump, double t)
             {
-                float u = (float)Math.Clamp((t - jump.Start) / Math.Max(jump.Arrive - jump.Start, 1e-3), 0, 1);
-                Vector2 from = Vector2.Lerp(jump.From, jump.To, u);
+                Vector2 from = placeIn(jump, t);
                 float radius = f.stageBaseRadius(Period);
-                // (while she stays they fly half as fast as while she flies)
-                float speed = stageBulletSpeed(Period) * DanmakusuBalance.KAGEROU_RING_SPEED * (t >= jump.Arrive ? DanmakusuBalance.KAGEROU_STAY_RING_SPEED : 1f);
+                float speed = ringSpeed(jump, t);
                 float phase = jump.Rings * 0.13f;
 
                 for (int i = 0; i < DanmakusuBalance.KAGEROU_RING_BULLETS; i++)
@@ -428,6 +467,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bullet.Until = lit;
                     Bullets[i] = bullet;
                     wayOfCut(f, slash, position, out Vector2 normal, out float along);
+
+                    if (CutProbe && (position - f.characterPosition).Length < 40f)
+                        Console.WriteLine($"    cut at {lit / 1000:F2} s: stage bullet {bullet.Shape} of its own act, {(position - f.characterPosition).Length:F0} px from the character, hit {bullet.Hit:F1}, harmless {bullet.Harmless}, age {lit - bullet.T0:F0} ms");
+
                     CutInTwo(f, lit, position, bullet.V, normal, along, bullet.Radius, bullet.Hit, bullet.Style, bullet.Shape, bullet.Tint, bullet.Bloom);
                 }
             }
@@ -523,6 +566,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 way = velocity.LengthSquared > 1e-8f ? Vector2.Normalize(velocity) : Vector2.UnitX;
                 Vector2 across = new Vector2(-way.Y, way.X);
                 var outline = new[] { way * length + across * half, way * length - across * half, -way * length - across * half, -way * length + across * half };
+
+                if (CutProbe && (position - f.characterPosition).Length < 40f)
+                    Console.WriteLine($"    beam piece at {at / 1000:F2} s: {(position - f.characterPosition).Length:F0} px from the character, slice fired {fired / 1000:F2}, laser {laser.StartTime / 1000:F2}-{laser.EndTime / 1000:F2}, rotates {laser.Rotates}, follows boss {laser.FollowsBoss}, from origin {laser.PathFromOrigin}, grows {laser.Grows}, hold {laser.HoldBeam}, speed {laser.Speed:F3}, half {half:F1}");
 
                 AddPiece(f, at, position, velocity, half, half * DanmakusuBalance.BULLET_HITBOX_SCALE, f.comboStyle(laser.ComboIndex, laser.FollowsBoss, laser.BossRank), 0, outline);
             }

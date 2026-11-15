@@ -3286,6 +3286,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     bullet.Hit *= grown;
 
+                    // (a round one drawn as a big ball - Eternity Larva's swell, Meiling's and Mokou's balls - is hit at its whole drawn radius: 2026-11-15)
+                    if (bullet.Shape == BulletShape.Circle && bullet.Elongate <= 1f)
+                        bullet.Hit = Math.Max(bullet.Hit, bigBallHit(bullet.Radius * grown));
+
                     if (sukunaLevel > 0f)
                         bullet.Hit *= sukunaGrow(positionB);
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -30,6 +31,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Where the bar is (below the names and heads; at the top when there are none).</summary>
         private readonly float bar_y;
+
+        /// <summary>Three bosses are on at once somewhere: every name is on two lines.</summary>
+        private readonly bool twoLines;
+
+        /// <summary>The second line of every name (empty when it is on one).</summary>
+        private readonly SpriteText[] namesBelow;
 
         /// <summary>How much of the screen's width the bar takes, and at most how wide it is (the preview in the boss list fills its width).</summary>
         public float BarFraction { get; init; } = 0.46f;
@@ -87,6 +94,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             this.periods = periods;
             this.slotBosses = slotBosses;
+
+            // (three bosses at once: every name on two lines beside its head, half as wide, so that no name lies over another; the heads stay on one row. 2026-11-14, the user: "Boss Names are overlapping on
+            // bar. Make it two rows", then "icons on hp bars should stay on same level always, I said make names two row instead" - the third boss's head and name had been put on a row of their own)
+            twoLines = showNames && periods.Any(period => period.Rank == 2);
             bar_y = showNames ? margin_top + head_size + 3f : tick_extra;
 
             AlwaysPresent = true;
@@ -187,6 +198,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             headFrames = new Container[rows];
             heads = new Sprite[rows];
             names = new SpriteText[rows];
+            namesBelow = new SpriteText[rows];
 
             for (int slot = 0; slot < rows; slot++)
             {
@@ -207,25 +219,55 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Children = new Drawable[] { new Box { RelativeSizeAxes = Axes.Both, Colour = Color4.Black, Alpha = 0.5f }, head },
                 };
 
+                // (on two lines when three bosses share the bar: split at the space nearest its middle, the two lines over each other beside the head)
+                var (upper, lower) = twoLines ? splitName(slotBosses[slot].Name) : (slotBosses[slot].Name, string.Empty);
+                float lineShift = lower.Length > 0 ? name_size * 0.5f : 0f;
+
                 var text = names[slot] = new SpriteText
                 {
-                    Text = slotBosses[slot].Name,
+                    Text = upper,
                     Font = FontUsage.Default.With(size: name_size),
                     Shadow = true,
                     Anchor = right ? Anchor.CentreRight : Anchor.CentreLeft,
                     Origin = right ? Anchor.CentreRight : Anchor.CentreLeft,
                     X = right ? -(head_size + 4f) : head_size + 4f,
+                    Y = -lineShift,
+                };
+
+                var below = namesBelow[slot] = new SpriteText
+                {
+                    Text = lower,
+                    Font = FontUsage.Default.With(size: name_size),
+                    Shadow = true,
+                    Anchor = text.Anchor,
+                    Origin = text.Origin,
+                    X = text.X,
+                    Y = lineShift,
                 };
 
                 children.Add(nameRows[slot] = new Container
                 {
                     Height = head_size,
                     Y = margin_top,
-                    Children = new Drawable[] { headFrame, text },
+                    Children = new Drawable[] { headFrame, text, below },
                 });
             }
 
             InternalChildren = children;
+        }
+
+        /// <summary>A name split at the space nearest its middle (all of it on the first line when it has no space).</summary>
+        private static (string Upper, string Lower) splitName(string name)
+        {
+            int best = -1;
+
+            for (int i = 0; i < name.Length; i++)
+            {
+                if (name[i] == ' ' && (best < 0 || Math.Abs(i - name.Length / 2) < Math.Abs(best - name.Length / 2)))
+                    best = i;
+            }
+
+            return best < 0 ? (name, string.Empty) : (name.Substring(0, best), name.Substring(best + 1));
         }
 
         private Color4 bossColour(int slot)
@@ -376,6 +418,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     names[slot].Origin = inMiddle ? Anchor.CentreLeft : side;
                     names[slot].X = onLeft ? head_size + 4f : onRight ? -(head_size + 4f) : 2f;
                     names[slot].Colour = Interpolate(bossColour(slot), Color4.White, 0.55f);
+
+                    namesBelow[slot].Anchor = names[slot].Anchor;
+                    namesBelow[slot].Origin = names[slot].Origin;
+                    namesBelow[slot].X = names[slot].X;
+                    namesBelow[slot].Colour = names[slot].Colour;
                 }
 
                 return;
@@ -391,6 +438,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 nameRows[slot].Alpha = dimmed ? 0.4f : 1f;
                 names[slot].Colour = highlighted ? Interpolate(bossColour(slot), Color4.White, 0.55f) : dimmed ? new Color4(0.75f, 0.75f, 0.75f, 1f) : Color4.White;
                 names[slot].Scale = new Vector2(highlighted ? 1.2f : dimmed ? 0.9f : 1f);
+                namesBelow[slot].Colour = names[slot].Colour;
+                namesBelow[slot].Scale = names[slot].Scale;
                 headFrames[slot].Scale = new Vector2(highlighted ? 1.12f : 1f);
                 headFrames[slot].BorderColour = highlighted ? Color4.White : Interpolate(bossColour(slot), Color4.White, 0.5f);
             }

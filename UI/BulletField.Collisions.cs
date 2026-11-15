@@ -28,6 +28,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 {
     public partial class BulletField
     {
+        /// <summary>
+        /// (2026-11-15, the user: "all big balls not only mokou and meiling, but utsuho, eternity larva should have hitbox equal to its radius") The hitbox of a round bullet drawn <paramref name="drawnRadius"/>
+        /// big: its whole radius when it is a big ball (<paramref name="sharp"/>, or as big as the field draws as one, <see cref="sharpBulletRadius"/>), otherwise 0 (the bullet's own hitbox stays).
+        /// </summary>
+        private float bigBallHit(float drawnRadius, bool sharp = false) => sharp || drawnRadius >= sharpBulletRadius ? drawnRadius : 0f;
+
+        /// <summary>
+        /// How far a ring's bullets hurt from their centre at most, before what grows them (at most <paramref name="growMax"/> by the acts on the field, and their own big scale): their whole radius when some
+        /// of them can be big balls (see <see cref="bigBallHit"/>).
+        /// </summary>
+        private float ringHitRadius(BulletEmitter emitter, float growMax)
+            => emitter.Sharp || emitter.VisualRadius * emitter.BigScaleMax * growMax >= sharpBulletRadius ? Math.Max(emitter.HitRadius, emitter.VisualRadius) : emitter.HitRadius;
+
         /// <summary>Is the character inside a laser beam right now?</summary>
         private bool touchesLaser(double now)
         {
@@ -288,7 +301,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float growMax = (stageRippleCount > 0 ? DanmakusuBalance.RAIKO_RIPPLE_GROW : 1f) * (stageSmokeCount > 0 ? DanmakusuBalance.SANNYO_SMOKE_SIZE : 1f) * (sukunaLevel > 0f ? DanmakusuBalance.SUKUNA_MAX_SIZE : 1f); // (a ripple makes what it goes over bigger, to touch as well, and so does smoke, and Sukuna's distance)
                 float reachGrow = growMax * emitter.BigScaleMax; // (and the big bullets of Remilia's attack)
                 float bladeHalf = emitter.Blades > 1 ? emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * reachGrow : 0f; // (the blades of a many-edged knife lie up to two handle lengths from its middle)
-                float reach = Math.Max(emitter.HitRadius, treeActs.Count > 0 || emitter.FlowerScale > 1f ? fallFlowerRadius * emitter.FlowerScale : 0f) * reachGrow + DanmakusuBalance.PLAYER_HITBOX_RADIUS + bladeHalf * DanmakusuBalance.KNIFE_PIVOT * 2f; // (a bullet that has fallen into a flower is as big as one)
+                float reach = Math.Max(ringHitRadius(emitter, growMax), treeActs.Count > 0 || emitter.FlowerScale > 1f ? fallFlowerRadius * emitter.FlowerScale : 0f) * reachGrow + DanmakusuBalance.PLAYER_HITBOX_RADIUS + bladeHalf * DanmakusuBalance.KNIFE_PIVOT * 2f; // (a bullet that has fallen into a flower is as big as one)
 
                 // broad phase: the player's distance from the ring centre and the ring's radius must overlap at some point in this frame.
                 float nearest = distanceToSegment(emitter.Origin, pa, pb);
@@ -392,6 +405,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // a bullet that has fallen into a flower (Yuyuko) is hit as a flower: the same five petals that are drawn
                     bool flower = (lookB?.Shape ?? emitter.DrawShape ?? emitter.Shape) == BulletShape.Flower;
                     float hitSize = (flower ? fallFlowerRadius * emitter.FlowerScale : ownHit) * grow;
+
+                    // (a round bullet drawn as a big ball - Utsuho's, Tsukasa's, any grown as big as one - is hit at its whole drawn radius: 2026-11-15, the user: "all big balls ... should have hitbox
+                    // equal to its radius")
+                    if (!flower && emitter.Blades <= 1 && (lookB?.Shape ?? emitter.DrawShape ?? emitter.Shape) == BulletShape.Circle)
+                        hitSize = Math.Max(hitSize, bigBallHit(emitter.VisualRadius * grow, emitter.Sharp));
 
                     float bladeReach = emitter.Blades > 1 ? emitter.VisualRadius * grow * DanmakusuBalance.KNIFE_LENGTH_FACTOR * DanmakusuBalance.KNIFE_PIVOT * 2f : 0f;
 

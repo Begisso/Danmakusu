@@ -13,9 +13,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // is thrown on the way it was going, twice as fast, glowing like magma, with a narrow tail of beam two beats long behind it (it hurts like a slider body), and where it reaches the wall it bursts into four
         // ellipses half its size, fanned out over 90 degrees round the way it would bounce. The stomp hurts the player if they are in it, and thick cracks of magma in the ground, meeting under her, come up at once
         // and fade out over two beats, hurting like a slider body meanwhile.
-        // Every sixteen beats a wide crack of glowing magma, two circles across and as jagged as the World's Ender's cut, splits the ground from where she stands towards the player, out past the edge of the screen,
-        // in a beat (Hecatia's cut sounds). It hurts like a slider body. Eight beats after it has grown it explodes (Hecatia's explosion): glowing magma ellipses fly off both sides all along it, as the World's
-        // Ender's bullets do, and it cools away.
+        // Every sixteen beats a wide crack of glowing magma, two circles across and as jagged as the World's Ender's cut, splits the ground from where she stands towards the player, out past the edge of the screen:
+        // its front runs out at an even speed over eight beats (since 2026-11-14; it was out in a beat), as Yuyuko's tree grows, and branches (to one side and the other, the longer ones with a twig) grow out of
+        // it as the front gets to them (Hecatia's cut sounds as it starts). It hurts like a slider body, branches too. Eight beats after it has grown it explodes (Hecatia's explosion): for a moment the World's
+        // Ender's impact frame turns it and a jagged band round it inside out, in flashes; glowing magma ellipses fly off both sides all along it, as the World's Ender's bullets do, and it cools away.
         // Every crack is drawn as molten rock (the user's picture): a glow round it, a dark crust along its edges, orange inside going yellow and a white-hot vein; all the cracks of a frame are drawn layer by
         // layer together, so they run into each other without a seam. Every sound of hers plays twice at once.
         // ======================================================================================================================================================
@@ -76,6 +77,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 fissureLength = new float[fissures.Length];
                 fissureKnown = new bool[fissures.Length];
                 exploded = new bool[fissures.Length];
+                branchesOf = new List<Branch>[fissures.Length];
+
+                for (int k = 0; k < fissures.Length; k++)
+                    branchesOf[k] = new List<Branch>();
 
                 End = fissures.Length > 0 ? Math.Max(period.End, explodeAt(fissures.Length - 1) + beat) : period.End;
                 AbsorbFrom = period.ShootStart;
@@ -177,6 +182,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         fissureFrom[k] = from;
                         fissureWay[k] = way;
                         fissureLength[k] = (float)f.toWall(from, way, out _) + fissureHalf(f) * 2f; // (out past the edge of the screen)
+                        makeBranches(f, k);
 
                         if (now - fissures[k] < 250 && fissures[k] > resetTime)
                             sound(f, "hecatia_cut");
@@ -336,8 +342,113 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private float widthAt(BulletField f, int k, float u)
                 => fissureHalf(f) * (0.85f + 0.2f * MathF.Sin(MathF.Tau * 2.3f * u + k) + 0.1f * MathF.Sin(MathF.Tau * 5.7f * u + 2.4f * k)) * (0.35f + 0.65f * smoothStep(u / 0.06f));
 
-            /// <summary>How far along it has grown at <paramref name="t"/> (0..1).</summary>
-            private float grownTo(int k, double t) => smoothStep((t - fissures[k]) / (grownAt(k) - fissures[k]));
+            /// <summary>How far along it has grown at <paramref name="t"/> (0..1): its front runs out at an even speed, as Yuyuko's tree grows (2026-11-14; it was out in a beat).</summary>
+            private float grownTo(int k, double t) => (float)Math.Clamp((t - fissures[k]) / (grownAt(k) - fissures[k]), 0, 1);
+
+            // ---- the branches of the big crack (2026-11-14, "add subbranches to crack") ----
+
+            private struct Branch
+            {
+                public float Along; // (where it leaves the crack, 0..1 of its length; or of its branch, for a twig)
+                public float Turn; // (radians from the way of what it leaves)
+                public float Length; // (px)
+                public float Width; // (its half width where it leaves, a share of what it leaves)
+                public int Parent; // (-1: it leaves the crack; else the branch it leaves)
+                public int Seed;
+            }
+
+            private readonly List<Branch>[] branchesOf;
+
+            /// <summary>The branches of crack <paramref name="k"/>: every SUIKA_BRANCH_EVERY of its length, to one side and then the other, at 30-55 degrees forward, each SUIKA_BRANCH_CIRCLES circle radii long or so; the longer ones with a twig.</summary>
+            private void makeBranches(BulletField f, int k)
+            {
+                var list = branchesOf[k];
+                list.Clear();
+
+                float length = fissureLength[k];
+                float step = f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_EVERY_CIRCLES / Math.Max(length, 1f);
+                int number = 0;
+
+                for (float along = step * (0.6f + 0.6f * hash01(k, 0, 101)); along < 0.95f; along += step * (0.7f + 0.6f * hash01(k, number, 102)), number++)
+                {
+                    float side = number % 2 == 0 ? 1f : -1f;
+                    float turn = side * (30f + 25f * hash01(k, number, 103)) * MathF.PI / 180f;
+                    float branchLength = f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_CIRCLES * (0.6f + 0.8f * hash01(k, number, 104)) * (1f - 0.4f * along);
+                    int parent = list.Count;
+
+                    list.Add(new Branch { Along = along, Turn = turn, Length = branchLength, Width = 0.55f, Parent = -1, Seed = k * 1000 + number });
+
+                    // (a twig off the longer ones, halfway along, the other way)
+                    if (branchLength > f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_CIRCLES * 0.9f)
+                        list.Add(new Branch { Along = 0.45f + 0.2f * hash01(k, number, 105), Turn = -side * (35f + 20f * hash01(k, number, 106)) * MathF.PI / 180f, Length = branchLength * 0.45f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 500 });
+                }
+            }
+
+            /// <summary>
+            /// Branch <paramref name="b"/> of crack <paramref name="k"/> as far as it has grown when the crack's front is <paramref name="front"/> px along it (into <see cref="crack"/> and <see cref="crackWidths"/>; it starts
+            /// growing when the front gets to where it leaves, and grows as fast): jagged, narrowing to its end. False when nothing of it is there yet.
+            /// </summary>
+            private bool branchAt(BulletField f, int k, int b, float front)
+            {
+                crack.Clear();
+                crackWidths.Clear();
+
+                var branch = branchesOf[k][b];
+                frameOf(f, k, b, out Vector2 root, out Vector2 way, out float rootWidth, out float rootDepth);
+                float grown = Math.Min(front - rootDepth, branch.Length);
+
+                if (grown <= 1f)
+                    return false;
+
+                const int points = 6;
+
+                for (int i = 0; i < points; i++)
+                {
+                    float s = grown * i / (points - 1);
+                    crack.Add(pointOf(branch, root, way, s));
+                    crackWidths.Add(rootWidth * (1f - 0.8f * s / branch.Length));
+                }
+
+                return true;
+            }
+
+            /// <summary>Where branch <paramref name="b"/> leaves what it grows from, the way it goes, how wide it is there and how far along the whole crack that is (px from her).</summary>
+            private void frameOf(BulletField f, int k, int b, out Vector2 root, out Vector2 way, out float rootWidth, out float rootDepth)
+            {
+                var branch = branchesOf[k][b];
+
+                if (branch.Parent < 0)
+                {
+                    float u = branch.Along;
+                    root = lineAt(k, u);
+                    Vector2 ahead = lineAt(k, Math.Min(u + 0.01f, 1f)) - root;
+                    way = turned(ahead.LengthSquared > 1e-6f ? Vector2.Normalize(ahead) : fissureWay[k], branch.Turn);
+                    rootWidth = widthAt(f, k, u) * branch.Width;
+                    rootDepth = u * fissureLength[k];
+                    return;
+                }
+
+                // (a twig: on its branch's own jagged line)
+                var parent = branchesOf[k][branch.Parent];
+                frameOf(f, k, branch.Parent, out Vector2 parentRoot, out Vector2 parentWay, out float parentWidth, out float parentDepth);
+                float s = parent.Length * branch.Along;
+                root = pointOf(parent, parentRoot, parentWay, s);
+                way = turned(parentWay, branch.Turn);
+                rootWidth = parentWidth * (1f - 0.8f * branch.Along) * branch.Width;
+                rootDepth = parentDepth + s;
+            }
+
+            /// <summary>The point <paramref name="s"/> px along a branch: on its jagged line (the jags at five even places along its whole length, straight between them).</summary>
+            private static Vector2 pointOf(in Branch branch, Vector2 root, Vector2 way, float s)
+            {
+                Vector2 side = new Vector2(-way.Y, way.X);
+                float place = Math.Clamp(s / Math.Max(branch.Length, 1f), 0f, 1f) * 5f;
+                int low = Math.Min((int)place, 4);
+                float jagLow = low == 0 ? 0f : hash01(branch.Seed, low, 107) - 0.5f;
+                float jagHigh = hash01(branch.Seed, low + 1, 107) - 0.5f;
+                float jag = (jagLow + (jagHigh - jagLow) * (place - low)) * branch.Length * 0.12f;
+                return root + way * s + side * jag;
+            }
 
             /// <summary>The explosion: glowing magma ellipses fly off both sides all along the crack (as the World's Ender's bullets: each at a speed, a size and a way of its own).</summary>
             private void explode(BulletField f, int k)
@@ -445,6 +556,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (u >= grown)
                             break;
                     }
+
+                    // (its branches, as far as they have grown)
+                    float front = grown * fissureLength[k];
+
+                    for (int b = 0; b < branchesOf[k].Count; b++)
+                    {
+                        if (!branchAt(f, k, b, front))
+                            continue;
+
+                        for (int i = 0; i + 1 < crack.Count; i++)
+                        {
+                            if (distanceToSegment(player, crack[i], crack[i + 1]) <= crackWidths[i] * DanmakusuBalance.BULLET_HITBOX_SCALE + me)
+                                return true;
+                        }
+                    }
                 }
 
                 // the tails of what she stomped
@@ -530,7 +656,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     for (int c = 0; c < DanmakusuBalance.SUIKA_CRACKS; c++)
                     {
                         thinCrack(f, k, c);
-                        addBand(crack, crackWidths, glow, k * 977 + c * 31);
+                        addBand(crack, crackWidths, glow, k * 977 + c * 31, true); // (they all meet under her: their glows come in from there, so they do not lie over each other)
                     }
                 }
 
@@ -558,11 +684,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     addBand(crack, crackWidths, heat, 50000 + k * 131);
 
+                    // (its branches, growing as its front gets to them; their glows come in from where they leave it, so they do not lie over its glow)
+                    float front = grown * fissureLength[k];
+
+                    for (int b = 0; b < branchesOf[k].Count; b++)
+                    {
+                        if (branchAt(f, k, b, front))
+                            addBand(crack, crackWidths, heat, 60000 + k * 131 + b * 7, true);
+                    }
+
                     // (the explosion flashes along it)
                     double flash = (t - explodeAt(k)) / (beat * 0.5);
 
                     if (flash >= 0 && flash < 1)
                         f.stageFront.Add(StageTexture.Glow, lineAt(k, 0.5f), new Vector2(fissureLength[k] * 1.2f), 0f, 0.7f * (float)((1 - flash) * (1 - flash)), new Color4(1f, 0.6f, 0.25f, 1f), true);
+
+                    impactFrame(f, k, t);
                 }
 
                 drawBands(f);
@@ -591,15 +728,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly List<Vector2> bandSides = new List<Vector2>();
             private readonly List<float> bandWidths = new List<float>();
             private readonly List<float> bandVeins = new List<float>();
+            private readonly List<float> bandGlows = new List<float>();
             private readonly List<(int Start, int Count, float Heat)> bandRuns = new List<(int, int, float)>();
 
-            /// <summary>Keeps a crack through <paramref name="points"/> (half as wide as <paramref name="halfWidths"/> says at each point), <paramref name="heat"/> bright, for <see cref="drawBands"/>.</summary>
-            private void addBand(List<Vector2> points, List<float> halfWidths, float heat, int seed)
+            /// <summary>
+            /// Keeps a crack through <paramref name="points"/> (half as wide as <paramref name="halfWidths"/> says at each point), <paramref name="heat"/> bright, for <see cref="drawBands"/>. A crack that
+            /// <paramref name="growsOut"/> of another (a branch, or one of the stomp's, which all meet under her) has no glow where it leaves it, coming in over twice its width: the glows never lie over each
+            /// other there (2026-11-14, "blooms should be seamless without overlaps").
+            /// </summary>
+            private void addBand(List<Vector2> points, List<float> halfWidths, float heat, int seed, bool growsOut = false)
             {
                 if (points.Count < 2 || heat <= 0.01f)
                     return;
 
                 int start = bandPoints.Count;
+                float travelled = 0f, comeIn = halfWidths[0] * 4f;
 
                 for (int i = 0; i < points.Count; i++)
                 {
@@ -612,10 +755,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     side = side.LengthSquared > 1e-6f ? Vector2.Normalize(side) : sideAfter;
                     float stretch = Math.Min(1f / Math.Max(Vector2.Dot(side, sideAfter), 0.5f), 2f);
 
+                    if (i > 0)
+                        travelled += before.Length;
+
                     bandPoints.Add(points[i]);
                     bandSides.Add(side * stretch);
                     bandWidths.Add(halfWidths[i]);
-                    bandVeins.Add(0.08f + 0.16f * hash01(seed, i, 91)); // (the white-hot vein in the middle, unevenly wide)
+                    bandVeins.Add(0.04f + 0.08f * hash01(seed, i, 91)); // (the white-hot vein in the middle, unevenly wide: half as wide since 2026-11-14)
+                    bandGlows.Add(growsOut ? smoothStep(travelled / Math.Max(comeIn, 1f)) : 1f);
                 }
 
                 bandRuns.Add((start, points.Count, heat));
@@ -648,8 +795,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 far = new Color4(0.9f, 0.22f, 0.04f, 0f);
                                 break;
 
-                            case 1: // (the dark crust)
-                                from = 0.74f;
+                            case 1: // (the dark crust: half as thick since 2026-11-14)
+                                from = 0.87f;
                                 to = 1f;
                                 near = new Color4(0.42f, 0.09f, 0.03f, heat);
                                 far = new Color4(0.12f, 0.035f, 0.02f, heat);
@@ -657,7 +804,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                             case 2: // (deep orange under the crust)
                                 from = 0.42f;
-                                to = 0.74f;
+                                to = 0.87f;
                                 near = new Color4(1f, 0.52f, 0.08f, heat);
                                 far = new Color4(0.85f, 0.2f, 0.03f, heat);
                                 break;
@@ -683,9 +830,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             Vector2 a = bandPoints[i - 1], b = bandPoints[i];
                             Vector2 sa = bandSides[i - 1] * (vein ? bandWidths[i - 1] * bandVeins[i - 1] : bandWidths[i - 1]);
                             Vector2 sb = bandSides[i] * (vein ? bandWidths[i] * bandVeins[i] : bandWidths[i]);
+                            Color4 inner = near;
 
-                            f.stageMeshes.Add(new MeshQuad { A = a + sa * from, B = b + sb * from, C = a + sa * to, D = b + sb * to, Near = near, Far = far });
-                            f.stageMeshes.Add(new MeshQuad { A = a - sa * from, B = b - sb * from, C = a - sa * to, D = b - sb * to, Near = near, Far = far });
+                            // (the glow of a crack that grows out of another comes in from where it leaves it)
+                            if (layer == 0)
+                            {
+                                float glow = Math.Min(bandGlows[i - 1], bandGlows[i]);
+
+                                if (glow < 0.01f)
+                                    continue;
+
+                                inner.A *= glow;
+                            }
+
+                            f.stageMeshes.Add(new MeshQuad { A = a + sa * from, B = b + sb * from, C = a + sa * to, D = b + sb * to, Near = inner, Far = far });
+                            f.stageMeshes.Add(new MeshQuad { A = a - sa * from, B = b - sb * from, C = a - sa * to, D = b - sb * to, Near = inner, Far = far });
                         }
                     }
                 }
@@ -694,7 +853,48 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bandSides.Clear();
                 bandWidths.Clear();
                 bandVeins.Clear();
+                bandGlows.Clear();
                 bandRuns.Clear();
+            }
+
+            /// <summary>
+            /// The World's Ender's impact frame on the big crack when it explodes (2026-11-14, "World End's Impact frames on crack and slightly around it"): for a moment, in flashes, the crack and a jagged band
+            /// round it are turned inside out (black where it was white, everything under it), its edges jumping to new places at every flash, as the stars of her impact frame do.
+            /// </summary>
+            private void impactFrame(BulletField f, int k, double t)
+            {
+                double since = t - explodeAt(k);
+
+                if (since < 0 || since >= DanmakusuBalance.SUIKA_IMPACT_MS)
+                    return;
+
+                // (on and off: a flash, a gap as long, and so on)
+                int flash = (int)(since / DanmakusuBalance.SUIKA_IMPACT_FLASH_MS);
+
+                if (flash % 2 == 1)
+                    return;
+
+                const int steps = 48;
+                Vector2 previousPoint = lineAt(k, 0f), previousSide = Vector2.Zero;
+                float previousWidth = 0f;
+
+                for (int i = 0; i <= steps; i++)
+                {
+                    float u = i / (float)steps;
+                    Vector2 point = lineAt(k, u);
+                    Vector2 ahead = lineAt(k, Math.Min(u + 0.5f / steps, 1f)) - lineAt(k, Math.Max(u - 0.5f / steps, 0f));
+                    Vector2 side = ahead.LengthSquared > 1e-6f ? Vector2.Normalize(new Vector2(-ahead.Y, ahead.X)) : new Vector2(-fissureWay[k].Y, fissureWay[k].X);
+                    float width = widthAt(f, k, u) * DanmakusuBalance.SUIKA_IMPACT_MARGIN * (0.7f + 0.6f * hash01(k * 131 + i, flash, 111));
+
+                    if (i > 0)
+                        f.impactStars.AddPiece(previousPoint + previousSide * previousWidth, point + side * width, previousPoint - previousSide * previousWidth, point - side * width);
+
+                    previousPoint = point;
+                    previousSide = side;
+                    previousWidth = width;
+                }
+
+                f.impactStars.ShapesDone();
             }
         }
     }

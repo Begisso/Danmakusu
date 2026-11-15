@@ -1,4 +1,4 @@
-namespace osu.Game.Rulesets.Danmakusu.Bosses
+﻿namespace osu.Game.Rulesets.Danmakusu.Bosses
 {
     /// <summary>
     /// The special mechanic of a boss (a stub: so far only the name and the idea; <see cref="UI.BulletField"/> has the place where each one is to be built).
@@ -199,7 +199,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         /// <summary>Raiko: five taiko drums circle her and are beaten in turn; every beat sends out a ripple that makes bullets swell.</summary>
         Taiko,
 
-        /// <summary>Ringo: every bullet leaves two copies behind it, every sixth is thrown out again, and big bullets turn the others round.</summary>
+        /// <summary>Ringo: every bullet leaves two copies behind it, every second three is skewered on a beam, every sixth is thrown out again, and big bullets turn the others round.</summary>
         Dango,
 
         /// <summary>
@@ -382,14 +382,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         /// <summary>
         /// Suika Ibuki: every four beats she stomps: what is within four circle radii of her is thrown on twice as fast, glowing like magma, with a narrow tail of beam two beats long, and bursts into four small ellipses at the
-        /// wall; the stomp hurts the player there, and thin glowing cracks in the ground hurt like a slider body for two beats. Every sixteen beats a wide glowing crack, as jagged as the World's Ender's cut, splits the ground
-        /// from her towards the player; it hurts like a slider body and eight beats later it explodes into glowing ellipses.
+        /// wall; the stomp hurts the player there, and thick cracks of magma in the ground hurt like a slider body for two beats. Every sixteen beats a wide glowing crack, as jagged as the World's Ender's cut, grows
+        /// from her towards the player over eight beats, with branches; it hurts like a slider body and eight beats later it explodes (an impact frame on it) into glowing ellipses.
         /// </summary>
         Fissure,
 
         /// <summary>
         /// Yuki: in her attacks the old laser bursts (five beams from her, the first at the player, turning slowly towards them), but every slice of a beam goes out where the player was when it was fired, and leaves a
-        /// burning scorch mark there for eight beats that hurts like a slider body. Every four beats she shoots rings of five ricochet stars from five places round her.
+        /// scorch mark there (a spot of the beam, as wide as the beam was) for eight beats that hurts like a slider body; Marisa's star is on her while she fires. Every four beats she shoots rings of five ricochet stars from five places round her.
         /// </summary>
         Scorch,
 
@@ -418,7 +418,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         Galaxy,
 
         /// <summary>
-        /// Kana Anaberal: every sixteen beats 32 bullets stop, grow to twice their size, turn white and glow; eight beats later they fly off, each its own way, twice as fast, and ricochet three times. Every eight beats
+        /// Kana Anaberal: every sixteen beats 64 bullets stop, grow to twice their size, turn white and glow; eight beats later they fly off, each its own way, twice as fast, and ricochet three times. Every eight beats
         /// she shoots a fan of three bullets twice as big as a plain one at the player.
         /// </summary>
         Poltergeist,
@@ -431,13 +431,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         /// <summary>
         /// Nitori Kawashiro: in every attack a giant spinning icosahedron of beams (one for every edge) fades in round the middle of the playfield, turning about the line through two corners across the screen, every
-        /// next attack the other way; it grows to as wide as the playfield over eight beats and lasts the whole attack, and in the pause it comes apart into plain bullets half the size. She shoots an arc of beam ten
+        /// next attack the other way; it grows to a little wider than the playfield over eight beats and lasts the whole attack, and in the pause it comes apart into plain bullets half the size. She shoots an arc of beam ten
         /// degrees wide at the player every quarter beat.
         /// </summary>
         Icosahedron,
 
         /// <summary>
-        /// Mai: no pauses; one giant snowflake of beams after another, standing where she was: it grows from the middle out over eight beats as Yuyuko's tree does, then goes again from the middle out over the next
+        /// Mai: no pauses; one giant snowflake of beams after another, standing where she was (thick arms narrowing to their tips, branches fewer and shorter further out, a see-through preview growing ahead): it grows from the middle out over eight beats as Yuyuko's tree does, then goes again from the middle out over the next
         /// eight, coming apart into plain bullets half the size that fly out from its middle.
         /// </summary>
         Snowflake,
@@ -449,8 +449,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         Strings,
 
         /// <summary>
-        /// Ellen: rings of talismans every two beats, every two neighbouring talismans joined by a beam (harmless for four beats); Socrates, her cat, comes out of her and every two beats jumps onto the bullet
-        /// within four circle radii nearest the player, rides it, and hurts like a slider body.
+        /// Ellen: a fan of twenty ellipses at the player every two beats, every two neighbouring ellipses joined by a beam over and over (see-through for a beat, hurting for a beat, gone for a beat); Socrates,
+        /// her cat, comes out of her and every four beats (more often when far from the player) jumps onto a bullet within four circle radii, red arrows showing where a beat before, rides it, and hurts like a slider body.
         /// </summary>
         Familiar,
 
@@ -468,7 +468,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
 
         /// <summary>
         /// Yatsuhashi Tsukumo: no pauses. Her section is an 18-key osu!mania convert of the map (osu!mania's own converter): every note falls down its lane from the top of the screen as a beam four times as thick as a
-        /// normal one, in four beats from top to bottom, reaching the bottom on its note (an approach circle closes at the top of its lane first); held notes are long beams. The map's own objects stay.
+        /// normal one, in four beats from top to bottom, reaching the bottom on its note (an approach circle closes at the top of its lane first); a tap is a round dot of beam, a held note a beam exactly as long as it is held. The map's own objects stay.
         /// </summary>
         Koto,
 

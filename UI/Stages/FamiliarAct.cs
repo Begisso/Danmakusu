@@ -9,13 +9,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Ellen: she throws rings of talismans every two beats (the planner's). Every two neighbouring talismans of a ring - the first and the second, the third and the fourth... - are joined by a beam as wide as a
-        // slider's, see-through and harmless for its first four beats, then hurting like a slider body, for as long as both talismans are there: a dashed ring that grows with them.
-        // Socrates, her cat (a white cat's face, twice as big as a plain bullet): it comes out of her and stays on her until its first jump; every two beats it jumps onto the bullet (anyone's) within four circle
-        // radii of it that is nearest the player, if that one is nearer the player than the cat is, and rides it (where the bullet goes, it goes; if the bullet is gone, it stays where it was). A jump takes a
-        // quarter of a beat, with a little hop. Since 2026-11-14 it likes best a bullet within reach whose leap goes over the player (the player between the cat and it, near the line), and it jumps more often
-        // when it is far from the player: every beat when further than it can jump, every half beat when twice as far. Chen's cat cries once, when it comes out of her (not at every jump). The cat hurts like a
-        // slider body, on its leaps too.
+        // Ellen: she throws a fan of twenty ellipses at the player every two beats (the planner's; rings of talismans until 2026-11-14). Every two neighbouring ellipses of a fan - the first and the second, the
+        // third and the fourth... - are joined by a beam as wide as a slider's over and over, from the throw: see-through and harmless for a beat (the warning), solid and hurting like a slider body for a beat,
+        // then gone for a beat, for as long as both are there.
+        // Socrates, her cat (a white cat's face, twice as big as a plain bullet): it comes out of her and stays on her until its first jump; every four beats it jumps onto the bullet (anyone's) within four circle
+        // radii of it that is nearest the player, if that one is nearer the player than the cat is, and rides it (where the bullet goes, it goes; if the bullet is gone, it stays where it was). A jump takes half
+        // a beat, with a little hop. It likes best a bullet within reach whose leap goes over the player (the player between the cat and it, near the line), and it jumps more often when it is far from the player:
+        // every beat when further than it can jump, every half beat when twice as far. The bullet of a jump is chosen a beat before (half the time between its jumps at most), and red arrows point from the cat
+        // to it until it leaps. Chen's cat cries once, when it comes out of her (not at every jump). The cat hurts like a slider body, on its leaps too.
         // ======================================================================================================================================================
 
         private sealed class FamiliarAct : StageAct
@@ -45,6 +46,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 End = period.End;
 
                 nextJump = period.ShootStart + beat * DanmakusuBalance.ELLEN_CAT_JUMP_BEATS;
+                warnMs = beat * DanmakusuBalance.ELLEN_CAT_WARN_BEATS;
             }
 
             public override void Init(BulletField f)
@@ -53,7 +55,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var ring in f.emitters)
                 {
-                    if (ring.OwnShot && ring.FollowsBoss && ring.BossRank == Period.Rank && ring.Shape == BulletShape.Talisman && ring.Count >= 2 && ring.Time >= Period.ShootStart && ring.Time < Period.End)
+                    if (ring.OwnShot && ring.FollowsBoss && ring.BossRank == Period.Rank && ring.Shape == BulletShape.Ellipse && ring.Count >= 2 && ring.Time >= Period.ShootStart && ring.Time < Period.End)
                     {
                         rings.Add(ring);
                         longestRing = Math.Max(longestRing, ring.Lifetime);
@@ -73,6 +75,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 onEllen = true;
                 leapStart = double.NaN;
                 meowed = time > Start;
+                aiming = false;
+                aimRing = null;
+                warnMs = beat * DanmakusuBalance.ELLEN_CAT_WARN_BEATS;
 
                 // (the next jump on the grid of its usual jumps)
                 double every = beat * DanmakusuBalance.ELLEN_CAT_JUMP_BEATS;
@@ -140,6 +145,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 else if (ridden != null)
                     ridden = null;
 
+                // (the bullet of its next jump is chosen when the warning begins, and the arrow points at it until it leaps)
+                if (!aiming && nextJump < End && now >= nextJump - warnMs && now < nextJump)
+                {
+                    aiming = choose(f, now, out aimRing, out aimBullet);
+                    aimedAt = now;
+                }
+
                 for (int guard = 0; nextJump <= now && nextJump < End && guard < 64; guard++)
                 {
                     double jumpTime = nextJump;
@@ -147,13 +159,61 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 player = f.characterPosition;
                     float reach = f.circleRadius * DanmakusuBalance.ELLEN_CAT_REACH_CIRCLES;
 
-                    // (the next jump: in two beats near the player; in one when it is further off than it can jump, in half a beat when twice as far - "increases jump frequency if too far", 2026-11-14)
+                    // (the next jump: in four beats near the player; in one when it is further off than it can jump, in half a beat when twice as far - "increases jump frequency if too far", "jump frequency
+                    // halved when she is near player", 2026-11-14)
                     float away = Vector2.Distance(from, player);
-                    nextJump = jumpTime + beat * (away > reach * 2f ? DanmakusuBalance.ELLEN_CAT_FAR_JUMP_BEATS * 0.5 : away > reach ? DanmakusuBalance.ELLEN_CAT_FAR_JUMP_BEATS : DanmakusuBalance.ELLEN_CAT_JUMP_BEATS);
+                    double every = beat * (away > reach * 2f ? DanmakusuBalance.ELLEN_CAT_FAR_JUMP_BEATS * 0.5 : away > reach ? DanmakusuBalance.ELLEN_CAT_FAR_JUMP_BEATS : DanmakusuBalance.ELLEN_CAT_JUMP_BEATS);
+                    nextJump = jumpTime + every;
+                    warnMs = Math.Min(beat * DanmakusuBalance.ELLEN_CAT_WARN_BEATS, every * 0.5);
 
+                    // (the bullet warned of, if it is still there; otherwise one chosen now)
+                    BulletEmitter? target = null;
+                    int targetBullet = 0;
+
+                    if (aiming && aimRing != null && bulletAt(f, aimRing, aimBullet, now, out _))
+                    {
+                        target = aimRing;
+                        targetBullet = aimBullet;
+                    }
+                    else if (choose(f, now, out var other, out int otherBullet))
+                    {
+                        target = other;
+                        targetBullet = otherBullet;
+                    }
+
+                    aiming = false;
+                    aimRing = null;
+
+                    if (target == null)
+                        continue; // (nothing nearer the player within reach: it stays)
+
+                    leapFrom = from;
+                    leapStart = jumpTime;
+                    ridden = target;
+                    riddenBullet = targetBullet;
+                    onEllen = false;
+                    resting = from;
+                }
+            }
+
+            // (the warning of its next jump: the bullet it will leap to, chosen when the warning began)
+            private bool aiming;
+            private BulletEmitter? aimRing;
+            private int aimBullet;
+            private double aimedAt;
+            private double warnMs;
+
+            /// <summary>The bullet the cat would jump to at <paramref name="now"/>: within its reach, best one whose leap goes over the player, else the one nearest the player (if nearer than the cat is).</summary>
+            private bool choose(BulletField f, double now, out BulletEmitter? chosen, out int chosenBullet)
+            {
+                Vector2 from = catAt(f, now);
+                Vector2 player = f.characterPosition;
+                float reach = f.circleRadius * DanmakusuBalance.ELLEN_CAT_REACH_CIRCLES;
+                chosen = null;
+                chosenBullet = 0;
+
+                {
                     float best = (from - player).LengthSquared;
-                    BulletEmitter? chosen = null;
-                    int chosenBullet = 0;
 
                     // (best of all, one whose leap goes over the player: the player lies along the way, between where it is and the bullet - "tries to jump over player", 2026-11-14)
                     float bestOver = float.PositiveInfinity;
@@ -230,17 +290,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         chosen = over;
                         chosenBullet = overBullet;
                     }
-
-                    if (chosen == null)
-                        continue; // (nothing nearer the player within reach: it stays)
-
-                    leapFrom = from;
-                    leapStart = jumpTime;
-                    ridden = chosen;
-                    riddenBullet = chosenBullet;
-                    onEllen = false;
-                    resting = from;
                 }
+
+                return chosen != null;
             }
 
             // ---- the beams between the talismans ----
@@ -265,18 +317,32 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private float beamHalf(BulletField f) => f.stageBaseRadius(Period) * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
 
-            private double harmlessMs => beat * DanmakusuBalance.ELLEN_BEAM_HARMLESS_BEATS;
-
-            /// <summary>How visible the beams of a ring thrown at <paramref name="thrown"/> are at <paramref name="t"/>: see-through while harmless, coming in over 250 ms when they start to hurt.</summary>
-            private float beamVisibility(double thrown, double t)
+            /// <summary>
+            /// The beams of a fan thrown at <paramref name="thrown"/> at <paramref name="t"/>, over and over from the throw: see-through and harmless (the warning), then solid, then gone (2026-11-14: "periodically
+            /// connected, warn about it with previews"). How visible they are (0: not there) and whether they hurt.
+            /// </summary>
+            private float beamState(double thrown, double t, out bool solid)
             {
-                double age = t - thrown - harmlessMs;
+                double preview = beat * DanmakusuBalance.ELLEN_BEAM_PREVIEW_BEATS, held = beat * DanmakusuBalance.ELLEN_BEAM_SOLID_BEATS;
+                double cycle = preview + held + beat * DanmakusuBalance.ELLEN_BEAM_OFF_BEATS;
+                double u = (t - thrown) % cycle;
+                solid = false;
 
-                if (age < 0)
-                    return DanmakusuBalance.JUNKO_GHOST_ALPHA;
+                if (u < 0)
+                    return 0f;
 
-                float u = (float)Math.Min(age / 250.0, 1.0);
-                return DanmakusuBalance.JUNKO_GHOST_ALPHA + (1f - DanmakusuBalance.JUNKO_GHOST_ALPHA) * u * u * (3f - 2f * u);
+                if (u < preview)
+                    return DanmakusuBalance.JUNKO_GHOST_ALPHA * smoothStep(u / Math.Min(preview * 0.25, 120.0));
+
+                if (u < preview + held)
+                {
+                    solid = true;
+                    float come = smoothStep((u - preview) / 60.0); // (it comes in quickly from the warning)
+                    float go = 1f - smoothStep((u - (preview + held - 60.0)) / 60.0);
+                    return DanmakusuBalance.JUNKO_GHOST_ALPHA + (1f - DanmakusuBalance.JUNKO_GHOST_ALPHA) * Math.Min(come, go);
+                }
+
+                return 0f;
             }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
@@ -296,7 +362,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (t > ring.Time + ring.Lifetime)
                         continue;
 
-                    float alpha = beamVisibility(ring.Time, t);
+                    float alpha = beamState(ring.Time, t, out _);
+
+                    if (alpha < 0.01f)
+                        continue;
 
                     for (int b = 0; b + 1 < ring.Count && b + 1 < 64; b += 2)
                     {
@@ -325,6 +394,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float hop = double.IsNaN(leapStart) || t >= leapStart + leapMs ? 0f : MathF.Sin(MathF.PI * (float)((t - leapStart) / leapMs));
 
                 f.stageFront.Add(StageTexture.CatFace, catAt(f, t) - new Vector2(0f, hop * catRadius(f) * 0.6f), new Vector2(size * (1f + 0.15f * hop)), 0f, alpha, Color4.White);
+
+                // (the warning of its next jump: red arrows (Seija's) from it to the bullet it will leap to, coming in as the warning begins and blinking faster as the jump comes; 2026-11-14)
+                if (aiming && aimRing != null && t >= aimedAt && t < nextJump && bulletAt(f, aimRing, aimBullet, t, out Vector2 target))
+                {
+                    Vector2 cat = catAt(f, t);
+                    Vector2 way = target - cat;
+                    float length = way.Length;
+
+                    if (length > catRadius(f))
+                    {
+                        way /= length;
+                        float left = (float)((nextJump - t) / Math.Max(warnMs, 1));
+                        float warn = smoothStep((t - aimedAt) / 80.0) * (0.6f + 0.4f * MathF.Cos((1f - left) * MathF.PI * 6f));
+                        float arrow = Math.Max(catRadius(f) * 0.9f, f.circleRadius * 0.5f);
+                        int arrows = Math.Clamp((int)(length / (arrow * 1.6f)), 1, 6);
+                        var red = new Color4(1f, 0.25f, 0.2f, 1f);
+
+                        for (int i = 0; i < arrows; i++)
+                        {
+                            float along = catRadius(f) + (length - catRadius(f)) * (i + 0.5f) / arrows;
+                            f.stageRipple.Add(StageTexture.SeijaArrow, cat + way * along, new Vector2(arrow), MathF.Atan2(way.Y, way.X) * 180f / MathF.PI, warn * 0.9f * alpha, red);
+                        }
+                    }
+                }
             }
 
             // ---- what hurts ----
@@ -354,7 +447,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         var ring = rings[r];
 
-                        if (now > ring.Time + ring.Lifetime || now < ring.Time + harmlessMs)
+                        if (now > ring.Time + ring.Lifetime)
+                            continue;
+
+                        beamState(ring.Time, now, out bool solid);
+
+                        if (!solid)
                             continue;
 
                         for (int b = 0; b + 1 < ring.Count && b + 1 < 64; b += 2)
@@ -381,7 +479,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     var ring = rings[r];
 
-                    if (now > ring.Time + ring.Lifetime || now < ring.Time + harmlessMs)
+                    if (now > ring.Time + ring.Lifetime)
+                        continue;
+
+                    beamState(ring.Time, now, out bool solid);
+
+                    if (!solid)
                         continue;
 
                     for (int b = 0; b + 1 < ring.Count && b + 1 < 64; b += 2)

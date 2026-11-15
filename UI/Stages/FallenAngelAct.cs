@@ -131,6 +131,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return (((1f - open) * DanmakusuBalance.MATENSHI_WING_CLOSED_DEGREES + sway) * MathF.PI / 180f, DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE + (1f - DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE) * open);
             }
 
+            /// <summary>
+            /// How much further than the wing a slice of its feathers is turned at <paramref name="t"/> (radians): the feathers follow the wing's sway a little later the further out they are (they trail behind it), and
+            /// each slice flutters a little on its own as well; none of it while the wing is closed (2026-11-14, the user: "make sure feathers on her wing also have physics separately").
+            /// </summary>
+            private float featherTurn(int slice, double t)
+            {
+                float open = openness(t);
+
+                if (open <= 0f)
+                    return 0f;
+
+                double sway = beat * DanmakusuBalance.MATENSHI_WING_SWAY_BEATS;
+                double lag = beat * DanmakusuBalance.MATENSHI_FEATHER_LAG_BEATS * slice;
+                float trailing = MathF.Sin((float)((t - Start - lag) / sway) * MathF.Tau) - MathF.Sin((float)((t - Start) / sway) * MathF.Tau); // (the wing's sway, later, less the wing's own)
+                float flutter = MathF.Sin((float)((t - Start) / (beat * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_BEATS)) * MathF.Tau + slice * 1.7f);
+
+                return (trailing * DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES + flutter * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_DEGREES) * open * MathF.PI / 180f;
+            }
+
             private static Vector2 turn(Vector2 v, float radians)
             {
                 float cos = MathF.Cos(radians), sin = MathF.Sin(radians);
@@ -141,6 +160,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private Vector2 onWing(BulletField f, bool left, Vector2 spot, double t)
             {
                 var (angle, scale) = fold(t);
+                angle += featherTurn(StageLayer.WingFeatherSlice(MathF.Atan2(spot.Y, spot.X)), t); // (on the slice of feathers it is on)
                 float side = left ? -1f : 1f;
                 return f.bossPositionOf(Period) + turn(new Vector2(side * spot.X, spot.Y) * (wingSize(f) * scale), side * angle);
             }
@@ -166,8 +186,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float side = left ? -1f : 1f;
                     Vector2 offset = new Vector2(side * middleFromRoot.X, middleFromRoot.Y);
 
-                    // (each turns about its root, at her back)
-                    f.stageBack.Add(left ? StageTexture.WingLeft : StageTexture.WingRight, her + turn(offset, side * angle), size, side * angle * 180f / MathF.PI, alpha, Color4.White);
+                    // (each turns about its root, at her back; every slice of its feathers a little more or less, on its own)
+                    for (int slice = 0; slice < StageLayer.WING_FEATHER_GROUPS; slice++)
+                    {
+                        float turned = side * (angle + featherTurn(slice, t));
+                        var texture = (left ? StageTexture.WingLeftFeather0 : StageTexture.WingRightFeather0) + slice;
+                        f.stageBack.Add(texture, her + turn(offset, turned), size, turned * 180f / MathF.PI, alpha, Color4.White);
+                    }
                 }
             }
 
@@ -310,8 +335,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (float side in new[] { 1f, -1f })
                 {
-                    // (into the right wing's picture: mirrored for the left wing, turned back about the root, in pixels of the picture)
-                    Vector2 local = turn(new Vector2(side * apart.X, apart.Y), -angle) / perPixel + root;
+                    // (into the right wing's picture: mirrored for the left wing, turned back about the root, in pixels of the picture; then turned back by the slice of feathers it is on, which moves on its own)
+                    Vector2 fromRoot = turn(new Vector2(side * apart.X, apart.Y), -angle) / perPixel;
+                    int slice = StageLayer.WingFeatherSlice(MathF.Atan2(fromRoot.Y, fromRoot.X));
+                    Vector2 local = turn(fromRoot, -featherTurn(slice, t)) + root;
 
                     if (StageLayer.WingDistance(local.X, local.Y) * perPixel <= reach)
                         return true;

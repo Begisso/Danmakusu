@@ -180,6 +180,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (alpha < 0.01f)
                         continue;
 
+                    // (a set - its beams and its star - is one piece: drawn layer by layer together, every edge under every inside, so the joints are seamless; 2026-11-14)
+                    int piece = ++f.beamPieces;
+
                     for (int beam = 0; beam < DanmakusuBalance.MEGUMU_BEAMS; beam++)
                     {
                         beamOf(f, set, beam, out Vector2 start, out Vector2 way);
@@ -187,6 +190,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         line.Add(start);
                         line.Add(start + way * reach);
                         f.addPlainBeam(line, solid ? half : half * 0.6f, colour, border, ref beams, ref pointTotal);
+                        f.laserInstances[beams - 1].Piece = piece;
 
                         if (alpha < 0.999f)
                             Array.Fill(f.laserFadePointBuffer, alpha, pointTotal - 2, 2);
@@ -196,6 +200,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         line.Add(start);
                         line.Add(starOf(set, beam));
                         f.addPlainBeam(line, solid ? half : half * 0.6f, colour, border, ref beams, ref pointTotal);
+                        f.laserInstances[beams - 1].Piece = piece;
 
                         if (alpha < 0.999f)
                             Array.Fill(f.laserFadePointBuffer, alpha, pointTotal - 2, 2);

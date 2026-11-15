@@ -176,6 +176,12 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         // (the Difficulty Reduction columns that have a Danmakusu column beside them)
         private static readonly ConditionalWeakTable<ModColumn, DanmakusuModColumn> split = new ConditionalWeakTable<ModColumn, DanmakusuModColumn>();
 
+        // (the Automation columns whose Danmakusu mods - its own Autoplay - are shown in the Danmakusu column instead, and what each Danmakusu column has been given of them: 2026-11-15, the user:
+        // "Move Autoplay to Danmakusu column". The mod stays an Automation mod to osu!, as the boss selections stay Difficulty Reduction ones)
+        private static readonly ConditionalWeakTable<ModColumn, DanmakusuModColumn> automation = new ConditionalWeakTable<ModColumn, DanmakusuModColumn>();
+        private static readonly ConditionalWeakTable<DanmakusuModColumn, ModState[]> movedIn = new ConditionalWeakTable<DanmakusuModColumn, ModState[]>();
+        private static bool movingBroken;
+
         public static void Apply()
         {
             lock (gate)
@@ -223,17 +229,18 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 return;
 
             var columns = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(dimType))!;
-            bool placed = false;
+            DanmakusuModColumn? ours = null;
 
             foreach (object dim in (IEnumerable)__result)
             {
-                if (!placed && dimColumn.GetValue(dim) is ModColumn { ModType: ModType.DifficultyReduction } reduction)
+                if (ours == null && dimColumn.GetValue(dim) is ModColumn { ModType: ModType.DifficultyReduction } reduction)
                 {
-                    var ours = new DanmakusuModColumn { Margin = new MarginPadding { Right = 10 } };
+                    ours = new DanmakusuModColumn { Margin = new MarginPadding { Right = 10 } };
                     columns.Add(dimMade.Invoke(new object[] { ours }));
                     split.AddOrUpdate(reduction, ours);
-                    placed = true;
                 }
+                else if (ours != null && dimColumn.GetValue(dim) is ModColumn { ModType: ModType.Automation } automatic)
+                    automation.AddOrUpdate(automatic, ours);
 
                 columns.Add(dim);
             }
@@ -241,13 +248,38 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             __result = columns;
         }
 
-        /// <summary>(a column is given its mods) ours get only ours, the Difficulty Reduction beside them all but ours.</summary>
+        /// <summary>
+        /// (a column is given its mods) ours get only ours - and the Automation column's Danmakusu mods, its Autoplay, after them - the Difficulty Reduction beside them all but ours, and the Automation
+        /// column all but its Danmakusu ones. (osu! gives every column its mods in their order, ours before Automation: when Automation is given its mods, ours is given them again with the Autoplay.)
+        /// </summary>
         private static void availablePrefix(ModColumn __instance, ref IReadOnlyList<ModState> value)
         {
-            if (__instance is DanmakusuModColumn)
-                value = value.Where(state => DanmakusuModColumn.IsOurs(state.Mod)).ToArray();
+            if (__instance is DanmakusuModColumn ours)
+            {
+                // (an Automation mod in what it is given is one it was given before: the ones of now take its place)
+                var own = value.Where(state => DanmakusuModColumn.IsOurs(state.Mod) && state.Mod.Type != ModType.Automation);
+                value = (movedIn.TryGetValue(ours, out var moved) ? own.Concat(moved) : own).ToArray();
+            }
             else if (split.TryGetValue(__instance, out _))
                 value = value.Where(state => !DanmakusuModColumn.IsOurs(state.Mod)).ToArray();
+            else if (!movingBroken && automation.TryGetValue(__instance, out var target))
+            {
+                var moving = value.Where(state => DanmakusuModColumn.IsOurs(state.Mod)).ToArray();
+
+                try
+                {
+                    movedIn.AddOrUpdate(target, moving);
+                    target.AvailableMods = target.AvailableMods.ToArray();
+                    value = value.Where(state => !DanmakusuModColumn.IsOurs(state.Mod)).ToArray();
+                }
+                catch (Exception e)
+                {
+                    // (osu! will not have it in another column: it stays in Automation)
+                    movingBroken = true;
+                    movedIn.Remove(target);
+                    Logger.Log($"Danmakusu: Autoplay stays in the Automation column ({e.GetType().Name}: {e.Message})");
+                }
+            }
         }
     }
 }
