@@ -33,7 +33,7 @@ The character gets hit by bullets, laser beams, a slider while it is moving, and
 2. In osu!lazer, open Settings → General → "Open osu! folder", and put the dll in its `rulesets` folder (on Windows: `%APPDATA%\osu\rulesets`).
 3. Restart osu!lazer. Danmakusu appears next to the other modes.
 
-The dll is built for osu!lazer **2026.916.0**. Another version may refuse to load it, or crash with it.
+The dll is built for osu!lazer **2026.1117.0**. Another version may refuse to load it, or crash with it.
 
 ## Screenshots
 
@@ -62,7 +62,7 @@ The dll ends up in `bin\Debug\net10.0`. If osu!lazer is installed, the build als
 dotnet build -p:CloseOsu=false
 ```
 
-To build for another osu!lazer version, change the version of `ppy.osu.Game` and `ppy.osu.Game.Rulesets.Osu` in `osu.Game.Rulesets.Danmakusu.csproj` to that version (Settings → About shows it).
+If osu!lazer is installed (`%LOCALAPPDATA%\osulazer\current`), the dll is compiled against that installation's own `osu.Game` dlls, so it matches the osu! you run. `ppy.osu.Framework` in `osu.Game.Rulesets.Danmakusu.csproj` must be the same version as your osu! (Settings → About shows it), and the `ppy.osu.Game*` packages the same or the newest on NuGet. Without osu!lazer installed it builds against the packages alone.
 
 ## Notes
 

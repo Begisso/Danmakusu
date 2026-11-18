@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
 using osuTK.Graphics;
@@ -60,6 +61,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     otherShare[k] = 0.04f + 0.92f * hash01(k, (int)period.Start, 4523);
 
                 StageLayer.PrepareWingShape();
+                StageLayer.PrepareWingPieces();
             }
 
             private readonly float[] otherShare;
@@ -131,24 +133,68 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return (((1f - open) * DanmakusuBalance.MATENSHI_WING_CLOSED_DEGREES + sway) * MathF.PI / 180f, DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE + (1f - DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE) * open);
             }
 
+            // ---- the wing's bones and feathers (WingRig: 2026-11-15, the user: "you sliced her wings wrongly. You need to segment her feathers and bones instead") ----
+
+            /// <summary>The wing's sway at <paramref name="t"/> (-1 .. 1).</summary>
+            private float swayAt(double t) => MathF.Sin((float)((t - Start) / (beat * DanmakusuBalance.MATENSHI_WING_SWAY_BEATS)) * MathF.Tau);
+
             /// <summary>
-            /// How much further than the wing a slice of its feathers is turned at <paramref name="t"/> (radians): the feathers follow the wing's sway a little later the further out they are (they trail behind it), and
-            /// each slice flutters a little on its own as well; none of it while the wing is closed (2026-11-14, the user: "make sure feathers on her wing also have physics separately").
+            /// How far bone <paramref name="bone"/> is turned at <paramref name="t"/> (degrees, from the wing's open shape): the shoulder sways as the wing does; each joint further out a little more and a little later,
+            /// as a whip follows the hand; none of it while the wing is closed.
             /// </summary>
-            private float featherTurn(int slice, double t)
+            private float boneDegrees(int bone, double t, float open)
+                => (DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES + DanmakusuBalance.MATENSHI_WING_FLEX_DEGREES * bone) * swayAt(t - beat * DanmakusuBalance.MATENSHI_BONE_LAG_BEATS * bone) * open;
+
+            // (the pose of the wing's pieces at the moment last asked for: every piece's turn, from the wing as a whole, and where its joint or root has gone - in pixels of the right wing's picture)
+            private double posedAt = double.NaN;
+            private readonly float[] pieceTurn = new float[WingRig.Pieces];
+            private readonly Vector2[] pivotMoved = new Vector2[WingRig.Pieces];
+            private readonly float[] boneTurn = new float[WingRig.BONES];
+            private readonly Vector2[] jointMoved = new Vector2[WingRig.BONES + 1];
+
+            /// <summary>
+            /// Poses the wing's pieces for <paramref name="t"/>: the bones turn each about its inner joint, carrying the joints further out; each feather is carried by its bone, and follows its bone's sway later
+            /// the further out along the wing it grows (it trails behind it) and flutters a little on its own (the user, 2026-11-14: "feathers on her wing also have physics separately").
+            /// </summary>
+            private void pose(double t)
             {
+                if (t == posedAt)
+                    return;
+
+                posedAt = t;
                 float open = openness(t);
+                float shoulder = boneDegrees(0, t, open); // (the wing as a whole sways with the shoulder: fold)
+                jointMoved[0] = WingRig.JOINTS[0];
 
-                if (open <= 0f)
-                    return 0f;
+                for (int bone = 0; bone < WingRig.BONES; bone++)
+                {
+                    boneTurn[bone] = (boneDegrees(bone, t, open) - shoulder) * MathF.PI / 180f;
+                    jointMoved[bone + 1] = jointMoved[bone] + turn(WingRig.JOINTS[bone + 1] - WingRig.JOINTS[bone], boneTurn[bone]);
+                }
 
-                double sway = beat * DanmakusuBalance.MATENSHI_WING_SWAY_BEATS;
-                double lag = beat * DanmakusuBalance.MATENSHI_FEATHER_LAG_BEATS * slice;
-                float trailing = MathF.Sin((float)((t - Start - lag) / sway) * MathF.Tau) - MathF.Sin((float)((t - Start) / sway) * MathF.Tau); // (the wing's sway, later, less the wing's own)
-                float flutter = MathF.Sin((float)((t - Start) / (beat * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_BEATS)) * MathF.Tau + slice * 1.7f);
+                for (int piece = 0; piece < WingRig.Pieces; piece++)
+                {
+                    int bone = WingRig.BoneOf(piece);
+                    pivotMoved[piece] = jointMoved[bone] + turn(WingRig.PivotOf(piece) - WingRig.JOINTS[bone], boneTurn[bone]);
 
-                return (trailing * DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES + flutter * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_DEGREES) * open * MathF.PI / 180f;
+                    if (piece < WingRig.BONES)
+                    {
+                        pieceTurn[piece] = boneTurn[bone];
+                        continue;
+                    }
+
+                    double lag = beat * DanmakusuBalance.MATENSHI_FEATHER_LAG_BEATS * (1 + 2 * WingRig.Along(piece));
+                    float trailing = boneDegrees(bone, t - lag, open) - shoulder;
+                    float flutter = MathF.Sin((float)((t - Start) / (beat * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_BEATS)) * MathF.Tau + piece * 1.7f) * DanmakusuBalance.MATENSHI_FEATHER_FLUTTER_DEGREES * open;
+                    pieceTurn[piece] = (trailing + flutter) * MathF.PI / 180f;
+                }
             }
+
+            /// <summary>Where a point of the right wing's picture (pixels) is once piece <paramref name="piece"/> has moved (still in the picture's pixels, before the wing is turned and sized as a whole).</summary>
+            private Vector2 moved(int piece, Vector2 p) => pivotMoved[piece] + turn(p - WingRig.PivotOf(piece), pieceTurn[piece]);
+
+            /// <summary>The order the pieces are drawn in: the long feathers (from the lowest up to the primaries), then the bones with their covering feathers over their roots.</summary>
+            private static readonly int[] draw_order = Enumerable.Range(WingRig.BONES, WingRig.FEATHERS.Length).Reverse().Concat(Enumerable.Range(0, WingRig.BONES)).ToArray();
 
             private static Vector2 turn(Vector2 v, float radians)
             {
@@ -156,11 +202,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return new Vector2(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos);
             }
 
-            /// <summary>A place on a wing at <paramref name="t"/>: <paramref name="spot"/> is on the right wing's picture, from its root, in shares of its width (mirrored for the left wing).</summary>
+            /// <summary>
+            /// A place on a wing at <paramref name="t"/>: <paramref name="spot"/> is on the right wing's picture, from its root, in shares of its width (mirrored for the left wing); it moves with the bone or feather it
+            /// is on.
+            /// </summary>
             private Vector2 onWing(BulletField f, bool left, Vector2 spot, double t)
             {
                 var (angle, scale) = fold(t);
-                angle += featherTurn(StageLayer.WingFeatherSlice(MathF.Atan2(spot.Y, spot.X)), t); // (on the slice of feathers it is on)
+                var (pictureWidth, pictureHeight) = StageLayer.WingPictureSize;
+
+                if (pictureWidth > 0)
+                {
+                    pose(t);
+                    Vector2 root = StageLayer.WING_ROOT * new Vector2(pictureWidth, pictureHeight);
+                    Vector2 p = root + spot * pictureWidth;
+                    spot = (moved(WingRig.PieceAt(p), p) - root) / pictureWidth;
+                }
+
                 float side = left ? -1f : 1f;
                 return f.bossPositionOf(Period) + turn(new Vector2(side * spot.X, spot.Y) * (wingSize(f) * scale), side * angle);
             }
@@ -171,27 +229,34 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return;
 
                 float alpha = presence(t) * DanmakusuBalance.MATENSHI_WING_ALPHA;
+                var (pictureWidth, pictureHeight) = StageLayer.WingPictureSize;
 
-                if (alpha <= 0.005f)
+                if (alpha <= 0.005f || pictureWidth == 0)
                     return;
 
                 var (angle, scale) = fold(t);
-                float width = wingSize(f) * scale;
-                var size = new Vector2(width, width * StageLayer.WING_ASPECT);
+                float perPixel = wingSize(f) * scale / pictureWidth;
                 Vector2 her = f.bossPositionOf(Period);
-                Vector2 middleFromRoot = (new Vector2(0.5f, 0.5f) - StageLayer.WING_ROOT) * size; // (where the middle of the picture is from the root of the right wing)
+                Vector2 root = StageLayer.WING_ROOT * new Vector2(pictureWidth, pictureHeight);
+                pose(t);
 
                 foreach (bool left in new[] { false, true })
                 {
                     float side = left ? -1f : 1f;
-                    Vector2 offset = new Vector2(side * middleFromRoot.X, middleFromRoot.Y);
 
-                    // (each turns about its root, at her back; every slice of its feathers a little more or less, on its own)
-                    for (int slice = 0; slice < StageLayer.WING_FEATHER_GROUPS; slice++)
+                    // (every piece where its bone has carried it and turned as it is: the wing as a whole turns about its root, at her back)
+                    foreach (int piece in draw_order)
                     {
-                        float turned = side * (angle + featherTurn(slice, t));
-                        var texture = (left ? StageTexture.WingLeftFeather0 : StageTexture.WingRightFeather0) + slice;
-                        f.stageBack.Add(texture, her + turn(offset, turned), size, turned * 180f / MathF.PI, alpha, Color4.White);
+                        var (x0, y0, x1, y1) = StageLayer.WingPieceBounds(piece);
+
+                        if (x1 <= x0)
+                            continue;
+
+                        Vector2 centre = moved(piece, new Vector2((x0 + x1) * 0.5f, (y0 + y1) * 0.5f)) - root;
+                        Vector2 at = her + turn(new Vector2(side * centre.X, centre.Y) * perPixel, side * angle);
+                        float turned = side * (angle + pieceTurn[piece]);
+                        var texture = (left ? StageTexture.WingLeftPiece0 : StageTexture.WingRightPiece0) + piece;
+                        f.stageBack.Add(texture, at, new Vector2(x1 - x0, y1 - y0) * perPixel, turned * 180f / MathF.PI, alpha, Color4.White);
                     }
                 }
             }
@@ -332,16 +397,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float perPixel = width / pictureWidth;
                 var root = new Vector2(StageLayer.WING_ROOT.X * pictureWidth, StageLayer.WING_ROOT.Y * pictureHeight);
+                pose(t);
 
                 foreach (float side in new[] { 1f, -1f })
                 {
-                    // (into the right wing's picture: mirrored for the left wing, turned back about the root, in pixels of the picture; then turned back by the slice of feathers it is on, which moves on its own)
-                    Vector2 fromRoot = turn(new Vector2(side * apart.X, apart.Y), -angle) / perPixel;
-                    int slice = StageLayer.WingFeatherSlice(MathF.Atan2(fromRoot.Y, fromRoot.X));
-                    Vector2 local = turn(fromRoot, -featherTurn(slice, t)) + root;
+                    // (into the right wing's picture as its pieces have moved: mirrored for the left wing, turned back about the root, in pixels of the picture)
+                    Vector2 posed = turn(new Vector2(side * apart.X, apart.Y), -angle) / perPixel + root;
 
-                    if (StageLayer.WingDistance(local.X, local.Y) * perPixel <= reach)
-                        return true;
+                    // (then back by each piece's own move: on the wing where the picture is solid and it is that piece's part)
+                    for (int piece = 0; piece < WingRig.Pieces; piece++)
+                    {
+                        Vector2 local = WingRig.PivotOf(piece) + turn(posed - pivotMoved[piece], -pieceTurn[piece]);
+
+                        if (StageLayer.WingDistance(local.X, local.Y) * perPixel > reach)
+                            continue;
+
+                        // (a piece carries its own part of the picture and its overlap, as far as the player's hitbox reaches round it)
+                        int nearest = WingRig.PieceAt(local, out float best);
+
+                        if (WingRig.Score(piece, local) <= best + WingRig.OverlapAt(local, nearest) + reach / perPixel)
+                            return true;
+                    }
                 }
 
                 return false;

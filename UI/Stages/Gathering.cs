@@ -157,8 +157,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>Adds the bullets it holds at <paramref name="t"/> under the holder at <paramref name="centre"/> (of <paramref name="radius"/>), turned <paramref name="turn"/> radians.</summary>
             public void Beads(int holder, double t, Vector2 centre, float radius, float turn, float alpha, List<StageBead> into)
             {
-                // (what is held is not seen: it is inside the world / the hand until it is shot out)
-                if (!DanmakusuBalance.GATHER_SHOW_HELD || alpha <= 0.01f)
+                // (what is held is not seen: it is inside the world / the hand until it is shot out; and it never hurts: the autoplay asking what hurts is not given it - with Hecatia hundreds of beads at
+                // every moment it asked about, 6 ms a frame, 2026-11-15)
+                if (!DanmakusuBalance.GATHER_SHOW_HELD || alpha <= 0.01f || autoAsking)
                     return;
 
                 float reach = radius * DanmakusuBalance.GATHER_SPREAD;

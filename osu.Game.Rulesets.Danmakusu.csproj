@@ -65,12 +65,31 @@
     <Exec ContinueOnError="true" Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\archive.ps1&quot; -Project &quot;$(MSBuildProjectDirectory)&quot; -Dll &quot;$(TargetPath)&quot;" />
   </Target>
 
+  <!--
+    The installed lazer (2026-11-18): 2026.1117.0. Its osu!framework is on NuGet at that version, the game's packages only up to 2026.1026.0. So the framework is the package of the installed version,
+    the game's packages give the rest (the libraries the game uses), and osu.Game and its osu! and mania rulesets are compiled against the very dlls of the installed lazer (LazerDir, when it is there):
+    the ruleset sees exactly what osu! runs. When the game's packages of the installed version are out, set the three to it (and the framework's too) and the swap does nothing new.
+  -->
+  <PropertyGroup Label="Lazer">
+    <LazerDir Condition="'$(LazerDir)' == ''">$(LOCALAPPDATA)\osulazer\current</LazerDir>
+  </PropertyGroup>
+
   <ItemGroup Label="Package References">
-    <PackageReference Include="ppy.osu.Game" Version="2026.916.0" />
-    <PackageReference Include="ppy.osu.Game.Rulesets.Osu" Version="2026.916.0" />
+    <PackageReference Include="ppy.osu.Game" Version="2026.1026.0" />
+    <PackageReference Include="ppy.osu.Game.Rulesets.Osu" Version="2026.1026.0" />
     <!-- (osu!mania's converter: Yatsuhashi's beams fall where an 18-key convert of the map has its notes, see Bullets/ManiaNotes.cs; lazer ships it too) -->
-    <PackageReference Include="ppy.osu.Game.Rulesets.Mania" Version="2026.916.0" />
+    <PackageReference Include="ppy.osu.Game.Rulesets.Mania" Version="2026.1026.0" />
+    <PackageReference Include="ppy.osu.Framework" Version="2026.1117.0" />
     <!-- (Harmony: lets maps of the other modes be offered in Danmakusu, see OtherModesInSongSelect.cs; its dll is embedded in the ruleset's, osu! loads only the ruleset) -->
     <PackageReference Include="Lib.Harmony" Version="2.4.3" GeneratePathProperty="true" />
   </ItemGroup>
+
+  <Target Name="UseInstalledLazer" AfterTargets="ResolveLockFileReferences" Condition="Exists('$(LazerDir)\osu.Game.dll')">
+    <ItemGroup>
+      <_LazerSwapped Include="@(Reference)" Condition="'%(Filename)' == 'osu.Game' Or '%(Filename)' == 'osu.Game.Rulesets.Osu' Or '%(Filename)' == 'osu.Game.Rulesets.Mania'" />
+      <Reference Remove="@(_LazerSwapped)" />
+      <Reference Include="$(LazerDir)\osu.Game.dll;$(LazerDir)\osu.Game.Rulesets.Osu.dll;$(LazerDir)\osu.Game.Rulesets.Mania.dll" Private="false" />
+    </ItemGroup>
+    <Message Importance="high" Text="Compiled against the installed lazer in $(LazerDir)" />
+  </Target>
 </Project>

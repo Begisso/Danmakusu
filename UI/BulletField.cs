@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -842,9 +842,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
                 verdantBackground = new Box { Colour = new Color4(0.12f, 0.2f, 0.05f, 1f), Alpha = 0f }, // (Daiyousei's attacks: a dark warm green dim)
-                stageBack = new StageLayer(1024, false, StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang,
-                    StageTexture.WingRightFeather0, StageTexture.WingRightFeather1, StageTexture.WingRightFeather2, StageTexture.WingRightFeather3, StageTexture.WingRightFeather4, StageTexture.WingRightFeather5,
-                    StageTexture.WingLeftFeather0, StageTexture.WingLeftFeather1, StageTexture.WingLeftFeather2, StageTexture.WingLeftFeather3, StageTexture.WingLeftFeather4, StageTexture.WingLeftFeather5) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
+                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang }
+                    // (Matenshi's wings, their bones and feathers: only when she is on the map, as the World's Ender's Earth)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.FallenAngel)
+                        ? Enumerable.Range(0, WingRig.Pieces).SelectMany(piece => new[] { StageTexture.WingRightPiece0 + piece, StageTexture.WingLeftPiece0 + piece })
+                        : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
                 stageOrbs = new StageLayer(1300, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (the big round bullets, drawn as sharp as Mokou's ball, under the bullets: five pictures a ball, as many as there are; and the circles that fall in Urumi's section)
@@ -882,6 +884,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 circleSlot.Add(bossCharacter2.CreateCircleProxy());
                 circleSlot.Add(bossCharacter3.CreateCircleProxy());
             }
+
+            // (the bullet sheets of the palette are drawn here, while osu! loads the play in the background: drawn when the field started, on the game's own thread, they stood the first frame for up to
+            // 2 s - 40 colours of every bullet shape, sharp and soft - while the music's clock went on, 2026-11-15)
+            refreshPalette();
         }
 
         private Container circleSlot = null!;
@@ -944,16 +950,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             base.LoadComplete();
 
+            // (the palette was drawn at load: nothing is drawn again unless the colours have changed since. A skin changed during the play is drawn in the background)
             refreshPalette();
-            skin.SourceChanged += refreshPalette;
+            skin.SourceChanged += refreshPaletteLater;
         }
+
+        private void refreshPaletteLater() => refreshPalette(later: true);
 
         protected override void Dispose(bool isDisposing)
         {
             base.Dispose(isDisposing);
 
             if (skin != null)
-                skin.SourceChanged -= refreshPalette;
+                skin.SourceChanged -= refreshPaletteLater;
 
             stopMasterSpark();
             powerUpChannel?.Stop();
@@ -963,10 +972,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             sampleStore?.Dispose();
         }
 
-        /// <summary>Reads the current skin's (or beatmap's) combo colours, the same list the hit circles are coloured from.</summary>
-        private void refreshPalette()
+        /// <summary>
+        /// Reads the current skin's (or beatmap's) combo colours, the same list the hit circles are coloured from, and has the bullet sheets drawn for them (nothing is drawn when they are the ones drawn already;
+        /// <paramref name="later"/>: drawn in the background and put in place when done).
+        /// </summary>
+        private void refreshPalette() => refreshPalette(false);
+
+        private void refreshPalette(bool later)
         {
-            IReadOnlyList<Color4>? comboColours = PaletteOverride ?? skin.GetConfig<GlobalSkinColours, IReadOnlyList<Color4>>(GlobalSkinColours.ComboColours)?.Value;
+            IReadOnlyList<Color4>? comboColours = PaletteOverride ?? skin?.GetConfig<GlobalSkinColours, IReadOnlyList<Color4>>(GlobalSkinColours.ComboColours)?.Value; // (no skin: the tools' bench)
 
             if (comboColours != null && comboColours.Count > 0)
             {
@@ -1000,7 +1014,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 backgroundStyle = keep;
             }
 
-            renderer.SetPalette(bodies, borders2);
+            if (later)
+                renderer.SetPaletteLater(bodies, borders2);
+            else
+                renderer.SetPalette(bodies, borders2);
         }
 
         #region Freeze input

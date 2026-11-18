@@ -74,6 +74,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Reset(BulletField f, double time)
             {
                 shapes.Forget();
+                grid.Forget();
                 nextVolley = 0;
 
                 while (nextVolley < volleys.Length && volleys[nextVolley] < time)
@@ -187,6 +188,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>Every skewer at <paramref name="t"/>, into <paramref name="shape"/>, as much wider as its bullets fly in <paramref name="within"/> ms.</summary>
+            private void fill(BulletField f, MomentShapes.Moment shape, double t, float within)
+            {
+                foreach (var skewer in skewers)
+                {
+                    if (outside(skewer, t))
+                        continue;
+
+                    float reachOf = skewer.First.VisualRadius * DanmakusuBalance.RINGO_SKEWER_WIDTH * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS
+                                    + Math.Max(skewer.First.Speed, Math.Max(skewer.Second.Speed, skewer.Third.Speed)) * within;
+
+                    for (int b = 0; b < skewer.First.Count; b++)
+                    {
+                        if (!skewered(skewer.First, b))
+                            continue;
+
+                        threeAt(f, skewer, b, t);
+
+                        if (points.Count < 2)
+                            continue;
+
+                        foreach (var point in points)
+                            shape.Point(point, reachOf);
+
+                        shape.EndRun();
+                    }
+                }
+            }
+
+            private readonly GridShapes grid = new GridShapes();
+
             public override bool Hurts(BulletField f, double now)
             {
                 if (f.failed)
@@ -194,36 +226,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 Vector2 player = f.characterPosition;
 
-                // (asked about the same moment again - the autoplay, for many places: every skewer of that moment is worked out once, and kept for the frame)
+                // (the autoplay, for many places at a few moments: every skewer at the nearest moment of a grid, worked out once and kept for a few frames, as much wider as the bullets fly in half a step)
+                if (autoAsking)
+                {
+                    var shape = grid.Get(now, f.Time.Current, out double at, out bool fresh);
+
+                    if (fresh)
+                        fill(f, shape, at, (float)(GridShapes.GRID_MS / 2));
+
+                    return shape.Touches(player);
+                }
+
                 var kept = shapes.Kept(now);
 
-                if (kept == null && shapes.Begin(now) is MomentShapes.Moment fresh)
+                if (kept == null && shapes.Begin(now) is MomentShapes.Moment made)
                 {
-                    foreach (var skewer in skewers)
-                    {
-                        if (outside(skewer, now))
-                            continue;
-
-                        float reachOf = skewer.First.VisualRadius * DanmakusuBalance.RINGO_SKEWER_WIDTH * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
-
-                        for (int b = 0; b < skewer.First.Count; b++)
-                        {
-                            if (!skewered(skewer.First, b))
-                                continue;
-
-                            threeAt(f, skewer, b, now);
-
-                            if (points.Count < 2)
-                                continue;
-
-                            foreach (var point in points)
-                                fresh.Point(point, reachOf);
-
-                            fresh.EndRun();
-                        }
-                    }
-
-                    kept = fresh;
+                    fill(f, made, now, 0f);
+                    kept = made;
                 }
 
                 if (kept != null)

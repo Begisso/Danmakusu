@@ -603,6 +603,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Reset(BulletField f, double time)
             {
                 Array.Clear(built, 0, built.Length);
+                grid.Forget();
                 ClearBullets();
 
                 foreach (var list in crossings)
@@ -668,8 +669,72 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            private readonly GridShapes grid = new GridShapes();
+
+            /// <summary>The wood and the flowers at <paramref name="t"/> into <paramref name="shape"/>, as wide as they hurt (the autoplay's: see <see cref="GridShapes"/>; the tree grows slowly).</summary>
+            private void fill(BulletField f, MomentShapes.Moment shape, double t)
+            {
+                float u = growth(t);
+
+                if (t < Start || t >= Gone || u <= 0f)
+                    return;
+
+                float size = treeSize(f);
+                Vector2 topLeft = treeTopLeft(f, size);
+                float hit = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                foreach (var branch in branches)
+                {
+                    float p = progressOf(branch, u);
+
+                    if (p <= 0f)
+                        continue;
+
+                    int n = reveal(branch, p, size, topLeft);
+
+                    if (n < 2)
+                        continue;
+
+                    shape.Point(revealPoints[0], Math.Max(revealWidths[0], revealWidths[1]) + hit);
+
+                    for (int k = 0; k + 1 < n; k++)
+                        shape.Point(revealPoints[k + 1], Math.Max(revealWidths[k], revealWidths[k + 1]) + hit);
+
+                    shape.EndRun();
+                }
+
+                int attack = activeAttack(t);
+
+                if (attack < 0)
+                    return;
+
+                for (int i = 0; i < flowerCount(attack); i++)
+                {
+                    flower(attack, i, out Vector2 local, out float length, out _, out _, out double born);
+                    float scale = petalScale(t, born);
+
+                    if (scale < 0.3f)
+                        continue;
+
+                    shape.Point(topLeft + local * size, (DanmakusuBalance.YUYUKO_PETAL_REACH + 0.5f) * length * size * scale + hit);
+                    shape.EndRun();
+                }
+            }
+
             public override bool Hurts(BulletField f, double now)
             {
+                // (the autoplay, for many places at a few moments: the tree at the nearest moment of a grid, worked out once and kept for a few frames - every branch worked out again for every place cost
+                // 2.4 ms a frame, 2026-11-15)
+                if (autoAsking)
+                {
+                    var shape = grid.Get(now, f.Time.Current, out double at, out bool fresh);
+
+                    if (fresh)
+                        fill(f, shape, at);
+
+                    return shape.Touches(f.characterPosition);
+                }
+
                 float u = growth(now);
 
                 if (now < Start || now >= Gone || u <= 0f)

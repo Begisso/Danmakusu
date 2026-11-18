@@ -484,6 +484,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 /// </summary>
                 public void Point(Vector2 point, float reach)
                 {
+                    // (a long run - Sekibanki's beams are a thousand points each - is cut into short ones, joined at a point both have: each has a small box, and the grid finds the few near a place;
+                    // one box round a whole beam took in most places, and every point of it was looked at, 2026-11-15)
+                    if (runStart >= 0 && Points.Count - runStart >= run_most_points)
+                    {
+                        Vector2 joint = Points[^1];
+                        float jointReach = Reaches[^1];
+                        EndRun();
+                        runStart = Points.Count;
+                        Points.Add(joint);
+                        Reaches.Add(jointReach);
+                    }
+
                     if (runStart < 0)
                         runStart = Points.Count;
 
@@ -518,6 +530,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     runStart = -1;
                     gridMade = false;
                 }
+
+                private const int run_most_points = 12;
 
                 // (with many runs, a grid over them: each square lists the runs whose boxes reach into it, so a place is only compared with the runs of its own square)
                 private const float grid_cell = 48f;
@@ -642,10 +656,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return null;
             }
 
-            /// <summary>An empty moment <paramref name="t"/> to fill and keep (it is kept as soon as it is handed out) - or null the first time <paramref name="t"/> is asked about: the asker works it out as before.</summary>
+            /// <summary>
+            /// An empty moment <paramref name="t"/> to fill and keep (it is kept as soon as it is handed out) - or null the first time <paramref name="t"/> is asked about by the hit check: the asker works it out as before.
+            /// (The autoplay's first question makes it: it asks two or three times about each of its moments, and every first answer cost as much as making the moment - Sekibanki 5 ms a frame, 2026-11-15.)
+            /// </summary>
             public Moment? Begin(double t)
             {
-                if (!asked.Contains(t))
+                if (!autoAsking && !asked.Contains(t))
                 {
                     if (asked.Count >= most_moments * 2)
                         asked.Clear();
@@ -663,6 +680,90 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 var moment = moments[used++];
                 moment.Clear(t);
                 return moment;
+            }
+        }
+
+        /// <summary>Where something that flies on in a straight line from inside the box and bounces off its walls is, for the place it would have got to without them (Reimu's and Misumaru's orbs, looked at ahead).</summary>
+        private static Vector2 reflectInside(Vector2 p, Vector2 low, Vector2 high) => new Vector2(reflectBetween(p.X, low.X, high.X), reflectBetween(p.Y, low.Y, high.Y));
+
+        private static float reflectBetween(float x, float lo, float hi)
+        {
+            float width = hi - lo;
+
+            if (width <= 1e-3f)
+                return lo;
+
+            float u = (x - lo) % (2f * width);
+
+            if (u < 0f)
+                u += 2f * width;
+
+            return lo + (u <= width ? u : 2f * width - u);
+        }
+
+        /// <summary>
+        /// (the autoplay) What of an act hurts at the moments of a grid (every <see cref="GRID_MS"/>), kept from frame to frame for <see cref="KEEP_MS"/>, as the beams' shapes are: a question about a moment
+        /// takes the nearest moment of the grid, and the act makes what it puts in as much wider as it moves in half a step. For acts whose shapes cost even once a moment (Ringo's skewers: three bullets each,
+        /// thousands of them, at the ten moments a frame the autoplay asks about - 5 ms a frame, 2026-11-15). What is used up meanwhile is only dodged when it need not be.
+        /// </summary>
+        private sealed class GridShapes
+        {
+            public const double GRID_MS = 50;
+            public const double KEEP_MS = 150;
+
+            private readonly Dictionary<long, (double Made, MomentShapes.Moment Shape)> kept = new Dictionary<long, (double, MomentShapes.Moment)>();
+            private readonly Stack<MomentShapes.Moment> pool = new Stack<MomentShapes.Moment>();
+            private readonly List<long> stale = new List<long>();
+            private double frame = double.NaN;
+
+            /// <summary>The moment of the grid nearest <paramref name="t"/> (its time in <paramref name="at"/>), as it is kept - or, <paramref name="fresh"/>, an empty one for the asker to fill.</summary>
+            public MomentShapes.Moment Get(double t, double now, out double at, out bool fresh)
+            {
+                if (now != frame)
+                {
+                    // (time went back: nothing is kept)
+                    if (now < frame)
+                        Forget();
+
+                    frame = now;
+                    stale.Clear();
+
+                    foreach (var (moment, (made, _)) in kept)
+                    {
+                        if (now - made >= KEEP_MS || moment * GRID_MS < now - GRID_MS)
+                            stale.Add(moment);
+                    }
+
+                    foreach (long moment in stale)
+                    {
+                        pool.Push(kept[moment].Shape);
+                        kept.Remove(moment);
+                    }
+                }
+
+                long key = (long)Math.Round(t / GRID_MS);
+                at = key * GRID_MS;
+
+                if (kept.TryGetValue(key, out var found))
+                {
+                    fresh = false;
+                    return found.Shape;
+                }
+
+                var shape = pool.Count > 0 ? pool.Pop() : new MomentShapes.Moment();
+                shape.Clear(at);
+                kept[key] = (now, shape);
+                fresh = true;
+                return shape;
+            }
+
+            public void Forget()
+            {
+                foreach (var (_, shape) in kept.Values)
+                    pool.Push(shape);
+
+                kept.Clear();
+                frame = double.NaN;
             }
         }
 
@@ -850,6 +951,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// when it goes off - an explosion, a trap that snaps shut? Only what <see cref="Hurts"/> does not answer for.
             /// </summary>
             public virtual bool Springs(BulletField f, Vector2 at, double from, double to) => false;
+
+            /// <summary>
+            /// (for the autoplay, which looks ahead) Where stage bullet <paramref name="index"/> will be at each of <paramref name="times"/>, into <paramref name="into"/>, if the act can say better than its line
+            /// (or trail) can - one it steers step by step towards the player, who is taken to stay at <paramref name="player"/>. False: the field goes by the bullet's line (2026-11-15).
+            /// </summary>
+            public virtual bool ForeseePath(BulletField f, int index, Vector2 player, double[] times, Vector2[] into) => false;
 
             /// <summary>When the last mechanic of the act's boss is over, if it goes on after her section (the boss stays until then: <see cref="BossPeriod.MechanicsEnd"/>).</summary>
             public virtual double MechanicsEnd => double.NegativeInfinity;
@@ -3325,16 +3432,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (stageActs.Count == 0)
                 return false;
 
+            bool timed = AutoActCost != null && autoProbeKept != null;
+
             foreach (var act in stageActs)
             {
-                if (act.Hurts(this, now))
+                long since = timed ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                bool hurts = act.Hurts(this, now);
+
+                if (timed)
+                    autoActCost(act.GetType().Name + ".Hurts", since);
+
+                if (hurts)
                 {
                     lastStageHurt = act.GetType().Name;
                     return true;
                 }
             }
 
-            foreach (var bead in stageBeads)
+            // (the autoplay, asking about another moment, gives the beads of that moment: see autoBeadsAt)
+            foreach (var bead in probeBeads ?? stageBeads)
             {
                 if (!bead.Harmless && bead.Fade < 0.5f && Vector2.Distance(characterPosition, bead.Position) <= bead.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                 {
@@ -3345,6 +3461,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             return false;
         }
+
+        /// <summary>(the autoplay, while it asks about a moment) The beads of the acts at that moment, instead of the ones of now.</summary>
+        private List<StageBead>? probeBeads;
 
         /// <summary>Yukari's train hurts like a slider body for as long as the player is in it (it is not used up by a hit).</summary>
         private bool touchesTrain(double now)

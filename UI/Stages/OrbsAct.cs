@@ -523,7 +523,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            private static Vector2 positionOf(Orb orb, double t)
+            private Vector2 positionOf(BulletField f, Orb orb, double t)
             {
                 if (orb.Path.Count == 0)
                     return orb.Origin;
@@ -535,9 +535,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 int i = (int)x;
 
-                // (past what has been simulated - the autoplay asks where it will be - it goes straight on as it went last)
+                // (past what has been simulated - the autoplay asks where it will be - it goes on as it flies, bouncing off the walls: 2026-11-15, it went straight on through them)
                 if (i >= orb.Path.Count - 1)
-                    return orb.Path.Count >= 2 && t < orb.Until ? orb.Path[^1] + (orb.Path[^1] - orb.Path[^2]) * (float)(x - (orb.Path.Count - 1)) : orb.Path[^1];
+                {
+                    if (t >= orb.Until)
+                        return orb.Path[^1];
+
+                    float radius = orbRadius(f);
+                    Vector2 low = f.stageMin + new Vector2(radius);
+                    Vector2 high = Vector2.ComponentMax(low, f.stageMax - new Vector2(radius));
+                    return reflectInside(orb.Path[^1] + orb.Velocity * (float)((x - (orb.Path.Count - 1)) * sim_step), low, high);
+                }
 
                 return Vector2.Lerp(orb.Path[i], orb.Path[i + 1], (float)(x - i));
             }
@@ -560,8 +568,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float grown = presence(orb, now);
 
-                    if (grown >= 0.5f && Vector2.Distance(f.characterPosition, positionOf(orb, now)) <= hit * grown + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                    if (grown >= 0.5f && Vector2.Distance(f.characterPosition, positionOf(f, orb, now)) <= hit * grown + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
+                }
+
+                // (the autoplay asks about the time to come: an orb she has not thrown yet, from where she is at where the character is now, as she will throw it, bouncing off the walls - 2026-11-15)
+                if (autoAsking)
+                {
+                    float radius = orbRadius(f);
+                    Vector2 low = f.stageMin + new Vector2(radius);
+                    Vector2 high = Vector2.ComponentMax(low, f.stageMax - new Vector2(radius));
+
+                    for (int k = 0; k < throws.Length && throws[k] <= now; k++)
+                    {
+                        if (thrown[k])
+                            continue;
+
+                        float grown = Math.Min(smoothStep((now - throws[k]) / DanmakusuBalance.REIMU_ORB_POP_MS), 1f);
+
+                        if (grown < 0.5f)
+                            continue;
+
+                        Vector2 origin = f.bossVisualOf(Period);
+                        Vector2 toPlayer = f.realCharacterPosition - origin;
+                        Vector2 way = toPlayer.LengthSquared > 1f ? Vector2.Normalize(toPlayer) : Vector2.UnitY;
+                        Vector2 at = reflectInside(Vector2.Clamp(origin, low, high) + way * (orbSpeed * (float)(now - throws[k])), low, high);
+
+                        if (Vector2.Distance(f.characterPosition, at) <= hit * grown + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                            return true;
+                    }
                 }
 
                 return false;
@@ -580,7 +615,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     float grown = presence(orb, t);
-                    Vector2 at = positionOf(orb, t);
+                    Vector2 at = positionOf(f, orb, t);
 
                     f.stageBack.Add(StageTexture.Glow, at, new Vector2(radius * 5f * grown), 0f, 0.35f * grown, new Color4(1f, 0.45f, 0.45f, 1f), true);
                     f.stageBack.Add(StageTexture.YinYang, at, new Vector2(radius * 2f * grown), (float)(t * DanmakusuBalance.REIMU_ORB_SPIN), 1f, Color4.White); // (under the bullets, 2026-11-14)

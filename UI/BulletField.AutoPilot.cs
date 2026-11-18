@@ -60,6 +60,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private readonly double[] autoTimes = new double[auto_stride];
 
+        /// <summary>(where an act foresees one of its stage bullets at every sample: <see cref="StageAct.ForeseePath"/>)</summary>
+        private readonly Vector2[] autoForeseen = new Vector2[auto_stride];
+
         // what can touch the character: every bullet's place at every sample (NaN: not there, or harmless then) and how near it touches
         private Vector2[] autoTrack = new Vector2[512 * auto_stride];
         private float[] autoReach = new float[512];
@@ -445,9 +448,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// </summary>
         private bool autoProbe(Vector2 p, double from, double t)
         {
+            if (AutoActCost == null)
+                return autoProbeOnce(p, from, t);
+
+            long since = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool hurts = autoProbeOnce(p, from, t);
+            autoActCost("(every question)", since);
+            AutoActCost["(questions asked)"] = AutoActCost.GetValueOrDefault("(questions asked)") + 1;
+            return hurts;
+        }
+
+        private bool autoProbeOnce(Vector2 p, double from, double t)
+        {
             foreach (var act in stageActs)
             {
-                if (act.Springs(this, p, from, t))
+                long since = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                bool springs = act.Springs(this, p, from, t);
+
+                if (AutoActCost != null)
+                    autoActCost(act.GetType().Name + ".Springs", since);
+
+                if (springs)
                     return true;
             }
 
@@ -468,18 +489,100 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (stageActs.Count == 0 && stageBeads.Count == 0 && trainRings.Length == 0 && DrumRings.Length == 0 && moons.Length == 0)
                 return false;
 
-            // (they all look at where the character is: it is put there for the question, and back)
+            // (they all look at where the character is: it is put there for the question, and back; and the beads are the ones of that moment, not of now - 2026-11-15, Hecatia's chain was seen standing)
             Vector2 kept = characterPosition;
             characterPosition = p;
+            autoProbeKept = kept;
+            autoAsking = true;
 
             try
             {
+                long beadsSince = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                probeBeads = autoBeadsAt(t);
+                autoActCost("beads", beadsSince);
+
                 return touchesStage(t) || touchesTrain(t) || touchesDrums(t) || touchesMoon(t);
             }
             finally
             {
                 characterPosition = kept;
+                autoProbeKept = null;
+                autoAsking = false;
+                probeBeads = null;
             }
+        }
+
+        private Vector2? autoProbeKept;
+
+        /// <summary>(Tools/SectionCheck) Where the character is.</summary>
+        public Vector2 CharacterPositionForProbe => characterPosition;
+
+        /// <summary>
+        /// The autoplay is asking whether a place hurts (while it is, the character stands there for the question): what cannot hurt need not be worked out (<see cref="Gathering.Beads"/>), and the
+        /// shapes of a moment are made at its first question (<see cref="MomentShapes.Begin"/>).
+        /// </summary>
+        [ThreadStatic]
+        private static bool autoAsking;
+
+        /// <summary>(Tools/SectionCheck, AUTO_ACTS=1) What the autoplay's questions cost every act (Stopwatch ticks, by its name and the question), and the beads.</summary>
+        public static Dictionary<string, long>? AutoActCost;
+
+        private static void autoActCost(string what, long since)
+        {
+            if (AutoActCost == null)
+                return;
+
+            AutoActCost[what] = AutoActCost.GetValueOrDefault(what) + System.Diagnostics.Stopwatch.GetTimestamp() - since;
+        }
+
+        /// <summary>Where the character really is, also while the autoplay has put it somewhere else for a question (what homes on the character, worked out ahead, homes on this).</summary>
+        private Vector2 realCharacterPosition => autoProbeKept ?? characterPosition;
+
+        // (the beads of the acts at the moments the autoplay asks about: worked out once a frame for each moment)
+        private readonly List<(double Time, List<StageBead> Beads)> autoBeads = new List<(double, List<StageBead>)>();
+        private readonly Stack<List<StageBead>> autoBeadLists = new Stack<List<StageBead>>();
+        private double autoBeadsFrame = double.NaN;
+
+        /// <summary>The beads of every act at <paramref name="t"/> (the ones of now when it is now).</summary>
+        private List<StageBead> autoBeadsAt(double t)
+        {
+            if (autoBeadsFrame != autoTimes[0])
+            {
+                autoBeadsFrame = autoTimes[0];
+
+                foreach (var (_, list) in autoBeads)
+                    autoBeadLists.Push(list);
+
+                autoBeads.Clear();
+            }
+
+            bool now = Math.Abs(t - Time.Current) < 0.5;
+
+            foreach (var (time, list) in autoBeads)
+            {
+                if (time == t || (now && Math.Abs(time - Time.Current) < 0.5))
+                    return list;
+            }
+
+            var beads = autoBeadLists.Count > 0 ? autoBeadLists.Pop() : new List<StageBead>();
+            beads.Clear();
+
+            if (now)
+                beads.AddRange(stageBeads);
+            else
+            {
+                foreach (var act in stageActs)
+                {
+                    long since = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                    act.Beads(this, t, beads);
+                    autoActCost(act.GetType().Name + ".Beads", since);
+                }
+            }
+
+            // (only the ones that can hurt: the bullets the Earth and the Moon hold are hundreds of harmless beads, and every place the autoplay looks at went through them all)
+            beads.RemoveAll(bead => bead.Harmless || bead.Fade >= 0.5f);
+            autoBeads.Add((t, beads));
+            return beads;
         }
 
         // ---- what can touch the character ----
@@ -521,6 +624,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             autoTick(6, since);
             since = System.Diagnostics.Stopwatch.GetTimestamp();
             autoLasers(centre, radius);
+            autoTails(centre, radius);
             autoTick(7, since);
             since = System.Diagnostics.Stopwatch.GetTimestamp();
             autoStream(centre, radius);
@@ -1052,7 +1156,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float reach = Math.Max(bullet.Hit * grown, bullet.Shape == BulletShape.Circle && bullet.Elongate <= 1f ? bigBallHit(bullet.Radius * grown) : 0f) * sukuna + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN; // (a big ball by its whole radius)
                     TracedAt kept = seen ? act.Traced[i] : default;
 
-                    Vector2 placeAt(double t) => seen ? kept.Position + kept.Velocity * (float)(t - kept.Time) : stageBulletPosition(bullet, stageClock(bullet, t));
+                    // (an act that moves its bullets step by step - Koakuma's bats, Nazrin's arrowheads... - has their trail only as far as now: past it the field holds them at its last point, and the
+                    // autoplay saw them standing still for all it looks ahead and walked into them (2026-11-15, the user: "autoplay failed, he should be aware of all boss mechanics"). Past the trail they
+                    // fly on straight as they fly at its end - unless the act foresees them itself (a bat homes on the character: ForeseePath)
+                    double trailEnd = bullet.Trail is { Count: > 0 } trail ? bullet.T0 + (trail.Count - 1) * bullet.TrailStep : double.PositiveInfinity;
+                    Vector2 trailVelocity = double.IsFinite(trailEnd) ? stageBulletVelocity(bullet, trailEnd) : Vector2.Zero;
+                    bool foreseen = !seen && act.ForeseePath(this, i, centre, autoTimes, autoForeseen);
+
+                    Vector2 placeAt(double t)
+                    {
+                        if (seen)
+                            return kept.Position + kept.Velocity * (float)(t - kept.Time);
+
+                        double own = stageClock(bullet, t);
+                        return own > trailEnd ? bullet.Trail![^1] + trailVelocity * (float)(own - trailEnd) : stageBulletPosition(bullet, own);
+                    }
 
                     double firstTime = Math.Max(t0, solid);
 
@@ -1066,7 +1184,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (!infinite)
                     {
-                        Vector2 a = placeAt(firstTime), m = placeAt((firstTime + lastTime) / 2), z = placeAt(lastTime);
+                        Vector2 a = foreseen ? autoForeseen[0] : placeAt(firstTime), m = foreseen ? autoForeseen[auto_samples / 2] : placeAt((firstTime + lastTime) / 2), z = foreseen ? autoForeseen[auto_samples] : placeAt(lastTime);
                         float near = radius + reach + auto_bend;
 
                         if (distanceToSegment(centre, a, m) > near && distanceToSegment(centre, m, z) > near)
@@ -1095,7 +1213,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             }
 
                             bool there = t >= solid && (seen || t <= bullet.Until);
-                            Vector2 position = there ? placeAt(t) : not_there;
+                            Vector2 position = there ? foreseen ? autoForeseen[s] : placeAt(t) : not_there;
                             autoTrack[at + s] = float.IsFinite(position.X) && float.IsFinite(position.Y) ? position : not_there;
                         }
                     }
@@ -1115,6 +1233,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>(a beam's shape is kept longer: one cut or blown up meanwhile is only dodged when it need not be)</summary>
         private const double auto_beam_keep_ms = 300;
 
+        /// <summary>(the tails of stars as long as the beams: kept until their moment had gone by - a second - Mima's took 2 to 5 hits in 40 s instead of 0 or 1, 2026-11-15)</summary>
+        private static double auto_tail_keep_ms => AutoTailKeepProbe > 0 ? AutoTailKeepProbe : auto_beam_keep_ms;
+
+        /// <summary>(Tools/SectionCheck, AUTO_TAIL_KEEP) how long the autoplay keeps the tails it has worked out (ms; 0: as the game).</summary>
+        public static double AutoTailKeepProbe;
+
         private sealed class AutoShape<T>
         {
             public double Made;
@@ -1129,6 +1253,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private readonly List<long> autoStarMoments = new List<long>();
 
         private readonly Dictionary<(int Laser, long Moment), AutoShape<AutoBeam>> autoLaserShapes = new Dictionary<(int, long), AutoShape<AutoBeam>>();
+        private readonly Dictionary<(int Ring, long Moment), AutoShape<AutoBeam>> autoTailShapes = new Dictionary<(int, long), AutoShape<AutoBeam>>();
         private readonly Dictionary<long, AutoShape<AutoPoint>> autoStarShapes = new Dictionary<long, AutoShape<AutoPoint>>();
         private readonly Stack<AutoShape<AutoBeam>> autoLaserShapePool = new Stack<AutoShape<AutoBeam>>();
         private readonly List<(int, long)> autoStale = new List<(int, long)>();
@@ -1165,7 +1290,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 foreach (var shape in autoLaserShapes.Values)
                     autoLaserShapePool.Push(shape);
 
+                foreach (var shape in autoTailShapes.Values)
+                    autoLaserShapePool.Push(shape);
+
                 autoLaserShapes.Clear();
+                autoTailShapes.Clear();
                 autoStarShapes.Clear();
             }
 
@@ -1187,6 +1316,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 autoLaserShapePool.Push(autoLaserShapes[key]);
                 autoLaserShapes.Remove(key);
+            }
+
+            autoStale.Clear();
+
+            foreach (var (key, shape) in autoTailShapes)
+            {
+                if (key.Moment * auto_beam_grid_ms < now - auto_beam_grid_ms || now - shape.Made >= auto_tail_keep_ms)
+                    autoStale.Add(key);
+            }
+
+            foreach (var key in autoStale)
+            {
+                autoLaserShapePool.Push(autoTailShapes[key]);
+                autoTailShapes.Remove(key);
             }
 
             foreach (long moment in autoStarShapes.Keys.ToArray())
@@ -1333,6 +1476,145 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             return shape;
+        }
+
+        // ---- the tails of stars (Byakuren's passive, Mima's stars): beams too, on the beams' grid ----
+        // (2026-11-15: the autoplay did not see them at all; a hit by one is counted as a beam's, and Mima's 8 "beam" hits in 40 s were her stars' tails)
+
+        private void autoTails(Vector2 centre, float radius)
+        {
+            bool infinite = float.IsPositiveInfinity(radius);
+            double tEnd = autoTimes[auto_samples];
+
+            for (int k = 0; k < activeCount; k++)
+                autoTailsOf(active[k], centre, radius, infinite);
+
+            // (and the rings that are fired within the time: a star's tail is where it has flown)
+            for (int j = nextSpawn; j < emitters.Length && emitters[j].Time <= tEnd; j++)
+                autoTailsOf(j, centre, radius, infinite);
+        }
+
+        private void autoTailsOf(int ring, Vector2 centre, float radius, bool infinite)
+        {
+            var emitter = emitters[ring];
+
+            if (emitter.TailMs <= 0 || emitter.Retired)
+                return;
+
+            for (int slot = 0; slot < autoBeamMoments.Count; slot++)
+            {
+                var shape = autoTailShape(ring, emitter, autoBeamMoments[slot]);
+
+                if (shape.Parts.Count == 0)
+                    continue;
+
+                if (!infinite)
+                {
+                    float room = radius + auto_pass_room;
+
+                    if (centre.X < shape.MinX - room || centre.X > shape.MaxX + room || centre.Y < shape.MinY - room || centre.Y > shape.MaxY + room)
+                        continue;
+                }
+
+                var list = autoBeams[slot];
+
+                foreach (var segment in shape.Parts)
+                {
+                    if (infinite || distanceToSegment(centre, segment.A, segment.B) <= radius + Math.Max(segment.WidthA, segment.WidthB))
+                        list.Add(segment);
+                }
+            }
+        }
+
+        /// <summary>The tails of a ring's stars at a moment of the grid, as wide as they hurt and more by as far as the stars fly in half a step (worked out once, then kept, as the beams are).</summary>
+        private AutoShape<AutoBeam> autoTailShape(int ring, BulletEmitter emitter, long moment)
+        {
+            if (autoTailShapes.TryGetValue((ring, moment), out var shape))
+                return shape;
+
+            shape = autoLaserShapePool.Count > 0 ? autoLaserShapePool.Pop() : new AutoShape<AutoBeam>();
+            shape.Parts.Clear();
+            shape.Made = autoGridFrame;
+            shape.MinX = shape.MinY = float.PositiveInfinity;
+            shape.MaxX = shape.MaxY = float.NegativeInfinity;
+            autoTailShapes[(ring, moment)] = shape;
+
+            double t = moment * auto_beam_grid_ms;
+            double ringTime = emitter.WithoutFrozenTime(effects.Effective(emitter, t));
+
+            if (ringTime <= emitter.Time)
+                return shape;
+
+            // (a ring not fired yet is only kept for a moment: one aimed when it fires is foreseen aimed at where the character is now, and one whose places are given when it fires - Mima's stars round her
+            // moon - is not known at all until then)
+            if (autoGridFrame < emitter.Time)
+            {
+                shape.Made = autoGridFrame - auto_tail_keep_ms + auto_grid_keep_ms;
+
+                if (emitter.Derive != DeriveKind.None)
+                    return shape;
+            }
+
+            long since = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+
+            if (AutoActCost != null)
+                AutoActCost["(questions tail shapes)"] = AutoActCost.GetValueOrDefault("(questions tail shapes)") + 1;
+
+            try
+            {
+                fillTailShape(shape, emitter, t, ringTime);
+            }
+            finally
+            {
+                autoActCost("tails", since);
+            }
+
+            return shape;
+        }
+
+        private void fillTailShape(AutoShape<AutoBeam> shape, BulletEmitter emitter, double t, double ringTime)
+        {
+            float moved = emitter.Speed * (float)(auto_beam_grid_ms / 2);
+            float extra = DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN + moved;
+
+            for (int b = 0; b < emitter.Count; b++)
+            {
+                if (!hasTail(emitter, b))
+                    continue;
+
+                // (as the field: only while the star itself is there)
+                emitter.Evaluate(b, ringTime, out _, out _, out bool alive);
+
+                if (!alive || !starTail(emitter, b, t))
+                    continue;
+
+                if (AutoActCost != null)
+                {
+                    AutoActCost["(questions tails)"] = AutoActCost.GetValueOrDefault("(questions tails)") + 1;
+                    AutoActCost["(questions tail points)"] = AutoActCost.GetValueOrDefault("(questions tail points)") + tailPoints.Count;
+                }
+
+                // (a tail an op may act on is worked out in sixteen steps, nearly all of them in a straight line: a point that stands within a pixel of the line from the last one kept to the next is left out)
+                int last = 0;
+
+                for (int i = 1; i < tailPoints.Count; i++)
+                {
+                    if (i + 1 < tailPoints.Count && distanceToSegment(tailPoints[i], tailPoints[last], tailPoints[i + 1]) < 1f)
+                        continue;
+
+                    Vector2 a = tailPoints[last], c = tailPoints[i];
+                    float widthA = tailWidths[last] * DanmakusuBalance.BULLET_HITBOX_SCALE + extra;
+                    float widthB = tailWidths[i] * DanmakusuBalance.BULLET_HITBOX_SCALE + extra;
+                    float wide = Math.Max(widthA, widthB);
+                    last = i;
+
+                    shape.Parts.Add(new AutoBeam { A = a, B = c, WidthA = widthA, WidthB = widthB });
+                    shape.MinX = Math.Min(shape.MinX, Math.Min(a.X, c.X) - wide);
+                    shape.MinY = Math.Min(shape.MinY, Math.Min(a.Y, c.Y) - wide);
+                    shape.MaxX = Math.Max(shape.MaxX, Math.Max(a.X, c.X) + wide);
+                    shape.MaxY = Math.Max(shape.MaxY, Math.Max(a.Y, c.Y) + wide);
+                }
+            }
         }
 
         private void autoStream(Vector2 centre, float radius)

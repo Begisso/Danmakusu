@@ -73,7 +73,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// </summary>
         private Vector2 unturn(Vector2 local)
         {
-            if (mirrorRadians == 0)
+            if (mirrorRadians == 0 || NothingTurnsProbe)
                 return local;
 
             Vector2 centre = DrawSize / 2;
@@ -81,6 +81,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             float cos = MathF.Cos(mirrorRadians), sin = MathF.Sin(mirrorRadians);
             return centre + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
         }
+
+        /// <summary>
+        /// (Tools/SectionCheck) Nothing turns the field: the bench has no playfield round it to turn, so there is no turn to undo. (Undone all the same, the screen's bounds were turned round the corner of the
+        /// field at every turn of Seija's, every ring was started over in a screen moved half a screen away and her stars jumped across the character: 11 hits in 40 s that the game never has, 2026-11-15.)
+        /// </summary>
+        public static bool NothingTurnsProbe;
 
         /// <summary>The centre the playfield turns round, in this field's coordinates.</summary>
         public Vector2 MirrorCentre => DrawSize / 2;

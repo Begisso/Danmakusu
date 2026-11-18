@@ -756,19 +756,51 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (now < throwTimes[k])
                         break;
 
-                    if (!made[k] || now > orbs[k].Until)
+                    // (the autoplay asks about the time to come: an orb that is not thrown yet as she will throw it, see orbAhead)
+                    double until = made[k] ? orbs[k].Until : Math.Min(throwEnds[k], throwTimes[k] + lifeMs);
+
+                    if ((!made[k] && !autoAsking) || now > until)
                         continue;
 
-                    float grown = presence(k, now);
+                    float grown = Math.Min(smoothStep((now - throwTimes[k]) / DanmakusuBalance.REIMU_ORB_POP_MS), smoothStep((until - now) / DanmakusuBalance.REIMU_ORB_POP_MS));
 
                     if (grown < 0.5f)
                         continue;
 
-                    if (Vector2.Distance(f.characterPosition, positionOf(orbs[k], now)) <= hit * grown + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                    if (Vector2.Distance(f.characterPosition, orbAhead(f, k, now)) <= hit * grown + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
                 }
 
                 return false;
+            }
+
+            /// <summary>
+            /// Where orb <paramref name="k"/> is at <paramref name="t"/>: as it has been worked out, and further on (the autoplay asks about the time to come) on from there the way it flies, bouncing off the
+            /// walls (not off the other orbs); one she has not thrown yet from where she is, at where the character is now, as she will throw it. (2026-11-15: an orb was held where it had been worked out to,
+            /// one not thrown yet was not there at all, and the autoplay walked into them: 8 hits in 40 s.)
+            /// </summary>
+            private Vector2 orbAhead(BulletField f, int k, double t)
+            {
+                var orb = orbs[k];
+                float radius = orbRadius(f);
+                Vector2 low = f.stageMin + new Vector2(radius);
+                Vector2 high = Vector2.ComponentMax(low, f.stageMax - new Vector2(radius));
+
+                if (!made[k])
+                {
+                    Vector2 origin = f.bossVisualOf(Period);
+                    Vector2 toPlayer = f.realCharacterPosition - origin;
+                    Vector2 aim = toPlayer.LengthSquared > 1f ? Vector2.Normalize(toPlayer) : new Vector2(0f, 1f);
+                    Vector2 way = turned(aim, k % DanmakusuBalance.REIMU_ORB_RING * MathF.Tau / DanmakusuBalance.REIMU_ORB_RING);
+                    return reflectInside(Vector2.Clamp(origin, low, high) + way * (orbSpeed * (float)(t - throwTimes[k])), low, high);
+                }
+
+                double last = orb.Born + (orb.Path.Count - 1) * sim_step;
+
+                if (orb.Path.Count == 0 || t <= last + sim_step)
+                    return positionOf(orb, t);
+
+                return reflectInside(orb.Path[^1] + orb.Velocity * (float)(t - last), low, high);
             }
 
             public override void Draw(BulletField f, double t)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
@@ -41,6 +41,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly BulletField field;
             private readonly double beat;
             private readonly List<Bat> bats = new List<Bat>();
+            private readonly Dictionary<int, Bat> batOf = new Dictionary<int, Bat>(); // (by its stage bullet: for the autoplay's look ahead)
             private int sequence; // (how many bullets of the others have been seen: every twentieth is turned into a bat)
             private readonly bool straight;
             private readonly float straightSpeed; // (a bat that does not home flies this many times as fast as what it was)
@@ -61,6 +62,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Reset(BulletField f, double time)
             {
                 bats.Clear();
+                batOf.Clear();
                 sequence = 0;
                 ClearBullets();
 
@@ -150,7 +152,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (Bullets.Count == index)
                     return false; // (too many bullets: it stays as it is)
 
-                bats.Add(new Bat
+                var made = new Bat
                 {
                     Index = index,
                     Position = to,
@@ -161,8 +163,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Phase = hash01((int)(to.X * 10f), (int)(to.Y * 10f), index),
                     Trail = Bullets[index].Trail!,
                     Straight = straight,
-                });
+                };
 
+                bats.Add(made);
+                batOf[index] = made;
                 return true;
             }
 
@@ -200,36 +204,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bool homing = !straight && bat.Time - bat.Born < beat * DanmakusuBalance.KOAKUMA_HOMING_BEATS;
 
                 if (homing && speedSquared > 1e-12f)
-                {
-                    float speed = MathF.Sqrt(speedSquared);
-                    Vector2 heading = velocity / speed;
-                    Vector2 toPlayer = player - bat.Position;
-                    float length = toPlayer.Length;
-
-                    if (length > 1e-3f)
-                    {
-                        Vector2 pull = toPlayer * (gravity * step / length);
-                        Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
-                        float across = sideways.Length, least = pull.Length * DanmakusuBalance.KOAKUMA_TURN_FLOOR;
-
-                        // (pointing away from the player the sideways pull is small, and at exactly behind it nothing: it still turns, one way round for as long as it takes)
-                        if (across < least && Vector2.Dot(pull, heading) < 0f)
-                        {
-                            Vector2 normal = new Vector2(-heading.Y, heading.X);
-
-                            if (bat.Side == 0f)
-                                bat.Side = across > least * 0.01f ? (Vector2.Dot(sideways, normal) >= 0f ? 1f : -1f) : bat.Index % 2 == 0 ? 1f : -1f; // (dead straight: by its number)
-
-                            sideways = normal * (bat.Side * least);
-                        }
-
-                        Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
-                        float turnedLength = turned.Length;
-
-                        if (turnedLength > 1e-9f)
-                            bat.Velocity = turned * (speed / turnedLength);
-                    }
-                }
+                    bat.Velocity = steer(bat.Position, velocity, player, step, gravity, bat.Index, ref bat.Side);
 
                 bat.Position += bat.Velocity * step;
                 bat.Time += trail_step_ms;
@@ -266,6 +241,87 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bullet.Until = Math.Min(bullet.Until, bat.Time);
                     Bullets[bat.Index] = bullet;
                 }
+            }
+
+            /// <summary>
+            /// The velocity of a homing bat after one step towards the player (the speed stays): it turns as Byakuren's beams do; pointing away from the player it still turns, one way round
+            /// (<paramref name="side"/>, chosen the first time), for as long as it takes. The step itself and the autoplay's look ahead both go by this.
+            /// </summary>
+            private static Vector2 steer(Vector2 position, Vector2 velocity, Vector2 player, float step, float gravity, int index, ref float side)
+            {
+                float speed = velocity.Length;
+
+                if (speed < 1e-6f)
+                    return velocity;
+
+                Vector2 heading = velocity / speed;
+                Vector2 toPlayer = player - position;
+                float length = toPlayer.Length;
+
+                if (length <= 1e-3f)
+                    return velocity;
+
+                Vector2 pull = toPlayer * (gravity * step / length);
+                Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
+                float across = sideways.Length, least = pull.Length * DanmakusuBalance.KOAKUMA_TURN_FLOOR;
+
+                // (pointing away from the player the sideways pull is small, and at exactly behind it nothing: it still turns, one way round for as long as it takes)
+                if (across < least && Vector2.Dot(pull, heading) < 0f)
+                {
+                    Vector2 normal = new Vector2(-heading.Y, heading.X);
+
+                    if (side == 0f)
+                        side = across > least * 0.01f ? (Vector2.Dot(sideways, normal) >= 0f ? 1f : -1f) : index % 2 == 0 ? 1f : -1f; // (dead straight: by its number)
+
+                    sideways = normal * (side * least);
+                }
+
+                Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
+                float turnedLength = turned.Length;
+                return turnedLength > 1e-9f ? turned * (speed / turnedLength) : velocity;
+            }
+
+            /// <summary>
+            /// (the autoplay) Where a homing bat will be at each of <paramref name="times"/>: its trail as far as it has flown, then step by step as the act moves it, homing on the character, who is taken to stay at
+            /// <paramref name="player"/> (2026-11-15: the autoplay saw the bats standing still where their trail ended and failed in Koakuma's section, 14 hits in 10 s).
+            /// </summary>
+            public override bool ForeseePath(BulletField f, int index, Vector2 player, double[] times, Vector2[] into)
+            {
+                if (straight || f.failed || !batOf.TryGetValue(index, out var bat) || bat.Straight || bat.Gone)
+                    return false;
+
+                var bullet = Bullets[index];
+                float step = (float)trail_step_ms;
+                float gravity = Period.ArrowGravity * DanmakusuBalance.KOAKUMA_BAT_TURN_FACTOR;
+                Vector2 position = bat.Position, velocity = bat.Velocity;
+                double time = bat.Time;
+                float side = bat.Side;
+
+                for (int s = 0; s < times.Length && s < into.Length; s++)
+                {
+                    double t = times[s];
+
+                    if (t <= time)
+                    {
+                        into[s] = stageBulletPosition(bullet, t);
+                        continue;
+                    }
+
+                    int guard = 0;
+
+                    while (time + trail_step_ms <= t && guard++ < 200)
+                    {
+                        if (time - bat.Born < beat * DanmakusuBalance.KOAKUMA_HOMING_BEATS)
+                            velocity = steer(position, velocity, player, step, gravity, bat.Index, ref side);
+
+                        position += velocity * step;
+                        time += trail_step_ms;
+                    }
+
+                    into[s] = position + velocity * (float)(t - time);
+                }
+
+                return true;
             }
 
             private bool alive(BulletField f, Bat bat, double t)

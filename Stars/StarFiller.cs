@@ -141,7 +141,7 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
                         {
                             var thread = new Thread(() =>
                             {
-                                while (queue.TryDequeue(out var beatmap))
+                                while (!closing && queue.TryDequeue(out var beatmap))
                                 {
                                     waitWhilePlaying(play);
 
@@ -156,6 +156,9 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
 
                         foreach (var thread in threads)
                             thread.Join();
+
+                        if (closing)
+                            return;
 
                         Logger.Log($"Danmakusu: {todo.Count} maps rated in {clock.Elapsed.TotalMinutes:0.0} minutes{(failed > 0 ? $" ({failed} could not be rated: they keep osu!'s stars)" : string.Empty)}");
                         roundOver = true;
@@ -247,6 +250,13 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
                 DanmakusuStars.Put(beatmap.MD5Hash, rating with { Bosses = bosses });
                 return true;
             }
+            catch (ObjectDisposedException)
+            {
+                // (osu! is closing: what the map was read from is gone. It is no fault of the map, and it is rated next time - 2026-11-18: every map being rated when osu! closed was kept as one that
+                // cannot be rated, for good, and kept osu!'s stars)
+                closing = true;
+                return false;
+            }
             catch (Exception e)
             {
                 DanmakusuStars.Put(beatmap.MD5Hash, DanmakusuStars.UNRATED);
@@ -254,5 +264,8 @@ namespace osu.Game.Rulesets.Danmakusu.Stars
                 return false;
             }
         }
+
+        /// <summary>osu! is closing: the rating stops, and what it had not done is done next time.</summary>
+        private static volatile bool closing;
     }
 }

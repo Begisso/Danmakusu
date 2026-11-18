@@ -42,6 +42,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             if (drawableRuleset == null || drawableRuleset.HasReplayLoaded.Value || drawableRuleset.Playfield is not DanmakusuPlayfield playfield)
                 return;
 
+            playfield.HeldByMenu = true; // (the menu holds the map; the playfield starts it once Start is pressed and the game draws smoothly again)
             hud.Add(new BossMenu(hud, playfield, selection, chosen));
         }
 
@@ -393,7 +394,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             // (what is not checked is filled in by the combo colours, as everywhere else)
             playfield.ChooseBosses(selection.Choose(playfield.BossesFromColours) ?? playfield.BossesFromColours);
 
-            clock?.Start();
+            // (the playfield starts the map once the game draws smoothly again: the field may have just been made again, and its first frames can wait - 2026-11-15)
+            playfield.StartWhenSmooth();
             showSkip();
 
             this.FadeOut(250).Expire();

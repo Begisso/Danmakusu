@@ -152,6 +152,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Reset(BulletField f, double time)
             {
                 shapes.Forget();
+                grid.Forget();
+                aheadKept.Clear();
+                aheadPoints.Clear();
                 heads.Clear();
                 ClearBullets();
                 nextThrow = 0;
@@ -161,6 +164,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Update(BulletField f, double now)
             {
                 shapes.Forget(); // (the heads move on)
+                aheadKept.Clear();
+                aheadPoints.Clear();
 
                 if (f.failed)
                     return;
@@ -261,43 +266,45 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>One step of a head: it turns towards the player as a bat does (the speed stays the same).</summary>
             private static void advance(Head head, Vector2 player, float step, float gravity, float turnFloor)
             {
-                Vector2 velocity = head.Velocity;
-                float speed = velocity.Length;
-
-                if (speed > 1e-6f)
-                {
-                    Vector2 heading = velocity / speed;
-                    Vector2 toPlayer = player - head.Position;
-                    float length = toPlayer.Length;
-
-                    if (length > 1e-3f)
-                    {
-                        Vector2 pull = toPlayer * (gravity * step / length);
-                        Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
-                        float across = sideways.Length, least = pull.Length * turnFloor;
-
-                        // (pointing away from the player the sideways pull is small, and at exactly behind it nothing: it still turns, one way round for as long as it takes)
-                        if (across < least && Vector2.Dot(pull, heading) < 0f)
-                        {
-                            Vector2 normal = new Vector2(-heading.Y, heading.X);
-
-                            if (head.Side == 0f)
-                                head.Side = across > least * 0.01f ? (Vector2.Dot(sideways, normal) >= 0f ? 1f : -1f) : head.Index % 2 == 0 ? 1f : -1f; // (dead straight: by its number)
-
-                            sideways = normal * (head.Side * least);
-                        }
-
-                        Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
-                        float turnedLength = turned.Length;
-
-                        if (turnedLength > 1e-9f)
-                            head.Velocity = turned * (speed / turnedLength);
-                    }
-                }
-
+                head.Velocity = turn(head.Position, head.Velocity, player, step, gravity, turnFloor, head.Index, ref head.Side);
                 head.Position += head.Velocity * step;
                 head.Time += step_ms;
                 head.Trail.Add(head.Position);
+            }
+
+            /// <summary>The velocity of a head after one step towards the player (see <see cref="advance"/>); the step itself and the autoplay's look ahead both go by this.</summary>
+            private static Vector2 turn(Vector2 position, Vector2 velocity, Vector2 player, float step, float gravity, float turnFloor, int index, ref float side)
+            {
+                float speed = velocity.Length;
+
+                if (speed <= 1e-6f)
+                    return velocity;
+
+                Vector2 heading = velocity / speed;
+                Vector2 toPlayer = player - position;
+                float length = toPlayer.Length;
+
+                if (length <= 1e-3f)
+                    return velocity;
+
+                Vector2 pull = toPlayer * (gravity * step / length);
+                Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
+                float across = sideways.Length, least = pull.Length * turnFloor;
+
+                // (pointing away from the player the sideways pull is small, and at exactly behind it nothing: it still turns, one way round for as long as it takes)
+                if (across < least && Vector2.Dot(pull, heading) < 0f)
+                {
+                    Vector2 normal = new Vector2(-heading.Y, heading.X);
+
+                    if (side == 0f)
+                        side = across > least * 0.01f ? (Vector2.Dot(sideways, normal) >= 0f ? 1f : -1f) : index % 2 == 0 ? 1f : -1f; // (dead straight: by its number)
+
+                    sideways = normal * (side * least);
+                }
+
+                Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
+                float turnedLength = turned.Length;
+                return turnedLength > 1e-9f ? turned * (speed / turnedLength) : velocity;
             }
 
             // ---- the beam behind a head ----
@@ -418,18 +425,107 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>
-            /// Where a head that still flies will be at <paramref name="t"/>, past the last step worked out (the autoplay asks about the time to come): straight on from where it is, laying its beam on the way.
-            /// False for a moment it has been worked out up to (or that the next step will reach: the game's own hit check, a frame's time after the last step, stays as it was), and for a head that has stopped.
+            /// Where a head that still flies will be at <paramref name="t"/>, past the last step worked out (the autoplay asks about the time to come): stepped on as the act moves it, homing on where the
+            /// character is now (2026-11-15: it was taken straight on, and Byakuren's beams turned into the autoplay), laying its beam on the way (<see cref="aheadPoints"/>, from <paramref name="from"/>,
+            /// <paramref name="count"/> points). Worked out once a frame for each moment. False for a moment it has been worked out up to (or that the next step will reach: the game's own hit check, a frame's
+            /// time after the last step, stays as it was), and for a head that has stopped.
             /// </summary>
-            private bool ahead(Head head, double t, out Vector2 at)
+            private bool ahead(BulletField f, Head head, double t, out Vector2 at, out int from, out int count)
             {
                 at = head.Position;
+                from = count = 0;
 
                 if (!double.IsNaN(head.Ended) || t <= head.Time + step_ms || t > head.Born + lifetime)
                     return false;
 
-                at = head.Position + head.Velocity * (float)(t - head.Time);
+                if (aheadKept.TryGetValue((head.Index, t), out var kept))
+                {
+                    (at, from, count) = kept;
+                    return true;
+                }
+
+                Vector2 player = f.realCharacterPosition;
+                float gravity = Period.ArrowGravity * DanmakusuBalance.KOAKUMA_BAT_TURN_FACTOR;
+                float step = (float)step_ms;
+                Vector2 position = head.Position, velocity = head.Velocity;
+                double time = head.Time;
+                float side = head.Side;
+                int guard = 0;
+
+                from = aheadPoints.Count;
+                aheadPoints.Add(position);
+
+                while (time + step_ms <= t && guard++ < 200)
+                {
+                    if (style.HomeBeats <= 0 || time - head.Born < beat * style.HomeBeats)
+                        velocity = turn(position, velocity, player, step, gravity, style.TurnFloor, head.Index, ref side);
+
+                    position += velocity * step;
+                    time += step_ms;
+
+                    if (guard % 3 == 0)
+                        aheadPoints.Add(position);
+                }
+
+                at = position + velocity * (float)(t - time);
+                aheadPoints.Add(at);
+                count = aheadPoints.Count - from;
+                aheadKept[(head.Index, t)] = (at, from, count);
                 return true;
+            }
+
+            private bool ahead(BulletField f, Head head, double t, out Vector2 at) => ahead(f, head, t, out at, out _, out _);
+
+            private readonly Dictionary<(int Head, double Time), (Vector2 At, int From, int Count)> aheadKept = new Dictionary<(int, double), (Vector2, int, int)>();
+            private readonly List<Vector2> aheadPoints = new List<Vector2>();
+
+            /// <summary>Is <paramref name="player"/> within <paramref name="reach"/> of the way a head is worked out to fly ahead?</summary>
+            private bool nearWay(Vector2 player, int from, int count, float reach)
+            {
+                for (int i = from + 1; i < from + count; i++)
+                {
+                    if (distanceToSegment(player, aheadPoints[i - 1], aheadPoints[i]) <= reach)
+                        return true;
+                }
+
+                return false;
+            }
+
+            private readonly GridShapes grid = new GridShapes();
+
+            /// <summary>Every beam at <paramref name="t"/>, slice by slice, and the way every head will fly on to then, into <paramref name="shape"/>, every reach <paramref name="wider"/> more.</summary>
+            private void fill(BulletField f, MomentShapes.Moment shape, double t, float wider)
+            {
+                float widest = trailHalfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + wider;
+
+                foreach (var head in heads)
+                {
+                    int from = firstSlice(head, t);
+
+                    if (from < 0)
+                        continue;
+
+                    for (int k = from; k < head.Trail.Count; k += DanmakusuBalance.SEKIBANKI_TRAIL_SLICE_STEPS)
+                    {
+                        if (!sliceAt(f, head, k, t, out Vector2 position))
+                        {
+                            shape.EndRun();
+                            continue;
+                        }
+
+                        shape.Point(position, sliceWidth(f, head, k, t) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + wider);
+                    }
+
+                    shape.EndRun();
+
+                    if (ahead(f, head, t, out _, out int wayFrom, out int wayCount))
+                    {
+                        for (int i = wayFrom; i < wayFrom + wayCount; i++)
+                            shape.Point(aheadPoints[i], widest);
+
+                        shape.EndRun();
+                    }
+                }
             }
 
             /// <summary>The heads and their beams hurt like a slider body.</summary>
@@ -445,46 +541,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var bullet = Bullets[head.Index];
 
                     if ((style.DrawHeads || style.StarHeads) && now >= bullet.T0 && now <= bullet.Until
-                        && Vector2.Distance(player, ahead(head, now, out Vector2 coming) ? coming : stageBulletPosition(bullet, now)) <= bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                        && Vector2.Distance(player, ahead(f, head, now, out Vector2 coming) ? coming : stageBulletPosition(bullet, now)) <= bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
                 }
 
                 float widest = trailHalfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
-                // (asked about the same moment again - the autoplay, for many places: every beam of that moment is worked out once, slice by slice, and kept for the frame)
+                // (the autoplay, for many places at a few moments: every beam at the nearest moment of a grid, worked out once and kept for a few frames, as much wider as the slices and the heads fly in half a
+                // step - made for every moment of every frame it cost 5 ms a frame with Sekibanki, 2026-11-15)
+                if (autoAsking)
+                {
+                    var shape = grid.Get(now, f.Time.Current, out double at, out bool fresh);
+
+                    if (fresh)
+                        fill(f, shape, at, Math.Max(sliceSpeed, stageBulletSpeed(Period) * style.Speed) * (float)(GridShapes.GRID_MS / 2));
+
+                    return shape.Touches(player);
+                }
+
                 var kept = shapes.Kept(now);
 
-                if (kept == null && shapes.Begin(now) is MomentShapes.Moment fresh)
+                if (kept == null && shapes.Begin(now) is MomentShapes.Moment made)
                 {
-                    foreach (var head in heads)
-                    {
-                        int from = firstSlice(head, now);
-
-                        if (from < 0)
-                            continue;
-
-                        for (int k = from; k < head.Trail.Count; k += DanmakusuBalance.SEKIBANKI_TRAIL_SLICE_STEPS)
-                        {
-                            if (!sliceAt(f, head, k, now, out Vector2 position))
-                            {
-                                fresh.EndRun();
-                                continue;
-                            }
-
-                            fresh.Point(position, sliceWidth(f, head, k, now) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS);
-                        }
-
-                        fresh.EndRun();
-
-                        if (ahead(head, now, out Vector2 coming))
-                        {
-                            fresh.Point(head.Position, widest);
-                            fresh.Point(coming, widest);
-                            fresh.EndRun();
-                        }
-                    }
-
-                    kept = fresh;
+                    fill(f, made, now, 0f);
+                    kept = made;
                 }
 
                 if (kept != null)
@@ -497,7 +577,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (first < 0)
                         continue;
 
-                    if (ahead(head, now, out Vector2 coming) && distanceToSegment(player, head.Position, coming) <= widest)
+                    if (ahead(f, head, now, out _, out int wayFrom, out int wayCount) && nearWay(player, wayFrom, wayCount, widest))
                         return true;
 
                     // (a beam whose slices are just gone when their time is up - Byakuren's: what is left of it was laid along the head's way since then, so all of it is within as far as the head has

@@ -1548,8 +1548,16 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MATENSHI_WING_SWAY_BEATS = 4; // (2 until 2026-11-14: "sway frequency halved")
 
         /// <summary>
-        /// Matenshi (2026-11-14, "feathers on her wing also have physics separately"): the wing is drawn in slices round the shoulder; each slice follows the wing's sway this many beats later than the one inside it
-        /// (they trail behind it), and flutters on its own this many degrees either way once every this many beats.
+        /// Matenshi's wing is a bird's wing (2026-11-15, UI/Stages/WingRig.cs; it was six slices round the shoulder): its three bones sway as the wing does, each joint further out this many degrees more and this
+        /// many beats later (the humerus with the wing, the forearm 2 degrees more a quarter beat later, the hand 4 more half a beat later).
+        /// </summary>
+        public const float MATENSHI_WING_FLEX_DEGREES = 2f;
+
+        public const double MATENSHI_BONE_LAG_BEATS = 0.25;
+
+        /// <summary>
+        /// (2026-11-14, "feathers on her wing also have physics separately") Each long feather follows its bone's sway this many beats later, up to three times as much for the ones out at the hand (they trail
+        /// behind it), and flutters on its own this many degrees either way once every this many beats.
         /// </summary>
         public const double MATENSHI_FEATHER_LAG_BEATS = 0.15;
 
@@ -2462,6 +2470,15 @@ namespace osu.Game.Rulesets.Danmakusu
         /// clock further away from it than this (ms; the limit osu! itself goes by, past it gameplay would stand for good), the clock is put back on gameplay.
         /// </summary>
         public const double SLOW_FRAME_LOG_MS = 150;
+
+        /// <summary>
+        /// (2026-11-15) When a map starts, the gameplay clock is held until this many frames in a row each came within this many ms of the one before (the game's first frames can stand for seconds while the
+        /// music's clock goes on), but never longer than this many ms.
+        /// </summary>
+        public const int START_QUICK_FRAMES = 8;
+
+        public const double START_QUICK_FRAME_MS = 100;
+        public const double START_HOLD_MOST_MS = 10000;
 
         /// <summary>A second of the map in which the field took this many ms a frame on average is written to the log.</summary>
         public const double SLOW_SECOND_LOG_MS = 12;

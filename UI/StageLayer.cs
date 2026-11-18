@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -180,21 +180,51 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         WingLeft,
 
         /// <summary>
-        /// Matenshi's wings in <see cref="StageLayer.WING_FEATHER_GROUPS"/> pieces, each the feathers in one slice of the angle round the shoulder (2026-11-14, so that they move each on its own): the whole picture,
-        /// see-through outside the slice (the slices overlap a little, see <see cref="StageLayer.WingFeatherSlice"/>).
+        /// Matenshi's wings cut into their bones and feathers (<see cref="WingRig"/>, 2026-11-15; until then six slices of the angle round the shoulder): each piece the part of the picture that is it, cut to
+        /// its own bounds (<see cref="StageLayer.WingPieceBounds"/>; neighbours overlap, more towards the tips, so that no gap opens when they turn a little differently: <see cref="WingRig.OverlapAt"/>).
         /// </summary>
-        WingRightFeather0,
-        WingRightFeather1,
-        WingRightFeather2,
-        WingRightFeather3,
-        WingRightFeather4,
-        WingRightFeather5,
-        WingLeftFeather0,
-        WingLeftFeather1,
-        WingLeftFeather2,
-        WingLeftFeather3,
-        WingLeftFeather4,
-        WingLeftFeather5,
+        WingRightPiece0,
+        WingRightPiece1,
+        WingRightPiece2,
+        WingRightPiece3,
+        WingRightPiece4,
+        WingRightPiece5,
+        WingRightPiece6,
+        WingRightPiece7,
+        WingRightPiece8,
+        WingRightPiece9,
+        WingRightPiece10,
+        WingRightPiece11,
+        WingRightPiece12,
+        WingRightPiece13,
+        WingRightPiece14,
+        WingRightPiece15,
+        WingRightPiece16,
+        WingRightPiece17,
+        WingRightPiece18,
+        WingRightPiece19,
+        WingRightPiece20,
+        WingLeftPiece0,
+        WingLeftPiece1,
+        WingLeftPiece2,
+        WingLeftPiece3,
+        WingLeftPiece4,
+        WingLeftPiece5,
+        WingLeftPiece6,
+        WingLeftPiece7,
+        WingLeftPiece8,
+        WingLeftPiece9,
+        WingLeftPiece10,
+        WingLeftPiece11,
+        WingLeftPiece12,
+        WingLeftPiece13,
+        WingLeftPiece14,
+        WingLeftPiece15,
+        WingLeftPiece16,
+        WingLeftPiece17,
+        WingLeftPiece18,
+        WingLeftPiece19,
+        WingLeftPiece20,
 
         /// <summary>The frames of a flapping bat (black, with a white outline that fades inwards), Koakuma's: <see cref="StageLayer.BatFrames"/> of them, one after the other; the bat is as wide as the picture over <see cref="StageLayer.BatExtent"/> (see <see cref="StageLayer.BatFrame"/>).</summary>
         Bat0,
@@ -516,8 +546,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.ByakurenStar => bake(renderer, SoftStar.CreateBig(256, 0.6f, byakurenColour(1, 0.45f))), // (her purple, lighter)
                     StageTexture.ByakurenStarGlow => bake(renderer, SoftStar.CreateGlow(256, 0.6f, byakurenColour(2, 0f))), // (her peach)
                     >= StageTexture.Bat0 and <= StageTexture.Bat7 => bake(renderer, makeBat(kind - StageTexture.Bat0)),
-                    >= StageTexture.WingRightFeather0 and <= StageTexture.WingRightFeather5 => wingFeathers(renderer, false, kind - StageTexture.WingRightFeather0),
-                    >= StageTexture.WingLeftFeather0 and <= StageTexture.WingLeftFeather5 => wingFeathers(renderer, true, kind - StageTexture.WingLeftFeather0),
+                    >= StageTexture.WingRightPiece0 and <= StageTexture.WingRightPiece20 => wingPiece(renderer, false, kind - StageTexture.WingRightPiece0),
+                    >= StageTexture.WingLeftPiece0 and <= StageTexture.WingLeftPiece20 => wingPiece(renderer, true, kind - StageTexture.WingLeftPiece0),
                     >= StageTexture.SekibankiHead0 and <= StageTexture.SekibankiHead11 => BossCharacter.LoadResource(renderer, $"Textures.sekibanki_head_{kind - StageTexture.SekibankiHead0}.png"),
                     _ => null,
                 };
@@ -865,84 +895,130 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return outside + distance[row * columns + column];
         }
 
-        /// <summary>How many pieces Matenshi's wings are cut into, each a slice of the angle round the shoulder, so that the feathers move each on their own (2026-11-14).</summary>
-        public const int WING_FEATHER_GROUPS = 6;
-
-        /// <summary>How far (radians) neighbouring slices of the wing overlap on each side, so that no gap opens between them when they are turned a little differently.</summary>
-        private const float wing_slice_overlap = 1.8f * MathF.PI / 180f;
-
-        /// <summary>The angles (radians, round the shoulder of the right wing, from the right, +y down) that the wing covers: the slices share this out evenly. Read from the picture once.</summary>
-        private static readonly Lazy<(float From, float To)> wing_angles = new Lazy<(float, float)>(() =>
+        /// <summary>
+        /// For every pixel of the right wing's picture the piece it belongs to and, where another reaches into it (<see cref="WingRig.OverlapAt"/>), that one too (255: none); and the bounds of every piece (its
+        /// pixels and their overlap), in pixels of the right wing. Made once, from the picture's solid part.
+        /// </summary>
+        private static readonly Lazy<(byte[] First, byte[] Second, int Width, int Height, (int X0, int Y0, int X1, int Y1)[] Bounds)> wing_pieces = new Lazy<(byte[], byte[], int, int, (int, int, int, int)[])>(() =>
         {
+            int pieces = WingRig.Pieces;
+            var bounds = new (int X0, int Y0, int X1, int Y1)[pieces];
+
+            for (int i = 0; i < pieces; i++)
+                bounds[i] = (int.MaxValue, int.MaxValue, int.MinValue, int.MinValue);
+
             try
             {
                 using var stream = typeof(StageLayer).Assembly.GetManifestResourceStream("osu.Game.Rulesets.Danmakusu.Resources.Textures.matenshi_wing_right.png");
 
                 if (stream == null)
-                    return (-1f, 1f);
+                    return (Array.Empty<byte>(), Array.Empty<byte>(), 0, 0, bounds);
 
                 using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
-                float rootX = WING_ROOT.X * image.Width, rootY = WING_ROOT.Y * image.Height;
-                float from = float.MaxValue, to = float.MinValue;
+                int width = image.Width, height = image.Height;
+                var first = new byte[width * height];
+                var second = new byte[width * height];
 
-                for (int y = 0; y < image.Height; y += 2)
+                for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < image.Width; x += 2)
+                    for (int x = 0; x < width; x++)
                     {
-                        if (image[x, y].A < 32 || (x - rootX) * (x - rootX) + (y - rootY) * (y - rootY) < 400f)
+                        int index = y * width + x;
+                        first[index] = second[index] = 255;
+
+                        if (image[x, y].A == 0)
                             continue;
 
-                        float angle = MathF.Atan2(y - rootY, x - rootX);
-                        from = Math.Min(from, angle);
-                        to = Math.Max(to, angle);
+                        // (every piece scored once: the nearest, and the next nearest if it reaches in)
+                        var p = new Vector2(x + 0.5f, y + 0.5f);
+                        int nearest = 0, next = -1;
+                        float best = float.MaxValue, nextScore = float.MaxValue;
+
+                        for (int i = 0; i < pieces; i++)
+                        {
+                            float score = WingRig.Score(i, p);
+
+                            if (score < best)
+                            {
+                                next = nearest;
+                                nextScore = best;
+                                nearest = i;
+                                best = score;
+                            }
+                            else if (score < nextScore)
+                            {
+                                next = i;
+                                nextScore = score;
+                            }
+                        }
+
+                        int other = next >= 0 && next != nearest && nextScore <= best + WingRig.OverlapAt(p, nearest) ? next : 255;
+
+                        first[index] = (byte)nearest;
+                        second[index] = (byte)other;
+
+                        foreach (int i in new[] { nearest, other })
+                        {
+                            if (i == 255)
+                                continue;
+
+                            var b = bounds[i];
+                            bounds[i] = (Math.Min(b.X0, x), Math.Min(b.Y0, y), Math.Max(b.X1, x + 1), Math.Max(b.Y1, y + 1));
+                        }
                     }
                 }
 
-                return from < to ? (from, to) : (-1f, 1f);
+                return (first, second, width, height, bounds);
             }
             catch
             {
-                return (-1f, 1f);
+                return (Array.Empty<byte>(), Array.Empty<byte>(), 0, 0, bounds);
             }
         });
 
-        /// <summary>Which slice of the wing the angle (radians, round the shoulder of the right wing) is in.</summary>
-        public static int WingFeatherSlice(float angle)
+        /// <summary>(Matenshi's wings) Where piece <paramref name="piece"/> of the right wing lies in its picture (pixels): what its texture covers. Empty (0 wide) when it has no pixels.</summary>
+        public static (int X0, int Y0, int X1, int Y1) WingPieceBounds(int piece)
         {
-            var (from, to) = wing_angles.Value;
-            return Math.Clamp((int)MathF.Floor((angle - from) / (to - from) * WING_FEATHER_GROUPS), 0, WING_FEATHER_GROUPS - 1);
+            var b = wing_pieces.Value.Bounds[piece];
+            return b.X1 > b.X0 ? b : (0, 0, 0, 0);
         }
 
-        /// <summary>A slice of a wing (<paramref name="left"/>: the left wing, the mirror image): the picture, see-through outside the slice and its overlap (the first and last slices go on to the end).</summary>
-        private static Texture? wingFeathers(IRenderer renderer, bool left, int slice)
+        /// <summary>A piece of a wing (<paramref name="left"/>: the left wing, the mirror image): the part of the picture that is it, see-through elsewhere, cut to its bounds (mirrored for the left wing).</summary>
+        private static Texture? wingPiece(IRenderer renderer, bool left, int piece)
         {
             try
             {
+                var map = wing_pieces.Value;
+                var (x0, y0, x1, y1) = WingPieceBounds(piece);
+
+                if (map.Width == 0 || x1 <= x0)
+                    return null;
+
                 using var stream = typeof(StageLayer).Assembly.GetManifestResourceStream($"osu.Game.Rulesets.Danmakusu.Resources.Textures.matenshi_wing_{(left ? "left" : "right")}.png");
 
                 if (stream == null)
                     return null;
 
                 using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
-                var (from, to) = wing_angles.Value;
-                float step = (to - from) / WING_FEATHER_GROUPS;
-                float low = slice == 0 ? float.MinValue : from + step * slice - wing_slice_overlap;
-                float high = slice == WING_FEATHER_GROUPS - 1 ? float.MaxValue : from + step * (slice + 1) + wing_slice_overlap;
-                float rootX = (left ? 1f - WING_ROOT.X : WING_ROOT.X) * image.Width, rootY = WING_ROOT.Y * image.Height;
+                int width = x1 - x0, height = y1 - y0;
+                var cut = new Image<Rgba32>(width, height);
 
-                for (int y = 0; y < image.Height; y++)
+                for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < image.Width; x++)
+                    for (int x = 0; x < width; x++)
                     {
-                        // (the left wing is the mirror image: its angles are measured mirrored, so its slices are the right wing's)
-                        float angle = MathF.Atan2(y - rootY, left ? rootX - x : x - rootX);
+                        // (in the right wing's pixels; the left wing's picture is the mirror image, and so is its piece)
+                        int rx = x0 + x, ry = y0 + y;
+                        int index = ry * map.Width + rx;
 
-                        if (angle < low || angle >= high)
-                            image[x, y] = new Rgba32(0, 0, 0, 0);
+                        if (map.First[index] != piece && map.Second[index] != piece)
+                            continue;
+
+                        cut[left ? width - 1 - x : x, y] = image[left ? map.Width - 1 - rx : rx, ry];
                     }
                 }
 
-                return bake(renderer, image.Clone());
+                return bake(renderer, cut);
             }
             catch
             {
@@ -955,6 +1031,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Makes the shape of the wing now (at load), so that her section does not make a frame wait.</summary>
         public static void PrepareWingShape() => _ = wing_shape.Value;
+
+        /// <summary>Works out which bone or feather every pixel of the wing belongs to now (at load), so that her section does not make a frame wait.</summary>
+        public static void PrepareWingPieces() => _ = wing_pieces.Value;
 
         /// <summary>The size of the wing picture in pixels.</summary>
         public static (int Width, int Height) WingPictureSize => (wing_shape.Value.Width, wing_shape.Value.Height);

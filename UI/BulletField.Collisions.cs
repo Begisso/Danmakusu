@@ -243,7 +243,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if ((hitBits & (1UL << b)) == 0)
                         continue;
 
-                    LastHitCause = $"bullet {emitter.Shape} (ring {i}, no. {b}, ring time {emitter.Time:0}){(emitter.Deflections != null && emitter.Deflections.ContainsKey(b) ? ", deflected" : "")}";
+                    LastHitCause = $"bullet {emitter.Shape} (ring {i}, no. {b}, ring time {emitter.Time:0}){(emitter.Deflections != null && emitter.Deflections.ContainsKey(b) ? ", deflected" : "")}"
+                                   + (HitProbeOn && hitProbe.TryRemove((i, b), out string? swept) ? swept : "");
                     onDamaged(damagePerBullet, true, now);
                     hits.Add(new HitRecord(now, i, b, damagePerBullet));
                 }
@@ -455,6 +456,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (used up: the damage is done afterwards, ring by ring, in order - see checkCollisions)
                     emitter.ConsumedMask |= bit;
                     ringHits[k] |= bit;
+
+                    if (HitProbeOn)
+                        hitProbe[(i, b)] = $"; swept from ({positionA.X:0},{positionA.Y:0}) at {ea - emitter.Time:0}{(fromSeen && (seen!.Known & seen.Alive & bit) != 0 ? " (kept)" : "")} to ({positionB.X:0},{positionB.Y:0}) at {eb - emitter.Time:0}, the character from ({pa.X:0},{pa.Y:0}) to ({pb.X:0},{pb.Y:0})";
                 }
 
                 if (seen != null)
@@ -465,6 +469,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
         }
+
+        /// <summary>(Tools/SectionCheck, HIT_PROBE=1) The cause of a hit by a ring's bullet says where the bullet and the character were swept from and to.</summary>
+        public static bool HitProbeOn;
+
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<(int, int), string> hitProbe = new System.Collections.Concurrent.ConcurrentDictionary<(int, int), string>();
 
         private readonly Stack<RingSnapshot> snapshotPool = new Stack<RingSnapshot>();
 

@@ -70,10 +70,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Paints the star of the given body colour into the cell whose top left corner is (<paramref name="left"/>, <paramref name="top"/>).</summary>
         public static void Bake(Image<Rgba32> image, int left, int top, Color4 body, float edgeSoftness = 0.035f)
         {
+            Prepare();
+            paint(image, left, top, CELL, StarFraction, field!, body, true, 0.75f, 0.14f, edgeSoftness, rim_width);
+        }
+
+        /// <summary>Works out the star's shape once (before the rows of a sheet are painted at once, on many threads).</summary>
+        public static void Prepare()
+        {
             if (field == null)
                 field = computeField(CELL, StarFraction, out depth);
-
-            paint(image, left, top, CELL, StarFraction, field, body, true, 0.75f, 0.14f, edgeSoftness, rim_width);
         }
 
         /// <summary>Width (star units) of the thin white outline of the bullet stars.</summary>

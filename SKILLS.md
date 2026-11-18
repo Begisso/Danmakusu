@@ -9,6 +9,16 @@ Repeatable procedures for working on Danmakusu. Paths are relative to this folde
 3. `dotnet build -p:CloseOsu=false` only checks that it compiles while osu! is running (the copy then warns).
 4. After every change: an entry in `HISTORY.md` (per boss, per date, old → new values), and the boss's line in `Bosses/BossDescriptions.cs` when its behaviour changed.
 
+## When osu! updates
+
+A ruleset built for an older osu! loads, but a call to anything that has changed in the new one is a `MissingMethodException` when it is reached (2026-11-18: every map crashed as it loaded, `AudioManager.GetSampleStore`). The log says where (`%APPDATA%\osu\logs\*.runtime.log`).
+
+1. The installed version: `(Get-Item "$env:LOCALAPPDATA\osulazer\current\osu.Game.dll").VersionInfo.ProductVersion`. On NuGet: `https://api.nuget.org/v3-flatcontainer/ppy.osu.game/index.json` and `.../ppy.osu.framework/index.json`.
+2. In the csproj of the ruleset, `..\Tools\SectionCheck` and `..\Tools\LazerImport`: `ppy.osu.Framework` at the installed version, the three game packages at the installed version if NuGet has it, otherwise the newest there is. `UseInstalledLazer` compiles against the installed lazer's `osu.Game*.dll` either way.
+3. `dotnet build -p:CloseOsu=false -p:Archive=false`, then `..\Tools\RefCheck\bin\Release\net10.0\refcheck.exe bin\Debug\net10.0\osu.Game.Rulesets.Danmakusu.dll "$env:LOCALAPPDATA\osulazer\current" "$env:USERPROFILE\.nuget\packages\lib.harmony\2.4.3\lib\net10.0\0Harmony.dll"`: 0 missing. (On the old dll it shows what the update broke.)
+4. The patches: the game's log at start says one line for each (`Danmakusu: ...`), or why it could not; `sectioncheck sortstars` and `sectioncheck offered` on the new SectionCheck. Names looked up by reflection elsewhere (`MapColours`, `BackgroundColour`, `DrawableDanmakusuRuleset`, `DanmakusuModColumn`'s statics): `refcheck names <lazer folder> "ModSelectOverlay::customisationPanel" ...`.
+5. Rebuild the watcher's copies: `dotnet build -c Release -o bin\Watch` in `..\Tools\LazerImport`, `dotnet build -c Release -o bin\Stars` in `..\Tools\SectionCheck`; `lazerimport --report` reads a copy of the database (the new osu! must have started once). Then `dotnet build` to deploy, and a map played in osu!.
+
 ## Benchmark the field (freezes, crashes)
 
 The `field` mode of `..\Tools\SectionCheck` runs the real `BulletField.Update` headlessly (no audio, no skin, no GPU) at 60 frames per second, with a 16:9 screen round the playfield and both bosses in every section (Always Double Boss).

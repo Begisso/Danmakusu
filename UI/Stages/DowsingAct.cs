@@ -21,6 +21,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly BulletField field;
             private readonly double[] marks;
             private readonly List<Arrow> arrows = new List<Arrow>();
+            private readonly Dictionary<int, Arrow> arrowOf = new Dictionary<int, Arrow>(); // (by its number in Bullets, for the autoplay)
             private int converted; // (about half of the bullets, picked at random, become ellipses, which fall towards the player instead)
             private readonly Vector2[] centres;
             private readonly bool[] known;
@@ -111,6 +112,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Array.Clear(known, 0, known.Length);
                 converted = 0;
                 arrows.Clear();
+                arrowOf.Clear();
                 ClearBullets();
             }
 
@@ -195,7 +197,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (Bullets.Count == index)
                     return false; // (too many bullets: it stays as it is)
 
-                arrows.Add(new Arrow
+                var made = new Arrow
                 {
                     Index = index,
                     Position = to,
@@ -203,8 +205,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Time = t,
                     Radius = stored.Radius * big,
                     Trail = Bullets[index].Trail!,
-                });
+                };
 
+                arrows.Add(made);
+                arrowOf[index] = made;
                 return true;
             }
 
@@ -242,54 +246,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>One step of an arrowhead, as <see cref="BulletEmitter.StepHoming"/> does it: close to the player it flies straight on, it stops turning once it points at them, otherwise it is turned towards them (the speed stays).</summary>
             private void advance(BulletField f, Arrow arrow, Vector2 player, float step, float release)
             {
-                Vector2 velocity = arrow.Velocity;
-                float speedSquared = velocity.LengthSquared;
-
-                if (speedSquared > 1e-12f)
-                {
-                    float speed = MathF.Sqrt(speedSquared);
-                    Vector2 heading = velocity / speed;
-
-                    if (!arrow.Calm)
-                    {
-                        Vector2 relative = player - arrow.Position;
-                        Vector2 relativeAhead = player - (arrow.Position + velocity * step);
-
-                        if (segmentDistance(relative, relativeAhead) <= release)
-                        {
-                            arrow.Calm = true;
-                            arrow.Locked = true;
-                        }
-                        else if (!arrow.Locked)
-                        {
-                            float along = Vector2.Dot(relative, heading);
-                            float across = heading.X * relative.Y - heading.Y * relative.X;
-
-                            if (along > 0f && MathF.Abs(across) <= along * DanmakusuBalance.HOMING_AIMED_TANGENT)
-                                arrow.Locked = true;
-                        }
-                    }
-
-                    if (!arrow.Calm && !arrow.Locked)
-                    {
-                        Vector2 toPlayer = player - arrow.Position;
-                        float length = toPlayer.Length;
-
-                        if (length > 1e-3f)
-                        {
-                            Vector2 pull = toPlayer * (Period.ArrowGravity * step / length);
-                            Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
-                            Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
-                            float turnedLength = turned.Length;
-
-                            if (turnedLength > 1e-9f)
-                                arrow.Velocity = turned * (speed / turnedLength);
-                        }
-                    }
-                    else
-                        arrow.Velocity = heading * speed;
-                }
-
+                arrow.Velocity = steer(arrow.Position, arrow.Velocity, player, step, release, Period.ArrowGravity, ref arrow.Calm, ref arrow.Locked);
                 arrow.Position += arrow.Velocity * step;
                 arrow.Time += trail_step_ms;
                 arrow.Trail.Add(arrow.Position);
@@ -304,6 +261,94 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bullet.Until = arrow.Time;
                     Bullets[arrow.Index] = bullet;
                 }
+            }
+
+            /// <summary>The velocity of an arrowhead after one step towards the player (see <see cref="advance"/>); the step itself and the autoplay's look ahead both go by this.</summary>
+            private static Vector2 steer(Vector2 position, Vector2 velocity, Vector2 player, float step, float release, float gravity, ref bool calm, ref bool locked)
+            {
+                float speedSquared = velocity.LengthSquared;
+
+                if (speedSquared <= 1e-12f)
+                    return velocity;
+
+                float speed = MathF.Sqrt(speedSquared);
+                Vector2 heading = velocity / speed;
+
+                if (!calm)
+                {
+                    Vector2 relative = player - position;
+                    Vector2 relativeAhead = player - (position + velocity * step);
+
+                    if (segmentDistance(relative, relativeAhead) <= release)
+                    {
+                        calm = true;
+                        locked = true;
+                    }
+                    else if (!locked)
+                    {
+                        float along = Vector2.Dot(relative, heading);
+                        float across = heading.X * relative.Y - heading.Y * relative.X;
+
+                        if (along > 0f && MathF.Abs(across) <= along * DanmakusuBalance.HOMING_AIMED_TANGENT)
+                            locked = true;
+                    }
+                }
+
+                if (calm || locked)
+                    return heading * speed;
+
+                Vector2 toPlayer = player - position;
+                float length = toPlayer.Length;
+
+                if (length <= 1e-3f)
+                    return velocity;
+
+                Vector2 pull = toPlayer * (gravity * step / length);
+                Vector2 sideways = pull - heading * Vector2.Dot(pull, heading);
+                Vector2 turned = velocity + sideways * DanmakusuBalance.HOMING_TURN_SCALE;
+                float turnedLength = turned.Length;
+                return turnedLength > 1e-9f ? turned * (speed / turnedLength) : velocity;
+            }
+
+            /// <summary>
+            /// (the autoplay) Where an arrowhead will be at each of <paramref name="times"/>: its trail as far as it has flown, then step by step as the act moves it, homing on the character, who is taken to
+            /// stay at <paramref name="player"/> (2026-11-15: past the end of its trail it was seen flying straight on, as the bats were).
+            /// </summary>
+            public override bool ForeseePath(BulletField f, int index, Vector2 player, double[] times, Vector2[] into)
+            {
+                if (f.failed || !arrowOf.TryGetValue(index, out var arrow) || arrow.Gone)
+                    return false;
+
+                var bullet = Bullets[index];
+                float step = (float)trail_step_ms;
+                float release = DanmakusuBalance.HOMING_RELEASE_RADIUS_FACTOR * f.circleRadius;
+                Vector2 position = arrow.Position, velocity = arrow.Velocity;
+                double time = arrow.Time;
+                bool calm = arrow.Calm, locked = arrow.Locked;
+
+                for (int s = 0; s < times.Length && s < into.Length; s++)
+                {
+                    double t = times[s];
+
+                    if (t <= time)
+                    {
+                        into[s] = stageBulletPosition(bullet, t);
+                        continue;
+                    }
+
+                    int guard = 0;
+
+                    while (time + trail_step_ms <= t && guard++ < 200)
+                    {
+                        velocity = steer(position, velocity, player, step, release, Period.ArrowGravity, ref calm, ref locked);
+                        position += velocity * step;
+                        time += trail_step_ms;
+                    }
+
+                    into[s] = position + velocity * (float)(t - time);
+                }
+
+                return true;
             }
 
             private static float segmentDistance(Vector2 a, Vector2 b)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
@@ -310,26 +310,78 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             cloudTexture = StageLayer.BakeCloud(renderer);
             flashTexture = StageLayer.BakeGlow(renderer);
 
-            var fallback = new Color4(1f, 0.35f, 0.5f, 1f);
-            SetPalette([fallback], [DanmakusuBalance.BorderColour(fallback)]);
+            // (no sheet of bullets yet: the field has it drawn for its palette as it loads - a stand-in drawn here first cost half a second for nothing, 2026-11-15)
         }
+
+        private Color4[]? drawnBodies, drawnBorders;
+
+        /// <summary>Is this the palette whose sheets are drawn (or being drawn) already?</summary>
+        private bool drawnAlready(Color4[] bodies, Color4[] borders)
+            => drawnBodies != null && drawnBorders != null && drawnBodies.AsSpan().SequenceEqual(bodies) && drawnBorders.AsSpan().SequenceEqual(borders);
 
         /// <summary>
         /// Renders the bullet sprites for a palette (body colours and matching border colours) into one texture:
-        /// border, body and glow are composited here once, so drawing a bullet is a single quad.
+        /// border, body and glow are composited here once, so drawing a bullet is a single quad. Nothing is drawn when the palette is the one drawn already.
         /// </summary>
         public void SetPalette(Color4[] bodies, Color4[] borders)
         {
-            if (renderer == null || bodies.Length == 0)
+            if (renderer == null || bodies.Length == 0 || drawnAlready(bodies, borders))
                 return;
 
+            drawnBodies = bodies;
+            drawnBorders = borders;
+            putSheets(bodies, BakeSheets(bodies, borders));
+        }
+
+        /// <summary>As <see cref="SetPalette"/>, but drawn in the background and put in place when done (a skin changed during the play: the game's thread does not wait for it).</summary>
+        public void SetPaletteLater(Color4[] bodies, Color4[] borders)
+        {
+            if (renderer == null || bodies.Length == 0 || drawnAlready(bodies, borders))
+                return;
+
+            drawnBodies = bodies;
+            drawnBorders = borders;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                var baked = BakeSheets(bodies, borders);
+                Schedule(() => putSheets(bodies, baked));
+            });
+        }
+
+        private void putSheets(Color4[] bodies, (Image<Rgba32> Sharp, Image<Rgba32> Soft, int Styles, int BaseCount) baked)
+        {
+            var (image, softImage, styles, baseCount) = baked;
+
+            if (renderer == null)
+                return;
+
+            if (sheet == null || sheetStyles != styles)
+                sheet = renderer.CreateTexture(sheet_width, styles * row_height);
+
+            if (softSheet == null || sheetStyles != styles)
+                softSheet = renderer.CreateTexture(sheet_width, styles * row_height);
+
+            softSheet.SetData(new TextureUpload(softImage));
+
+            sheetStyles = styles;
+            sheetBase = baseCount;
+            bodyColours = bodies;
+            sheet.SetData(new TextureUpload(image));
+            Invalidate(Invalidation.DrawNode);
+        }
+
+        /// <summary>The sharp and the soft sheet of every bullet shape in every colour of the palette (and the special colours after them): pictures only, no textures yet.</summary>
+        public static (Image<Rgba32> Sharp, Image<Rgba32> Soft, int Styles, int BaseCount) BakeSheets(Color4[] bodies, Color4[] borders)
+        {
             int baseCount = Math.Min(bodies.Length, max_styles - SpecialBodies.Length);
             int styles = baseCount + SpecialBodies.Length;
             var image = new Image<Rgba32>(sheet_width, styles * row_height); // starts fully transparent
 
             ensureFields();
+            SoftStar.Prepare();
 
-            for (int style = 0; style < styles; style++)
+            // (each colour's row on its own, at once: they touch none of each other's pixels - 2026-11-15, drawn one after the other the sheets took over a second)
+            System.Threading.Tasks.Parallel.For(0, styles, style =>
             {
                 Color4 body = style < baseCount ? bodies[style] : SpecialBodies[style - baseCount];
                 Color4 border = style < baseCount ? borders[Math.Min(style, borders.Length - 1)] : DanmakusuBalance.BorderColour(body);
@@ -364,23 +416,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bakePolygon(image, noteField!, note_x, top, border, body, glow);
                 bakePolygon(image, featherField!, feather_x, top, border, body, glow);
                 SoftStar.Bake(image, soft_star_x, top, body);
-            }
+            });
 
-            var softImage = makeSoft(image, styles);
-
-            if (sheet == null || sheetStyles != styles)
-                sheet = renderer.CreateTexture(sheet_width, styles * row_height);
-
-            if (softSheet == null || sheetStyles != styles)
-                softSheet = renderer.CreateTexture(sheet_width, styles * row_height);
-
-            softSheet.SetData(new TextureUpload(softImage));
-
-            sheetStyles = styles;
-            sheetBase = baseCount;
-            bodyColours = bodies;
-            sheet.SetData(new TextureUpload(image));
-            Invalidate(Invalidation.DrawNode);
+            return (image, makeSoft(image, styles), styles, baseCount);
         }
 
         /// <summary>The knife with its green handle turned blue, or yellow (Yumeko's) when <paramref name="yellow"/> (null if the picture is missing).</summary>
@@ -426,7 +464,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             var soft = new Image<Rgba32>(sharp.Width, sharp.Height);
             var cells = new (int X, int Size)[] { (circle_x, circle_cell), (triangle_x, triangle_cell), (star_x, triangle_cell), (soft_star_x, SoftStar.CELL), (heart_x, triangle_cell), (petal_x, triangle_cell), (slice_x, triangle_cell), (maple_x, triangle_cell), (note_x, triangle_cell), (feather_x, triangle_cell) };
 
-            for (int style = 0; style < styles; style++)
+            // (each colour's row on its own, at once: they touch none of each other's pixels)
+            System.Threading.Tasks.Parallel.For(0, styles, style =>
             {
                 int top = style * row_height + cell_gap;
 
@@ -440,7 +479,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         for (int x = 0; x < size; x++)
                             soft[x0 + x, top + y] = canvas[x, y];
                 }
-            }
+            });
 
             return soft;
         }

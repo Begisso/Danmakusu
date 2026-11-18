@@ -205,7 +205,116 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (earth.Count == 0)
                     return origin;
 
+                // (further on than the throw has been worked out - the autoplay looking ahead: where it will be, worked out ahead without anything else happening; it held the last point and the autoplay saw
+                // the thrown Earth and Moon standing still and walked into them, 2026-11-15)
+                if (known && t > simTime + step)
+                {
+                    ensureAhead(f);
+                    var ahead = body == 0 ? aheadEarth : aheadMoon;
+
+                    if (ahead.Count > 0)
+                    {
+                        double x = (t - simTime) / step;
+                        int i = Math.Min((int)x, ahead.Count - 1);
+                        return i >= ahead.Count - 1 ? ahead[^1] : Vector2.Lerp(ahead[i], ahead[i + 1], (float)(x - i));
+                    }
+                }
+
                 return at(body == 0 ? earth : moon, t);
+            }
+
+            // ---- the throw worked out ahead, for the autoplay ----
+
+            private readonly List<Vector2> aheadEarth = new List<Vector2>();
+            private readonly List<Vector2> aheadMoon = new List<Vector2>();
+            private double aheadFrom = double.NaN;
+
+            /// <summary>
+            /// The Earth and the Moon stepped on from where the throw has been worked out to, for as far as the autoplay looks and a little more: they bounce off the walls and off each other as in
+            /// <see cref="advance"/>, but nothing else happens (no flash, no sound, no bullets thrown, nothing gathered). Made again whenever the throw has gone on.
+            /// </summary>
+            private void ensureAhead(BulletField f)
+            {
+                if (aheadFrom == simTime)
+                    return;
+
+                aheadFrom = simTime;
+                aheadEarth.Clear();
+                aheadMoon.Clear();
+
+                Vector2 pe = earth[^1], pm = moon[^1], ve = earthVelocity, vm = moonVelocity;
+                Vector2 low = f.stageMin, high = f.stageMax;
+                float re = Radius(f, 0), rm = Radius(f, 1);
+                float dt = (float)step;
+                double limit = (Overruns ? overrunLimit : End) + DanmakusuBalance.STAGE_FADE_OUT_MS + step;
+                int steps = (int)Math.Ceiling(DanmakusuBalance.AUTO_HORIZON_MS * 2 / step) + 2;
+
+                aheadEarth.Add(pe);
+                aheadMoon.Add(pm);
+
+                for (int k = 1; k <= steps && simTime + k * step <= limit; k++)
+                {
+                    pe += ve * dt;
+                    pm += vm * dt;
+                    bounceAhead(ref pe, ref ve, re, low, high);
+                    bounceAhead(ref pm, ref vm, rm, low, high);
+
+                    Vector2 d = pm - pe;
+                    float distance = d.Length;
+
+                    if (distance > 1e-3f && distance < re + rm)
+                    {
+                        Vector2 n = d / distance;
+                        float closing = Vector2.Dot(ve - vm, n);
+
+                        if (closing > 0f)
+                        {
+                            float me = re * re, mm = rm * rm;
+                            float impulse = 2f * closing / (1f / me + 1f / mm);
+                            Vector2 earthBefore = ve, moonBefore = vm;
+                            ve = keptSpeed(ve - n * (impulse / me), earthBefore, earthSpeed);
+                            vm = keptSpeed(vm + n * (impulse / mm), moonBefore, moonSpeed);
+
+                            float overlap = re + rm - distance;
+                            pe -= n * (overlap * mm / (me + mm));
+                            pm += n * (overlap * me / (me + mm));
+                        }
+                    }
+
+                    aheadEarth.Add(pe);
+                    aheadMoon.Add(pm);
+                }
+            }
+
+            /// <summary>As <see cref="bounceWalls"/>, with nothing happening at the wall.</summary>
+            private static void bounceAhead(ref Vector2 p, ref Vector2 v, float r, Vector2 low, Vector2 high)
+            {
+                float x0 = low.X + r, x1 = high.X - r, y0 = low.Y + r, y1 = high.Y - r;
+
+                if (x1 <= x0 || y1 <= y0)
+                    return;
+
+                if (p.X < x0 && v.X < 0f)
+                {
+                    p.X = x0 + (x0 - p.X);
+                    v.X = -v.X;
+                }
+                else if (p.X > x1 && v.X > 0f)
+                {
+                    p.X = x1 - (p.X - x1);
+                    v.X = -v.X;
+                }
+
+                if (p.Y < y0 && v.Y < 0f)
+                {
+                    p.Y = y0 + (y0 - p.Y);
+                    v.Y = -v.Y;
+                }
+                else if (p.Y > y1 && v.Y > 0f)
+                {
+                    p.Y = y1 - (p.Y - y1);
+                    v.Y = -v.Y;
+                }
             }
 
             /// <summary>How a world flies while it is thrown (px per ms; the average of the last few ms).</summary>
@@ -297,6 +406,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     impactNext = impacts.Count;
 
                 chainTime = double.NaN;
+                aheadFrom = chainAheadFrom = double.NaN;
                 lastCrash[0] = lastCrash[1] = lastCrash[2] = double.NegativeInfinity;
 
                 for (int i = 0; i < events.Count; i++)
@@ -408,6 +518,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 simTime = Start;
                 salt = 0;
                 chainTime = double.NaN;
+                aheadFrom = chainAheadFrom = double.NaN;
             }
 
             /// <summary>Moves the Earth and the Moon on in steps of a few ms: they bounce off the walls (a ball in a box) and off each other (an elastic collision, the mass follows the area).</summary>
@@ -689,18 +800,93 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            private void stepChain(BulletField f, int link, double t)
-            {
-                var x = chain![link];
-                var old = chainOld![link];
+            private void stepChain(BulletField f, int link, double t) => stepChainOn(f, link, t, chain![link], chainOld![link], ref chainLength![link]);
 
+            // ---- the chains worked out ahead, for the autoplay (2026-11-15: worked out only up to now, they were seen standing while their worlds flew on) ----
+
+            private readonly List<(Vector2[][] Nodes, float[] Lengths)> chainAhead = new List<(Vector2[][], float[])>();
+            private double chainAheadFrom = double.NaN;
+            private Vector2[]? chainBetween;
+            private const double chain_ahead_again_ms = 100;
+
+            /// <summary>
+            /// The chains stepped on from where they had been worked out to at <see cref="chainAheadFrom"/>, on copies, past <paramref name="t"/> (at most as far as the autoplay looks and a little more; their
+            /// worlds where they will be: <see cref="BodyAt"/>). Stepped only as far as it is asked about, kept from frame to frame and started again from the chains as they are every
+            /// <see cref="chain_ahead_again_ms"/> (made again every frame it cost 3 ms a frame: a hundred steps of three chains). Returns how many steps there are.
+            /// </summary>
+            private int ensureChainAhead(BulletField f, double t)
+            {
+                if (chain == null || chainOld == null || chainLength == null)
+                    return 0;
+
+                if (double.IsNaN(chainAheadFrom) || chainTime < chainAheadFrom || chainTime - chainAheadFrom > chain_ahead_again_ms)
+                {
+                    chainAheadFrom = chainTime;
+                    chainAheadSteps = 0;
+
+                    // (the arrays are kept and filled again)
+                    if (aheadX == null || aheadOld == null || aheadLengths == null)
+                    {
+                        aheadX = new Vector2[links][];
+                        aheadOld = new Vector2[links][];
+                        aheadLengths = new float[links];
+
+                        for (int link = 0; link < links; link++)
+                        {
+                            aheadX[link] = new Vector2[nodes];
+                            aheadOld[link] = new Vector2[nodes];
+                        }
+                    }
+
+                    for (int link = 0; link < links; link++)
+                    {
+                        Array.Copy(chain[link], aheadX[link], nodes);
+                        Array.Copy(chainOld[link], aheadOld[link], nodes);
+                        aheadLengths[link] = chainLength[link];
+                    }
+                }
+
+                int need = Math.Min((int)Math.Floor((t - chainAheadFrom) / step) + 2, (int)Math.Ceiling((DanmakusuBalance.AUTO_HORIZON_MS * 2 + chain_ahead_again_ms) / step) + 2);
+
+                while (chainAheadSteps < need)
+                {
+                    if (chainAhead.Count <= chainAheadSteps)
+                    {
+                        var nodesOf = new Vector2[links][];
+
+                        for (int link = 0; link < links; link++)
+                            nodesOf[link] = new Vector2[nodes];
+
+                        chainAhead.Add((nodesOf, new float[links]));
+                    }
+
+                    var (snapshot, lengths) = chainAhead[chainAheadSteps++];
+
+                    for (int link = 0; link < links; link++)
+                    {
+                        stepChainOn(f, link, chainAheadFrom + chainAheadSteps * step, aheadX![link], aheadOld![link], ref aheadLengths![link]);
+                        Array.Copy(aheadX[link], snapshot[link], nodes);
+                        lengths[link] = aheadLengths[link];
+                    }
+                }
+
+                return chainAheadSteps;
+            }
+
+            private Vector2[][]? aheadX, aheadOld;
+            private float[]? aheadLengths;
+            private int chainAheadSteps;
+
+            /// <summary>One step of a chain (its nodes <paramref name="x"/>, where they were <paramref name="old"/>, its length): the real one, or a copy worked out ahead.</summary>
+            private void stepChainOn(BulletField f, int link, double t, Vector2[] x, Vector2[] old, ref float chainLengthOf)
+            {
                 ends(f, link, t, out Vector2 a, out Vector2 b);
 
                 // the length follows the distance, late
                 float wanted = Vector2.Distance(a, b) * (1f + DanmakusuBalance.HECATIA_CHAIN_SLACK);
                 float follow = 1f - MathF.Exp((float)(-step / DanmakusuBalance.HECATIA_CHAIN_LAG_MS));
-                chainLength![link] += (wanted - chainLength[link]) * follow;
-                float h = Math.Max(chainLength[link], 1f) / (nodes - 1);
+                chainLengthOf += (wanted - chainLengthOf) * follow;
+                float h = Math.Max(chainLengthOf, 1f) / (nodes - 1);
 
                 for (int i = 1; i < nodes - 1; i++)
                 {
@@ -827,6 +1013,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float reachEnd = chainLength[link]; // (only this much of the chain, counted from Hecatia, is there)
                     float next = spacing;
                     float walked = 0f;
+
+                    // (a moment further on than the chain has been worked out - the autoplay looking ahead: the chain as it will lie, stepped on ahead with its world where it will be; the chain worked
+                    // out up to now, held as it is, was seen standing while its world flew on, 2026-11-15)
+                    if (t > chainTime + step)
+                    {
+                        int made = ensureChainAhead(f, t);
+                        double k = (t - chainAheadFrom) / step - 1;
+
+                        if (made > 0)
+                        {
+                            int i0 = Math.Clamp((int)Math.Floor(k), 0, made - 1), i1 = Math.Min(i0 + 1, made - 1);
+                            float u = (float)Math.Clamp(k - i0, 0, 1);
+                            var from = chainAhead[i0].Nodes[link];
+                            var to = chainAhead[i1].Nodes[link];
+                            chainBetween ??= new Vector2[nodes];
+
+                            for (int n = 0; n < nodes; n++)
+                                chainBetween[n] = Vector2.Lerp(from[n], to[n], u);
+
+                            x = chainBetween;
+                            reachEnd = chainAhead[i0].Lengths[link] + (chainAhead[i1].Lengths[link] - chainAhead[i0].Lengths[link]) * u;
+                        }
+                    }
 
                     for (int i = 0; i + 1 < nodes && into.Count < 400; i++)
                     {

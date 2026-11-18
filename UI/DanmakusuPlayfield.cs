@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
@@ -16,6 +16,7 @@ using osu.Game.Rulesets.Osu.UI.Cursor;
 using osu.Game.Rulesets.Danmakusu.Bosses;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osu.Game.Rulesets.Danmakusu.Mods;
+using osu.Game.Screens.Play;
 using osu.Game.Skinning;
 using osuTK;
 using osuTK.Graphics;
@@ -109,7 +110,146 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             ownColours = mapColours;
 
             // (the bosses of the boss selection mod, if one is on; otherwise the colours choose - the player can still change them in the menu before the map starts)
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             buildField(beatmap, bossSelect?.Choose(fromColours) ?? fromColours);
+            osu.Framework.Logging.Logger.Log($"Danmakusu: the field was made in {watch.ElapsedMilliseconds} ms (on the {System.Threading.Thread.CurrentThread.Name ?? "unnamed"} thread)");
+        }
+
+        // ---- where the time goes when a map starts (2026-11-15, the user: "When game starts - game freezes and it starts before screen unfreezes", "it happens when there is no boss menu select") ----
+
+        private long readyStamp, lastFrameStamp;
+        private bool firstFrameLogged;
+
+        /// <summary>The time of the map at the playfield's first frame (NaN before it): where the map starts from (see <see cref="StartHold"/>).</summary>
+        private double firstFrameTime = double.NaN;
+
+        private static double msSince(long stamp) => (System.Diagnostics.Stopwatch.GetTimestamp() - stamp) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+        // ---- the map waits until the game draws smoothly ----
+        // (2026-11-15: the log showed the playfield's first frame at -1025 ms of the map, then the game standing 2.2 s - while the music's clock went on - and the next frame at 1151 ms. As the boss menu
+        // does, the gameplay clock is held when the map starts until the game has drawn a few quick frames in a row, so that whatever makes the first frames wait does not eat into the map. The hold is a
+        // component of osu!'s gameplay clock container, beside the HUD: it is updated every frame while the clock stands, which what is frame-stable, as the playfield, may not be)
+
+        private StartHold? startHold;
+
+        /// <summary>The boss menu holds the map itself while it is open; when its Start is pressed it hands the start back here (<see cref="StartWhenSmooth"/>).</summary>
+        public bool HeldByMenu { get; set; }
+
+        /// <summary>(the boss menu, when Start is pressed) Start the map once the game draws smoothly again (choosing the bosses may have just made the field again).</summary>
+        public void StartWhenSmooth()
+        {
+            HeldByMenu = false;
+            startHold?.Restart();
+        }
+
+        /// <summary>Puts the hold into the gameplay clock container of the play (none outside a play).</summary>
+        private void addStartHold()
+        {
+            Drawable? parent = Parent;
+
+            while (parent != null && parent is not GameplayClockContainer)
+                parent = parent.Parent;
+
+            if (parent is GameplayClockContainer clock)
+                clock.Add(startHold = new StartHold(this, clock));
+        }
+
+        /// <summary>Keeps the gameplay clock stopped until <see cref="DanmakusuBalance.START_QUICK_FRAMES"/> frames in a row came quickly (and the boss menu, if there is one, has been closed), then starts it.</summary>
+        private sealed partial class StartHold : Component
+        {
+            private readonly DanmakusuPlayfield playfield;
+            private readonly GameplayClockContainer clock;
+            private long lastFrame, since;
+            private int quickFrames;
+            private bool done;
+
+            public StartHold(DanmakusuPlayfield playfield, GameplayClockContainer clock)
+            {
+                this.playfield = playfield;
+                this.clock = clock;
+            }
+
+            public void Restart()
+            {
+                done = false;
+                quickFrames = 0;
+                since = 0;
+                startFrom = clock.CurrentTime; // (where the menu has held the map)
+            }
+
+            // (the time of the map it starts from: where it stood at the playfield's first frame - the clock has been seen to go on through a long first frame although osu! had not started it yet)
+            private double startFrom = double.NaN;
+
+            protected override void Update()
+            {
+                base.Update();
+
+                long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                double gap = lastFrame == 0 ? double.PositiveInfinity : msSince(lastFrame);
+                lastFrame = now;
+
+                if (done || playfield.HeldByMenu)
+                    return;
+
+                if (double.IsNaN(startFrom))
+                    startFrom = double.IsNaN(playfield.firstFrameTime) ? clock.CurrentTime : playfield.firstFrameTime;
+
+                // (gone on while the game stood: put back to where the map stood)
+                if (clock.CurrentTime > startFrom + 50)
+                {
+                    osu.Framework.Logging.Logger.Log($"Danmakusu: the map had gone on to {clock.CurrentTime:0} ms while the game stood: put back to {startFrom:0} ms");
+                    clock.Stop();
+                    clock.Seek(startFrom);
+                    quickFrames = 0;
+                    return;
+                }
+
+                // (the field for the chosen bosses is still being made)
+                if (playfield.Rebuilding)
+                {
+                    quickFrames = 0;
+
+                    if (!clock.IsPaused.Value)
+                        clock.Stop();
+
+                    return;
+                }
+
+                if (since == 0)
+                    since = now;
+
+                quickFrames = gap < DanmakusuBalance.START_QUICK_FRAME_MS ? quickFrames + 1 : 0;
+
+                // (never held for good: a computer that never draws that quickly starts all the same after a while)
+                if (quickFrames < DanmakusuBalance.START_QUICK_FRAMES && msSince(since) < DanmakusuBalance.START_HOLD_MOST_MS)
+                {
+                    if (!clock.IsPaused.Value)
+                        clock.Stop();
+
+                    return;
+                }
+
+                done = true;
+                osu.Framework.Logging.Logger.Log($"Danmakusu: the map starts at {clock.CurrentTime:0} ms, held {msSince(since):0} ms until the game drew smoothly");
+                clock.Start();
+            }
+        }
+
+        /// <summary>(every frame) the first frame of the playfield after it is ready, and any frame that came long after the one before, are written to the log with the time of the map.</summary>
+        private void logStartAndStalls()
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+
+            if (!firstFrameLogged)
+            {
+                firstFrameLogged = true;
+                firstFrameTime = Time.Current;
+                osu.Framework.Logging.Logger.Log($"Danmakusu: the playfield's first frame, {msSince(readyStamp):0} ms after it was ready, at {Time.Current:0} ms of the map");
+            }
+            else if (lastFrameStamp != 0 && msSince(lastFrameStamp) > 500)
+                osu.Framework.Logging.Logger.Log($"Danmakusu: the game stood {msSince(lastFrameStamp):0} ms before the frame at {Time.Current:0} ms of the map");
+
+            lastFrameStamp = now;
         }
 
         /// <summary>Two or three bosses at a time needs that many bosses: if fewer are chosen, the others are the ones the colours choose, or else the next ones in the list.</summary>
@@ -141,10 +281,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return all.ToArray();
         }
 
-        /// <summary>Plans the map again with these bosses (nothing happens if they are the ones that the field has already). Used by the boss menu before the map starts.</summary>
+        /// <summary>The field for the bosses chosen in the boss menu is being made (the map waits for it).</summary>
+        public bool Rebuilding { get; private set; }
+
+        /// <summary>
+        /// Plans the map again with these bosses (nothing happens if they are the ones that the field has already). Used by the boss menu before the map starts. The new field is made and loaded in the
+        /// background - made on the game's own thread it stood the game for up to 8 s (2026-11-15, the user: "Fix freezing") - while the old one stays; then it takes the old one's place at once.
+        /// </summary>
         public void ChooseBosses(BossInfo[] bosses)
         {
-            if (plannedBeatmap == null || bosses.Length == 0)
+            if (plannedBeatmap == null || bosses.Length == 0 || Rebuilding)
                 return;
 
             bosses = withEnough(bosses);
@@ -152,14 +298,42 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (bosses.SequenceEqual(currentBosses) && plannedTuning == BossTuning.Version)
                 return;
 
-            foreach (var layer in fieldLayers)
-                RemoveInternal(layer, true);
+            var beatmap = plannedBeatmap;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Rebuilding = true;
 
-            fieldLayers.Clear();
-            bulletField = null;
-            flashlight = null;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    var layers = new List<Drawable>();
+                    var (field, light) = buildField(beatmap, bosses, layers);
 
-            buildField(plannedBeatmap, bosses);
+                    Schedule(() => LoadComponentsAsync(layers, _ =>
+                    {
+                        foreach (var layer in fieldLayers)
+                            RemoveInternal(layer, true);
+
+                        fieldLayers.Clear();
+
+                        foreach (var layer in layers)
+                        {
+                            AddInternal(layer);
+                            fieldLayers.Add(layer);
+                        }
+
+                        bulletField = field;
+                        flashlight = light;
+                        Rebuilding = false;
+                        osu.Framework.Logging.Logger.Log($"Danmakusu: the field for the chosen bosses was made in {watch.ElapsedMilliseconds} ms, in the background");
+                    }));
+                }
+                catch (Exception e)
+                {
+                    osu.Framework.Logging.Logger.Log($"Danmakusu: the field for the chosen bosses could not be made ({e.Message}); the bosses stay as they were", level: osu.Framework.Logging.LogLevel.Important);
+                    Schedule(() => Rebuilding = false);
+                }
+            });
         }
 
         protected override void Dispose(bool isDisposing)
@@ -188,13 +362,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return bands;
         }
 
-        private void addLayer(Drawable layer)
+        private void addLayer(List<Drawable>? into, Drawable layer)
         {
+            if (into != null)
+            {
+                into.Add(layer);
+                return;
+            }
+
             AddInternal(layer);
             fieldLayers.Add(layer);
         }
 
-        private void buildField(IBeatmap beatmap, BossInfo[] bosses)
+        /// <summary>
+        /// Makes the field for these bosses and puts its layers in place - or, given <paramref name="into"/> (the boss menu's choice, made in the background), only collects them there, to be put in place
+        /// when they are loaded. Returns the bullet field and the flashlight.
+        /// </summary>
+        private (BulletField Field, FlashlightOverlay Light) buildField(IBeatmap beatmap, BossInfo[] bosses, List<Drawable>? into = null)
         {
             var difficulty = beatmap.Difficulty;
             bosses = withEnough(bosses);
@@ -271,52 +455,64 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             var missLayer = new Container { RelativeSizeAxes = Axes.Both };
             field.PlayerHit += position => missLayer.Add(new BulletMissEffect { Position = position });
 
-            addLayer(field);
+            addLayer(into, field);
 
             // Urumi: the circles and sliders that fall, under the bullets so that they hide none
             if (field.HasFallingObjects)
             {
                 field.FallingObjectsShown = true;
-                addLayer(new FallLayer(field) { Depth = 2 });
+                addLayer(into, new FallLayer(field) { Depth = 2 });
             }
 
             // Doremy's and Sagume's copies of the circles and sliders: above the bullets, under the real ones
             if (copies.Count > 0)
-                addLayer(new CloneLayer(copies, DanmakusuBalance.BulletRadius(beatmap.Difficulty.CircleSize)) { Depth = 0.5f });
+                addLayer(into, new CloneLayer(copies, DanmakusuBalance.BulletRadius(beatmap.Difficulty.CircleSize)) { Depth = 0.5f });
 
             // Clownpiece's moon is above everything (circles, sliders, bullets and beams too) except the boss, the character and the HUD
             if (field.HasMoon)
             {
-                addLayer(field.CreateMoonProxy());
-                addLayer(field.CreateBossProxy());
-                addLayer(field.CreateSecondBossProxy());
-                addLayer(field.CreateThirdBossProxy());
-                addLayer(field.CreateBallsProxy());
+                addLayer(into, field.CreateMoonProxy());
+                addLayer(into, field.CreateBossProxy());
+                addLayer(into, field.CreateSecondBossProxy());
+                addLayer(into, field.CreateThirdBossProxy());
+                addLayer(into, field.CreateBallsProxy());
             }
 
             // the planets, UFOs and drums of some bosses are above the hit objects too
             if (field.HasStage)
-                addLayer(field.CreateStageFrontProxy());
+                addLayer(into, field.CreateStageFrontProxy());
 
             // the character itself is drawn on top of everything again.
-            addLayer(field.CreateCharacterProxy());
+            addLayer(into, field.CreateCharacterProxy());
 
-            addLayer(missLayer);
+            addLayer(into, missLayer);
 
             // the flashlight of the bosses' mechanics (Mystia's) is above all of that, but not above the boss HUD
-            bulletField = field;
-            addLayer(flashlight = new FlashlightOverlay());
+            var light = new FlashlightOverlay();
+
+            if (into == null)
+            {
+                bulletField = field;
+                flashlight = light;
+            }
+
+            addLayer(into, light);
 
             // Utsuho's black hole is above everything except the HUD
             if (field.HasStage)
-                addLayer(field.CreateStageTopProxy());
+                addLayer(into, field.CreateStageTopProxy());
 
-            addLayer(field.CreateHudProxy());
+            addLayer(into, field.CreateHudProxy());
+            return (field, light);
         }
 
         protected override void LoadComplete()
         {
             base.LoadComplete();
+
+            readyStamp = System.Diagnostics.Stopwatch.GetTimestamp();
+            addStartHold();
+            osu.Framework.Logging.Logger.Log($"Danmakusu: the playfield is ready, at {Time.Current:0} ms of the map");
 
             // Shrinks the skinned cursor, its trail and its ripples (the cursor multiplies this into its own scale).
             if (Cursor is OsuCursorContainer osuCursor)
@@ -482,6 +678,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         protected override void Update()
         {
             base.Update();
+            logStartAndStalls();
 
             // (the skinned cursor goes back to the mouse before anything reads it: see swapCursor)
             restoreCursor();

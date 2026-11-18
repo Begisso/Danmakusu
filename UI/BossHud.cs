@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
@@ -280,7 +280,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private void load(IRenderer renderer)
         {
             for (int slot = 0; slot < heads.Length; slot++)
-                heads[slot].Texture = BossCharacter.LoadResource(renderer, $"Bosses.Heads.{slotBosses[slot].Id}.png");
+                heads[slot].Texture = BossCharacter.LoadShared(renderer, $"Bosses.Heads.{slotBosses[slot].Id}.png");
         }
 
         /// <summary>The real screen in the field's coordinates; the HUD sits at the top of it.</summary>

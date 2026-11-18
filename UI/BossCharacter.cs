@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using osu.Framework.Allocation;
@@ -253,7 +253,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             marisa.Texture = fallbackTexture;
 
             for (int i = 0; i < slotBosses.Length; i++)
-                slotTextures[i] = LoadResource(renderer, $"Bosses.Sprites.{slotBosses[i].Id}.png") ?? fallbackTexture;
+                slotTextures[i] = LoadShared(renderer, $"Bosses.Sprites.{slotBosses[i].Id}.png") ?? fallbackTexture;
 
             bakeStarTextures();
 
@@ -382,7 +382,42 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Reads a picture that is embedded in the ruleset (Resources/Textures); null if it is missing, then it is just not drawn.</summary>
         private static Texture? loadTexture(IRenderer renderer, string name)
-            => LoadResource(renderer, $"Textures.{name}");
+            => LoadShared(renderer, $"Textures.{name}");
+
+        private static readonly object shared_gate = new object();
+        private static IRenderer? sharedRenderer;
+        private static readonly Dictionary<string, Texture?> shared_textures = new Dictionary<string, Texture?>();
+
+        /// <summary>
+        /// As <see cref="LoadResource"/>, but read once and shared by everything that shows it (2026-11-15: the nine boss figures of a field each read every boss's picture of the map - 882 textures with 98
+        /// bosses, all sent to the graphics card as the map started).
+        /// </summary>
+        public static Texture? LoadShared(IRenderer renderer, string path)
+        {
+            lock (shared_gate)
+            {
+                if (!ReferenceEquals(sharedRenderer, renderer))
+                {
+                    shared_textures.Clear();
+                    sharedRenderer = renderer;
+                }
+
+                if (shared_textures.TryGetValue(path, out var known))
+                    return known;
+            }
+
+            var texture = LoadResource(renderer, path);
+
+            lock (shared_gate)
+            {
+                if (shared_textures.TryGetValue(path, out var other))
+                    return other; // (read meanwhile by another: that one is kept)
+
+                shared_textures[path] = texture;
+            }
+
+            return texture;
+        }
 
         /// <summary>Reads a picture that is embedded in the ruleset (<paramref name="path"/> is relative to Resources, with dots instead of slashes); null if it is missing.</summary>
         public static Texture? LoadResource(IRenderer renderer, string path)
