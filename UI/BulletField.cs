@@ -357,6 +357,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             freezeList.Sort();
             cirnoFreezes = freezeList.ToArray();
 
+            // Merlin's attacks: the map's circles and sliders do not hurt then (her act has them send out rings)
+            var trumpetList = new List<(double Start, double End)>();
+
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic == BossMechanic.Trumpet && period.Kind != BossKind.Spinner)
+                    trumpetList.AddRange(BossOps.Attacks(period));
+            }
+
+            trumpetWindows = trumpetList.ToArray();
+
             var swapList = new List<double>();
 
             foreach (var period in bosses)
@@ -367,7 +378,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 foreach (var (start, end) in BossOps.Attacks(period))
                 {
                     if (end > start)
-                        swapList.Add(end);
+                        swapList.Add(BossOps.UnfreezeAt(bosses, period, start, end).End); // (with Kokoro's fall it may come early: see BossOps.UnfreezeAt)
                 }
             }
 
@@ -838,14 +849,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stampedeBackground = new Box { Colour = new Color4(0.24f, 0.13f, 0.05f, 1f), Alpha = 0f }, // (Saki's attacks: a brown dim, deeper and deeper, with the horse's head on it)
                 stormBackground = new Box { Colour = new Color4(0.1f, 0.11f, 0.13f, 1f), Alpha = 0f }, // (Tojiko's sections: a dark grey dim, under her clouds)
                 tideBackground = new Box { Colour = new Color4(0.03f, 0.24f, 0.46f, 1f), Alpha = 0f }, // (Wakasagihime's attacks: an ocean blue dim)
+                kokoroBackground = new Box { Colour = new Color4(0.2f, 0.06f, 0.32f, 1f), Alpha = 0f }, // (Kokoro's section: a dim of her mood's colour, with its mask on it)
                 mikoBackground = new Box { Colour = Color4.Black, Alpha = 0f }, // (Miko's beams: the screen dims round them)
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
                 verdantBackground = new Box { Colour = new Color4(0.12f, 0.2f, 0.05f, 1f), Alpha = 0f }, // (Daiyousei's attacks: a dark warm green dim)
-                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang }
+                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang, StageTexture.BossCircleWhite }
                     // (Matenshi's wings, their bones and feathers: only when she is on the map, as the World's Ender's Earth)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.FallenAngel)
                         ? Enumerable.Range(0, WingRig.Pieces).SelectMany(piece => new[] { StageTexture.WingRightPiece0 + piece, StageTexture.WingLeftPiece0 + piece })
+                        : Enumerable.Empty<StageTexture>())
+                    // (and Kokoro's masks, only when she is on the map: they are drawn when the field loads)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Masks)
+                        ? new[] { StageTexture.MaskNeutral, StageTexture.MaskOni, StageTexture.MaskSad, StageTexture.MaskSmile }
                         : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
@@ -869,7 +885,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
                 stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
@@ -1081,9 +1097,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private bool forcedHeld;
 
+        /// <summary>
+        /// (Yamame's web, 2026-11-20: "stunned player sways together with web") While held, the character hangs at <c>Anchor</c> on a web and sways with it round <c>Centre</c> (see
+        /// <see cref="StageBullet.SwayAmp"/>); null when the hold keeps it still.
+        /// </summary>
+        private (Vector2 Anchor, Vector2 Centre, float Amp, float Omega, float Phase)? heldSway;
+
+        /// <summary>Holds the character on a web from <paramref name="from"/> for <paramref name="length"/> ms: it sways with the web, round <paramref name="centre"/>, where it is now.</summary>
+        private void holdCharacterSwaying(double from, double length, Vector2 centre, float amp, float omega, float phase)
+        {
+            holdCharacter(from, length);
+            heldSway = (swayed(characterPosition, centre, -swayAngle(amp, omega, phase, from)), centre, amp, omega, phase);
+        }
+
         /// <summary>Holds the character where it is from <paramref name="from"/> for <paramref name="length"/> ms (a later hold that overlaps lengthens it).</summary>
         private void holdCharacter(double from, double length)
         {
+            heldSway = null;
+
             if (from <= forcedFreezeUntil && from >= forcedFreezeFrom)
                 forcedFreezeUntil = Math.Max(forcedFreezeUntil, from + length);
             else
@@ -1330,8 +1361,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (now < forcedFreezeUntil && now >= forcedFreezeFrom)
             {
-                // a trap (Enoko's) holds the character: it stays where it is, whatever the cursor or the keys do; when it is let go it is put on the cursor again (no path check)
+                // a trap (Enoko's) holds the character: it stays where it is, whatever the cursor or the keys do; when it is let go it is put on the cursor again (no path check). Yamame's web holds it
+                // where it touched, swaying with the web
                 forcedHeld = true;
+
+                if (heldSway is var (anchor, centre, amp, omega, phase))
+                    characterPosition = swayed(anchor, centre, swayAngle(amp, omega, phase, now));
             }
             else if (autoPilot && !failed)
             {
@@ -2321,6 +2356,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 forcedFreezeFrom = double.PositiveInfinity;
                 forcedFreezeUntil = double.NegativeInfinity;
+                heldSway = null;
             }
 
             foreach (var emitter in emitters)
@@ -2493,7 +2529,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!op.PointKept || op.Point == default)
                         op.Point = middle;
                 }
-                else if (op.Kind == TrajectoryOpKind.Glass)
+                else if (op.Kind is TrajectoryOpKind.Glass or TrajectoryOpKind.TurnBack)
                 {
                     op.GlassMin = newMin;
                     op.GlassMax = newMax;
@@ -2575,6 +2611,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             float turnLevel = failed || reverseMarks.Count == 0 ? 0f : reverseLevel(drawTime) * reverseFlash(drawTime);
             double shionMark = turnLevel > 0f ? warnedReverse(drawTime) : double.NaN;
             shionArrows.Clear();
+            kokoroArrows.Clear();
+            double kokoroBeat = 0;
+            float kokoroLevel = failed || kokoroFalls.Count == 0 ? 0f : kokoroWarning(drawTime, out _, out kokoroBeat);
             float tideLevel = failed || tideWindows.Count == 0 ? 0f : attackPresence(tideWindows, drawTime);
             float verdantLevel = failed || verdantWindows.Count == 0 ? 0f : attackPresence(verdantWindows, drawTime);
             float bloomLevel = (failed ? redLevel : Math.Max(redLevel, attackLevel(stampedeWindows, drawTime))) * DanmakusuBalance.REMILIA_BLOOM; // (Saki's attacks glow too, without the red)
@@ -2857,7 +2896,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Unbuffed = plain,
                         Morph = look?.Morph ?? 1f,
                         Under = emitter.DrawShape ?? emitter.Shape,
-                        Bloom = Math.Max(Math.Max(golden ? DanmakusuBalance.TOYOHIME_GOLD_BLOOM : emitter.Flashes ? flashBloom(ringTime - emitter.Time, emitter.RemoveAfter) : 0f, sukunaLevel > 0f ? sukunaGlowAt(position) : 0f), emitter.Bloom),
+                        Bloom = Math.Max(Math.Max(Math.Max(golden ? DanmakusuBalance.TOYOHIME_GOLD_BLOOM : emitter.Flashes ? flashBloom(ringTime - emitter.Time, emitter.RemoveAfter) : 0f, sukunaLevel > 0f ? sukunaGlowAt(position) : 0f), emitter.Bloom), look?.Bloom ?? 0f),
                     };
 
                     // (Shion's warning: beside every second bullet a small red arrow of Seija's dress, not see-through, flashes, pointing the way it will fly when it turns: back the way it came. Only beside what her turn will
@@ -2869,6 +2908,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         shionArrows.Add((position + back * (emitter.VisualRadius + arrow), arrow * 2.2f, MathF.Atan2(back.Y, back.X) * 180f / MathF.PI));
                     }
+
+                    // (Kokoro's warning of her fall: beside every second bullet an orange arrow, the way it will be flying a little into the fall)
+                    if (kokoroLevel > 0f && b % DanmakusuBalance.KOKORO_ARROW_EVERY == 0 && direction.LengthSquared > 1e-6f)
+                        addKokoroArrow(position, direction.Normalized() * emitter.SpeedOf(b), emitter.VisualRadius, kokoroBeat);
 
                     if (look != null && look.SlideSign != 0 && reisenAlpha > 0f)
                     {

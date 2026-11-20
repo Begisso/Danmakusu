@@ -42,6 +42,24 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <see cref="TrajectoryOp.InnerPoint"/>) it bounces off its edge. What is in its body already when the window begins, or is fired there, flies through.
         /// </summary>
         Crescent,
+
+        /// <summary>
+        /// Kanako (2026-11-20): in the window [Time, End] the first time the thing has wholly left the screen (<see cref="TrajectoryOp.GlassMin"/>..<see cref="TrajectoryOp.GlassMax"/>, as much bigger as the
+        /// thing is) it turns round and flies back the way it came.
+        /// </summary>
+        TurnBack,
+
+        /// <summary>
+        /// Kokoro's purple (2026-11-20): at Time - or when it is fired, if that is in the window [Time, End] - the thing turns at Point (where the player was then, once her act has placed it:
+        /// <see cref="TrajectoryOp.Placed"/>) and flies on through it at its own speed.
+        /// </summary>
+        Aim,
+
+        /// <summary>Kokoro's blue: at Time - or when it is fired, in the window - the thing starts to be pulled at Point (as it is then) by <see cref="TrajectoryOp.Push"/> px/ms², keeping its way and speed.</summary>
+        Pull,
+
+        /// <summary>Kokoro's orange: at Time - or when it is fired, in the window - the thing starts to fall down by <see cref="TrajectoryOp.Push"/> px/ms², keeping its way and speed (whatever pulled it before is over).</summary>
+        Gravity,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -90,6 +108,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float OverlayAmount { get; init; } = 1f;
 
         public BulletDecal Decal { get; init; }
+
+        /// <summary>The bullet glows this much (as a stage bullet's Bloom): Kokoro's moods (2026-11-20).</summary>
+        public float Bloom { get; init; }
 
         /// <summary>The bullet is drawn this much bigger (its hitbox keeps its size).</summary>
         public float Scale { get; init; } = 1f;
@@ -363,6 +384,18 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Glass: how the thing looks after its second bounce (after its first it has <see cref="After"/>); the looks only differ from the thing's own in being other objects, so that a beam gets a corner where it bounced.</summary>
         public BulletLook? AfterSecond { get; init; }
+
+        /// <summary>Only for what bosses shoot (rings a boss fires or her own shots, beams a boss fires, the bullets of the acts): Kanako's turn (2026-11-20).</summary>
+        public bool BossOnly { get; init; }
+
+        /// <summary>Only for what is fired at this moment or later (with <see cref="TrajectoryOp.BornBefore"/>: what is fired in a stretch of time).</summary>
+        public double BornAfter { get; init; } = double.NegativeInfinity;
+
+        /// <summary>The act of the boss has said where Point is (Kokoro's: where the player was): until then the op does nothing.</summary>
+        public bool Placed { get; set; }
+
+        /// <summary>When above 0 an <see cref="TrajectoryOpKind.Aim"/> turns the thing at most this far (radians) towards Point: Kokoro's arrowheads turn a little every beat, as homing ones do.</summary>
+        public float TurnLimit { get; init; }
     }
 
     /// <summary>Where a thing is, and what state it is in, after its flight has been worked out by <see cref="Trajectory.Trace"/>.</summary>
@@ -441,6 +474,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 if (op.Window && t0 > op.End)
                     continue; // (it was fired after the window)
+
+                if (t0 < op.BornAfter)
+                    continue; // (it was fired before the stretch the op is for)
 
                 if (op.OfEight > 0 && bullet >= 0 && bullet * op.OfEight % 8 >= op.OfEight)
                     continue;
@@ -709,6 +745,84 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         result.Alive = false;
                         result.Position = position;
                         return;
+
+                    case TrajectoryOpKind.TurnBack:
+                    {
+                        // (Kanako: min and max are the screen less the thing, so the screen and as much more as the thing is lies as far out again)
+                        if (op.GlassMax.X <= op.GlassMin.X)
+                            break; // (the screen is not known yet)
+
+                        double from = Math.Max(op.Time, now);
+                        step(ref position, ref v, acc, ref now, from);
+                        Vector2 outLow = 2f * op.GlassMin - min, outHigh = 2f * op.GlassMax - max;
+
+                        if (position.X < outLow.X || position.X > outHigh.X || position.Y < outLow.Y || position.Y > outHigh.Y)
+                            break; // (it had wholly left the screen already)
+
+                        double limit = Math.Min(op.End, time) - from;
+                        double gone = Math.Min(leave(position.X, v.X, acc.X, outLow.X, outHigh.X, limit), leave(position.Y, v.Y, acc.Y, outLow.Y, outHigh.Y, limit));
+
+                        if (double.IsPositiveInfinity(gone))
+                            break;
+
+                        step(ref position, ref v, acc, ref now, from + gone);
+                        v = -v;
+                        acc = -acc;
+                        look = op.After ?? look;
+                        break;
+                    }
+
+                    case TrajectoryOpKind.Aim:
+                    case TrajectoryOpKind.Pull:
+                    case TrajectoryOpKind.Gravity:
+                    {
+                        // (Kokoro's moods: when the mood comes, or when the thing is fired in it - and after whatever froze it has let it go)
+                        if (op.Kind != TrajectoryOpKind.Gravity && !op.Placed)
+                            break;
+
+                        double from = Math.Max(op.Time, now);
+
+                        if (from > Math.Min(op.End, time))
+                            break;
+
+                        step(ref position, ref v, acc, ref now, from);
+                        Vector2 toPoint = op.Point - position;
+
+                        // (what has left the screen is left alone: it would come back - aimed, pulled or falling - and with it everything that was ever fired)
+                        if (position.X < min.X - 64f || position.X > max.X + 64f || position.Y < min.Y - 64f || position.Y > max.Y + 64f)
+                            break;
+
+                        if (op.Kind == TrajectoryOpKind.Aim)
+                        {
+                            float speed = v.Length;
+
+                            if (speed > 1e-6f && toPoint.LengthSquared > 1f)
+                            {
+                                float now_ = MathF.Atan2(v.Y, v.X), wanted = MathF.Atan2(toPoint.Y, toPoint.X);
+                                float turn = wanted - now_;
+
+                                while (turn > MathF.PI)
+                                    turn -= MathF.Tau;
+
+                                while (turn < -MathF.PI)
+                                    turn += MathF.Tau;
+
+                                if (op.TurnLimit > 0f)
+                                    turn = Math.Clamp(turn, -op.TurnLimit, op.TurnLimit);
+
+                                v = new Vector2(MathF.Cos(now_ + turn), MathF.Sin(now_ + turn)) * speed;
+                            }
+
+                            acc = Vector2.Zero;
+                        }
+                        else if (op.Kind == TrajectoryOpKind.Pull)
+                            acc = toPoint.LengthSquared > 1f ? Vector2.Normalize(toPoint) * op.Push : Vector2.Zero;
+                        else
+                            acc = new Vector2(0f, op.Push);
+
+                        look = op.After ?? look;
+                        break;
+                    }
 
                     case TrajectoryOpKind.Bounce:
                     {

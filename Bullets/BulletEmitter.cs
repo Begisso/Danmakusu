@@ -921,6 +921,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (op.SkipPetals && Shape is BulletShape.Petal or BulletShape.Flower)
                     continue;
 
+                // (Kanako's turn is for what bosses shoot, not the bullets of the circles and sliders; what an op is for a stretch of time is for what is fired in it)
+                if ((op.BossOnly && !FollowsBoss && !OwnShot) || Time < op.BornAfter)
+                    continue;
+
 
 
                 if (op.Kind == TrajectoryOpKind.Remove && Sharp)

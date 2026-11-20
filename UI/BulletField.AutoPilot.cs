@@ -117,7 +117,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 autoForgetTracks(now, true);
             }
             else
-                autoForgetTracks(now, false);
+            {
+                // (an act has placed an op meanwhile - Kokoro's aim, Mima's moon: the ways of the rings have changed, and what was foreseen of them is forgotten)
+                autoForgetTracks(now, autoOpsMoved);
+
+                if (autoOpsMoved)
+                {
+                    Array.Clear(autoPassedUntil);
+                    Array.Clear(autoLaserPassedUntil);
+
+                    foreach (var shape in autoLaserShapes.Values)
+                        autoLaserShapePool.Push(shape);
+
+                    foreach (var shape in autoTailShapes.Values)
+                        autoLaserShapePool.Push(shape);
+
+                    autoLaserShapes.Clear();
+                    autoTailShapes.Clear();
+                }
+            }
+
+            autoOpsMoved = false;
 
             autoLast = now;
             autoNewFrame(now);
@@ -428,6 +448,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int z = circleUpperBound(from); z < circleZones.Length && circleZones[z].Time <= to; z++)
                 {
                     var zone = circleZones[z];
+
+                    if (ObjectsHarmless(zone.Time))
+                        continue; // (Merlin's: harmless, see TrumpetAct)
+
                     float f = to > from ? (float)((zone.Time - from) / (to - from)) : 1f;
 
                     if (Vector2.Distance(Vector2.Lerp(before, p, f), zone.Position) <= zone.Radius + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN)
@@ -479,8 +503,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 var zone = sliderZones[i];
 
-                if (t > zone.EndTime)
-                    continue;
+                if (t > zone.EndTime || ObjectsHarmless(t))
+                    continue; // (Merlin's attacks: the sliders do not hurt)
 
                 if (zone.Touches(p - zone.FallOffset(t) - (zone.FallSpeed > 0f ? CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN))
                     return true;
@@ -1095,6 +1119,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             position = track.Positions[slot * 64 + bullet];
             return (track.Hurts[slot] & bit) != 0;
         }
+
+        /// <summary>An act has placed an op (where it goes): what the autoplay foresaw of the rings is forgotten at its next frame (set by the acts: Kokoro's, Mima's).</summary>
+        private bool autoOpsMoved;
 
         /// <summary>(a new frame) the rings not looked at for a while are forgotten; when time went back, all of them.</summary>
         private void autoForgetTracks(double now, bool all)

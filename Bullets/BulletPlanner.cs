@@ -39,7 +39,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Dream, BossMechanic.Rewind, BossMechanic.ThreeWorlds, BossMechanic.Taiko, BossMechanic.Rebirth, BossMechanic.Winter, BossMechanic.Dowsing, BossMechanic.Death, BossMechanic.Destruction,
             BossMechanic.Darkness, BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Momentum, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Haste, BossMechanic.HalfMoon, BossMechanic.Claws, BossMechanic.Reaping,
-            BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto,
+            BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls,
         };
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         private static readonly HashSet<BossMechanic> own_shots_only = new HashSet<BossMechanic>
         {
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
-            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto,
+            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Dolls,
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -62,7 +62,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Stacking, BossMechanic.Possibility, BossMechanic.Storm, BossMechanic.Slash, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Cloud, BossMechanic.Haste, BossMechanic.Crescent,
             BossMechanic.Blades, BossMechanic.Miracle, BossMechanic.Claws, BossMechanic.Anchors,
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
-            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Strings, BossMechanic.Familiar, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Haniwa,
+            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Strings, BossMechanic.Familiar, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Haniwa, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -83,7 +83,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Silence, BossMechanic.Stampede, BossMechanic.Market, BossMechanic.Possibility, BossMechanic.Storm, BossMechanic.Slash, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Cloud, BossMechanic.Claws,
             BossMechanic.Anchors,
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
-            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.PipeFox,
+            BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.PipeFox, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -2581,6 +2581,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Tsukasa's spinner: her rings of big balls in place of the spinner's stars
                     addFoxBalls(bossPlanOrigin, attackStart, end);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
+                {
+                    // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
+                    addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Circle, DanmakusuBalance.KOKORO_RING_BULLETS, DanmakusuBalance.KOKORO_RING_EVERY_BEATS, BulletShape.Circle);
+                }
                 else if (kind != BossKind.Spinner) // (the spinner does the shooting)
                 {
                     // the break boss fires the spinner's spiral of stars, the kiai boss the same at half the frequency
@@ -2618,6 +2623,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Circle, DanmakusuBalance.EIKI_RING_BULLETS, DanmakusuBalance.EIKI_RING_EVERY_BEATS, BulletShape.Talisman);
                     else if (boss.Mechanic == BossMechanic.Familiar)
                         addEllenFans(bossPlanOrigin, attackStart, end); // (Ellen: the beams between every two of them are FamiliarAct's)
+                    else if (boss.Mechanic == BossMechanic.Masks)
+                        addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Circle, DanmakusuBalance.KOKORO_RING_BULLETS, DanmakusuBalance.KOKORO_RING_EVERY_BEATS, BulletShape.Circle); // (Kokoro: very dense rings; what they are is her mood's, BossOps)
                     else if (boss.Mechanic == BossMechanic.Recording)
                         addDoubleRings(bossPlanOrigin, attackStart, end, DanmakusuBalance.HISAMI_RING_LAYERS, DanmakusuBalance.HISAMI_RING_EVERY_BEATS, DanmakusuBalance.HISAMI_RING_BULLETS);
                     else if (boss.Mechanic == BossMechanic.Crescent)
@@ -2879,6 +2886,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     switch (period.Boss.Mechanic)
                     {
+                        // Merlin: in her attacks the map's circles and sliders shoot nothing of their own - neither bullets nor beams: they send out her rings instead (TrumpetAct)
+                        case BossMechanic.Trumpet when pass == 0 && period.Kind != BossKind.Spinner:
+                        {
+                            var windows = BossOps.Attacks(period);
+                            bool inAttack(double t) => windows.Exists(w => t >= w.Start && t < w.End);
+
+                            emitters.RemoveAll(ring => !ring.FollowsBoss && !ring.OwnShot && !ring.Derived && ring.Derive == DeriveKind.None && inAttack(ring.Time));
+                            laserList.RemoveAll(laser => !laser.FollowsBoss && inAttack(laser.StartTime));
+                            break;
+                        }
+
                         // Yatsuhashi: the notes of the map's 18-key osu!mania convert whose beams start falling in her section (from the top of the screen as it begins) and reach the bottom before it ends (KotoAct)
                         case BossMechanic.Koto when pass == 0:
                         {
@@ -3890,8 +3908,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         }
 
                         case BossMechanic.Freeze when pass == 1:
-                            foreach (var (start, end) in BossOps.Attacks(period))
+                            foreach (var (start, attackEnd) in BossOps.Attacks(period))
                             {
+                                // (they burst when the freeze lets go: with Kokoro's fall that may be when it begins - see BossOps.UnfreezeAt)
+                                double end = BossOps.UnfreezeAt(bossList, period, start, attackEnd).End;
                                 // (Utsuho's big balls cannot be destroyed: they are frozen too, but do not burst)
                                 var parents = emitters.Where(ring => !ring.Derived && ring.Derive == DeriveKind.None && !ring.Sharp && ring.Time < start && ring.Time + Math.Min(ring.Lifetime, 15000) > start).ToList();
 

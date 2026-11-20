@@ -16,6 +16,70 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A bullet that has bounced off the border during Seija's reversal.</summary>
         public static readonly BulletLook Red = new BulletLook { Overlay = BulletRenderer.TINT_RED, OverlayAmount = 1f };
 
+        /// <summary>What has turned round in Kanako's section (2026-11-20).</summary>
+        public static readonly BulletLook DarkBlue = new BulletLook { Overlay = BulletRenderer.TINT_DARK_BLUE, OverlayAmount = 1f };
+
+        /// <summary>
+        /// Kokoro's moods (2026-11-20), in turn: purple arrowheads, blue ellipses, aquamarine stars, orange (each its own shape), every one glowing in its colour.
+        /// </summary>
+        public static readonly BulletLook[] MoodLooks =
+        {
+            new BulletLook { Shape = BulletShape.Triangle, Overlay = BulletRenderer.TINT_PURPLE, OverlayAmount = 0.8f, Bloom = DanmakusuBalance.KOKORO_BLOOM },
+            new BulletLook { Shape = BulletShape.Ellipse, Overlay = BulletRenderer.TINT_BLUE, OverlayAmount = 0.8f, Bloom = DanmakusuBalance.KOKORO_BLOOM },
+            new BulletLook { Shape = BulletShape.Star, Overlay = BulletRenderer.TINT_AQUAMARINE, OverlayAmount = 0.8f, Bloom = DanmakusuBalance.KOKORO_BLOOM },
+            new BulletLook { Overlay = BulletRenderer.TINT_ORANGE, OverlayAmount = 0.8f, Bloom = DanmakusuBalance.KOKORO_BLOOM },
+        };
+
+        /// <summary>
+        /// When a freeze of another boss (holding from <paramref name="start"/> to <paramref name="end"/>) lets go, with Kokoro on the map (2026-11-20, the user): if one of her falls begins while it holds,
+        /// the one of the two who has priority then decides. The one chosen first (the lower rank) has it first, the other for the next 32 beats, and so on, counted from when Kokoro first shoots. Kokoro
+        /// first: the freeze lets go when her fall begins, and what comes after it begins then (Cirno's bursts, Yukari's talismans flying at the middle, Sakuya's mirror). The other first: the freeze lasts,
+        /// and what it lets go falls as well (<c>Falls</c>).
+        /// </summary>
+        public static (double End, bool Falls) UnfreezeAt(IEnumerable<BossPeriod> bosses, BossPeriod freezer, double start, double end)
+        {
+            foreach (var kokoro in bosses)
+            {
+                if (kokoro.Boss?.Mechanic != BossMechanic.Masks || kokoro == freezer)
+                    continue;
+
+                double priority = Math.Max(kokoro.BeatLength, 1) * DanmakusuBalance.KOKORO_PRIORITY_BEATS;
+
+                foreach (var (moodStart, _, mood) in MaskMoods(kokoro))
+                {
+                    if (mood != 3 || moodStart <= start || moodStart >= end)
+                        continue;
+
+                    long block = (long)Math.Floor((moodStart - kokoro.ShootStart) / priority);
+                    bool kokoroChosenFirst = kokoro.Rank < freezer.Rank || (kokoro.Rank == freezer.Rank && kokoro.Start <= freezer.Start);
+                    bool kokoroLeads = (block % 2 == 0) == kokoroChosenFirst;
+                    return kokoroLeads ? (moodStart, false) : (end, true);
+                }
+            }
+
+            return (end, false);
+        }
+
+        /// <summary>What a freeze has let go falls as Kokoro's orange does, when the freezing boss had priority over her fall (see <see cref="UnfreezeAt"/>).</summary>
+        private static TrajectoryOp fallAfter(TrajectoryOp freeze) => new TrajectoryOp
+        {
+            Kind = TrajectoryOpKind.Gravity, Time = freeze.End, End = freeze.End + 1, BornBefore = freeze.BornBefore, EveryOther = freeze.EveryOther, OfEight = freeze.OfEight,
+            OrEverySecondRing = freeze.OrEverySecondRing, SkipBursts = freeze.SkipBursts, Push = DanmakusuBalance.KOKORO_GRAVITY, After = MoodLooks[3],
+        };
+
+        /// <summary>Kokoro's moods in her section: every eight beats from when she first shoots to when she goes, the next of purple (0), blue (1), aquamarine (2) and orange (3).</summary>
+        public static List<(double Start, double End, int Mood)> MaskMoods(BossPeriod period)
+        {
+            var list = new List<(double, double, int)>();
+            double every = Math.Max(period.BeatLength, 1) * DanmakusuBalance.KOKORO_MOOD_BEATS;
+            int k = 0;
+
+            for (double t = period.ShootStart; t < period.End - 1 && list.Count < 10000; t += every, k++)
+                list.Add((t, Math.Min(t + every, period.End), k % 4));
+
+            return list;
+        }
+
         /// <summary>A thing that has bounced off one of Kyouko's walls once / twice: it looks like it did, but the looks are other objects (so that a beam gets a corner where it bounced).</summary>
         public static readonly BulletLook GlassOnce = new BulletLook();
 
@@ -266,6 +330,77 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             {
                 switch (period.Boss?.Mechanic)
                 {
+                    case BossMechanic.Onbashira:
+                    {
+                        // Kanako: in her section everything a boss shoots turns round the first time it has wholly left the screen, and flies back the way it came, dark blue
+                        var turn = new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, After = DarkBlue };
+                        bullets.Add(turn);
+                        beams.Add(turn);
+                        break;
+                    }
+
+                    case BossMechanic.Masks:
+                    {
+                        // Kokoro: everything takes on her mood, every eight beats another (her act says where the aimed and pulled ones go: where the player was)
+                        double beat = Math.Max(period.BeatLength, 1);
+
+                        foreach (var (start, end, mood) in MaskMoods(period))
+                        {
+                            var look = MoodLooks[mood];
+
+                            switch (mood)
+                            {
+                                case 0:
+                                case 1:
+                                    // (purple: arrowheads that home in on the player - every beat everything turns a little towards where the player is then, and what is fired turns so as it is fired; blue:
+                                    // pulled at the player - what is there when the mood comes, as it comes, and what is fired in it, as it is fired, at where the player was in its beat)
+                                    for (double from = start; from < end - 1; from += beat)
+                                    {
+                                        double until = Math.Min(from + beat, end);
+                                        var op = new TrajectoryOp
+                                        {
+                                            Kind = mood == 0 ? TrajectoryOpKind.Aim : TrajectoryOpKind.Pull, Time = from, End = until, Window = true,
+                                            BornAfter = from <= start || mood == 0 ? double.NegativeInfinity : from, BornBefore = until, Push = period.ArrowGravity * DanmakusuBalance.KOKORO_PULL, After = look,
+                                            TurnLimit = DanmakusuBalance.KOKORO_AIM_TURN_DEGREES * MathF.PI / 180f,
+                                        };
+
+                                        bullets.Add(op);
+                                        beams.Add(op);
+                                    }
+
+                                    break;
+
+                                case 2:
+                                {
+                                    // (aquamarine: stars that ricochet, the pull of blue over)
+                                    var stars = new TrajectoryOp { Kind = TrajectoryOpKind.Gravity, Time = start, End = end, Window = true, Push = 0f, After = look };
+                                    bullets.Add(stars);
+                                    beams.Add(stars);
+
+                                    for (int bounce = 0; bounce < DanmakusuBalance.KOKORO_RICOCHETS; bounce++)
+                                    {
+                                        var op = new TrajectoryOp { Kind = TrajectoryOpKind.Bounce, Time = start, End = end, Window = true, After = look };
+                                        bullets.Add(op);
+                                        beams.Add(op);
+                                    }
+
+                                    break;
+                                }
+
+                                default:
+                                {
+                                    // (orange: everything falls to the bottom, keeping its way and speed)
+                                    var fall = new TrajectoryOp { Kind = TrajectoryOpKind.Gravity, Time = start, End = end, Window = true, Push = DanmakusuBalance.KOKORO_GRAVITY, After = look };
+                                    bullets.Add(fall);
+                                    beams.Add(fall);
+                                    break;
+                                }
+                            }
+                        }
+
+                        break;
+                    }
+
                     case BossMechanic.ScreenMirror:
                         // everything that exists when the reversal starts bounces once off the border of the screen during it, and turns red
                         foreach (var (start, end) in Attacks(period))
@@ -290,14 +425,24 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     case BossMechanic.Freeze:
                         // Cirno freezes every second bullet that exists when her attack starts (not what comes later) for the whole attack; it bursts at the end (see the planner). Beams freeze all the same
-                        foreach (var (start, end) in Attacks(period))
+                        foreach (var (start, attackEnd) in Attacks(period))
                         {
+                            // (with Kokoro's fall: let go when it begins, or falling once let go - see UnfreezeAt; the planner bursts them at the same moment)
+                            var (end, falls) = UnfreezeAt(bosses, period, start, attackEnd);
                             var frozen = FrozenUntil(end, period.BeatLength);
 
                             // (the bullets that burst out of an earlier freeze are free: they are not frozen again, and they do not burst)
                             bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, During = frozen, SkipBursts = true, EveryOther = true, OrEverySecondRing = true });
                             bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Remove, Time = end, End = end, BornBefore = start, SkipBursts = true, EveryOther = true, OrEverySecondRing = true });
-                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, During = frozen });
+                            var beamFreeze = new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, During = frozen };
+                            beams.Add(beamFreeze);
+
+                            if (falls)
+                            {
+                                // (what is frozen bursts: the rings it bursts into, fired as it lets go, are what falls)
+                                beams.Add(fallAfter(beamFreeze));
+                                bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Gravity, Time = end, End = end + 1, Window = true, BornAfter = end - 1, BornBefore = end + 1, Push = DanmakusuBalance.KOKORO_GRAVITY, After = MoodLooks[3] });
+                            }
                         }
 
                         break;
@@ -305,15 +450,26 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case BossMechanic.Gaps:
                         // Yukari: in every pause every second bullet that exists freezes (turning into a talisman, facing the centre; the others fly on); when the pause ends it stays a talisman and flies at the centre,
                         // through it and on out of the screen (the pause after her last attack too, also when she finishes her sequence after her section)
-                        foreach (var (start, end) in PausesWithTail(period))
+                        foreach (var (start, pauseEnd) in PausesWithTail(period))
                         {
-                            bullets.Add(new TrajectoryOp
+                            // (with Kokoro's fall: let go when it begins, or falling once let go - see UnfreezeAt)
+                            var (end, falls) = UnfreezeAt(bosses, period, start, pauseEnd);
+                            var freeze = new TrajectoryOp
                             {
                                 Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, OfEight = DanmakusuBalance.YUKARI_FREEZE_OF_EIGHT, During = Carriage, After = Carriage, Steps = CarriageSteps, Blend = DanmakusuBalance.YUKARI_MORPH_MS,
                                 FacesPoint = true,
-                            });
+                            };
+
+                            bullets.Add(freeze);
                             bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Redirect, Time = end, End = end, BornBefore = start, OfEight = DanmakusuBalance.YUKARI_FREEZE_OF_EIGHT, After = Carriage, Through = true });
-                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start });
+                            var beamFreeze = new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start };
+                            beams.Add(beamFreeze);
+
+                            if (falls)
+                            {
+                                bullets.Add(fallAfter(freeze));
+                                beams.Add(fallAfter(beamFreeze));
+                            }
                         }
 
                         break;
@@ -420,33 +576,54 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case BossMechanic.Lunatic:
                         // Reisen: during every second attack everything that exists stands still (see-through) and slides at the same time, half to the left and half to the right (harmless meanwhile);
                         // when the attack ends it flies on from there. The next attack slides up and down, the one after that sideways again, and so on
-                        foreach (var (start, end) in ReisenSlides(period))
+                        foreach (var (start, slideEnd) in ReisenSlides(period))
                         {
                             bool vertical = reisenAttacks++ % 2 == 1;
 
-                            bullets.Add(new TrajectoryOp
+                            // (with Kokoro's fall: let go when it begins, or falling once let go - see UnfreezeAt)
+                            var (end, falls) = UnfreezeAt(bosses, period, start, slideEnd);
+                            var freeze = new TrajectoryOp
                             {
                                 Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, Slides = true, SlideVertical = vertical, EveryOther = true, // (every second bullet is left alone)
                                 During = vertical ? ReisenUp : ReisenLeft, DuringRight = vertical ? ReisenDown : ReisenRight,
-                            });
+                            };
 
-                            beams.Add(new TrajectoryOp
+                            var beamFreeze = new TrajectoryOp
                             {
                                 Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, Slides = true, SlideVertical = vertical, SlideByDirection = true,
                                 During = vertical ? ReisenUp : ReisenLeft, DuringRight = vertical ? ReisenDown : ReisenRight,
                                 CutOutsidePlayfield = true, // (slices outside the playfield are cut off at once, not frozen: 2026-11-14)
-                            });
+                            };
+
+                            bullets.Add(freeze);
+                            beams.Add(beamFreeze);
+
+                            if (falls)
+                            {
+                                bullets.Add(fallAfter(freeze));
+                                beams.Add(fallAfter(beamFreeze));
+                            }
                         }
 
                         break;
 
                     case BossMechanic.TimeStop:
                         // Sakuya: during an attack everything that exists stands still; when it ends all bullets (also the ones that came meanwhile) are mirrored and become knives
-                        foreach (var (start, end) in Attacks(period))
+                        foreach (var (start, attackEnd) in Attacks(period))
                         {
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start });
+                            // (with Kokoro's fall: let go when it begins, or falling once let go - see UnfreezeAt)
+                            var (end, falls) = UnfreezeAt(bosses, period, start, attackEnd);
+                            var freeze = new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start };
+                            bullets.Add(freeze);
                             bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Mirror, Time = end, End = end, After = Knife });
-                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start });
+                            var beamFreeze = new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start };
+                            beams.Add(beamFreeze);
+
+                            if (falls)
+                            {
+                                bullets.Add(fallAfter(freeze));
+                                beams.Add(fallAfter(beamFreeze));
+                            }
                         }
 
                         break;

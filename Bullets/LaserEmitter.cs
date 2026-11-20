@@ -640,6 +640,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (op.OnlyMarked && !BouncesOnce)
                     continue;
 
+                // (Kanako's turn is for the beams bosses fire, not the sliders'; and a beam lives on, so an op for a stretch of time is for every beam that has slices in it)
+                if (op.BossOnly && !FollowsBoss)
+                    continue;
+
                 if ((op.Time <= StartTime && !op.Window) || StartTime >= op.BornBefore || op.Time >= EndTime + Lifetime || (op.Window && StartTime > op.End))
                     continue;
 

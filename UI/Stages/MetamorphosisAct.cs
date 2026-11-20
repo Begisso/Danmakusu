@@ -44,6 +44,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly Dictionary<BulletEmitter, int> ringOrder = new Dictionary<BulletEmitter, int>();
             private readonly List<int> butterflies = new List<int>();
             private readonly List<int> warned = new List<int>();
+            private readonly List<int> swells = new List<int>(); // (the swollen bullets, which hurt like a slider body)
             private readonly int perRing = DanmakusuBalance.LARVA_RING_BUTTERFLIES;
             private double resetTime = double.NegativeInfinity;
 
@@ -133,6 +134,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 ClearBullets();
                 butterflies.Clear();
                 warned.Clear();
+                swells.Clear();
                 resetTime = time;
 
                 for (int k = 0; k < volleys.Length; k++)
@@ -282,11 +284,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             bugs.Add(index);
                     }
 
-                    for (int i = DanmakusuBalance.LARVA_SWELL_EVERY - 1; i < all.Count + bugs.Count; i += DanmakusuBalance.LARVA_SWELL_EVERY)
+                    int chosen = 0;
+
+                    for (int i = DanmakusuBalance.LARVA_SWELL_EVERY - 1; i < all.Count + bugs.Count && chosen < DanmakusuBalance.LARVA_SWELL_MOST; i += DanmakusuBalance.LARVA_SWELL_EVERY)
                     {
                         if (i >= all.Count)
                         {
                             swellButterfly(f, m, bugs[i - all.Count]);
+                            chosen++;
                             continue;
                         }
 
@@ -295,6 +300,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         if (((one.Emitter.ConsumedMask | one.Emitter.AbsorbedMask | one.Emitter.HiddenMask) & bit) != 0)
                             continue;
+
+                        chosen++;
 
                         one.Emitter.AbsorbedMask |= bit;
                         var stored = f.makeStored(one.Emitter, one.Time);
@@ -379,8 +386,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (there.X < f.stageMin.X - margin || there.X > f.stageMax.X + margin || there.Y < f.stageMin.Y - margin || there.Y > f.stageMax.Y + margin)
                     return; // (it has left the screen before it could swell)
 
-                // the swell: a big round bullet, as sharp as Mokou's ball, at its own speed again; it shrinks back over the last beat
+                // the swell: a big round bullet, as sharp as Mokou's ball, at its own speed again; it shrinks back over the last beat. It hurts like a slider body, for as long as the character is in it
+                // (2026-11-20, the user: "swelled bullets hit like sliders"; see Hurts)
                 float swollen = f.circleRadius * DanmakusuBalance.LARVA_SWELL_CIRCLES;
+                swells.Add(Bullets.Count);
 
                 AddBullet(new StageBullet
                 {
@@ -400,8 +409,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     ScaleBackOver = beat * DanmakusuBalance.LARVA_SHRINK_BEATS,
                     Bloom = DanmakusuBalance.LARVA_SWELL_BLOOM,
                     Untraced = true,
+                    Slider = true,
                     Until = backs,
                 });
+
+                if (swells[^1] >= Bullets.Count)
+                    swells.RemoveAt(swells.Count - 1); // (too many bullets: it is not there)
 
                 // and then it flies on as it was, aquamarine
                 Vector2 after = there + one.Velocity * (float)(backs - swellsAt);
@@ -423,6 +436,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     BladeSpin = stored.BladeSpin,
                     Until = backs + f.stageLife(one.Velocity),
                 });
+            }
+
+            /// <summary>A swollen bullet hurts like a slider body while the character is in it, at its whole drawn radius as it swells and shrinks back (the field's hit check leaves it to this).</summary>
+            public override bool Hurts(BulletField f, double now)
+            {
+                if (f.failed)
+                    return false;
+
+                foreach (int index in swells)
+                {
+                    var bullet = Bullets[index];
+
+                    if (now < bullet.T0 || now > bullet.Until)
+                        continue;
+
+                    float grown = stageBulletScale(bullet, now);
+                    float reach = Math.Max(bullet.Hit * grown, f.bigBallHit(bullet.Radius * grown)) + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                    if (Vector2.DistanceSquared(f.characterPosition, stageBulletPosition(bullet, now)) <= reach * reach)
+                        return true;
+                }
+
+                return false;
             }
 
             // ---- drawing ----

@@ -42,7 +42,11 @@
         /// <summary>Bullets travel further depending on how far the player is.</summary>
         Distance,
 
-        /// <summary>Doll satellites orbit the boss and fire in turn.</summary>
+        /// <summary>
+        /// Alice Margatroid (2026-11-20; was a placeholder, "doll satellites orbit the boss and fire in turn"): no pauses. Twenty-five fumos of her come out of her and wander over the playfield, each on a
+        /// yellow magic circle half as big as a boss's; every two beats each shoots a stream at the player - an arrowhead, a plain bullet, an ellipse and a ricochet star - with a beam as long as the stream on
+        /// either side of it. Those are all her shots.
+        /// </summary>
         Dolls,
 
         /// <summary>
@@ -115,7 +119,10 @@
         /// </summary>
         FreeFall,
 
-        /// <summary>Pillars of bullets fall from above.</summary>
+        /// <summary>
+        /// Kanako Yasaka (2026-11-20): in her section everything a boss shoots - bullets, beams, the things of their mechanics - turns round the first time it has wholly left the screen, flies back the way it came
+        /// and turns dark blue. She throws five big circles of talismans round her, which turn round her and then fly away, their talismans going round each moving circle.
+        /// </summary>
         Onbashira,
 
         /// <summary>Poison clouds linger on the field and slowly expand.</summary>
@@ -483,5 +490,26 @@
         /// comes out of the edge of the balls instead, the six in turn, and flies on as it was fired.
         /// </summary>
         PipeFox,
+
+        /// <summary>
+        /// Yamame Kurodani (2026-11-20): no pauses. Every sixteen beats a giant spider web of beams - twenty-five threads out from the middle and arcs between them, rung after rung - grows from where she is over
+        /// eight beats (as Mai's snowflake, after a see-through preview of eight beats), swaying slowly, and is taken away again from the middle out over the next eight. Every second bullet that flies into it
+        /// is caught there and sways with it, until the web goes and lets it fly on.
+        /// </summary>
+        Web,
+
+        /// <summary>
+        /// Hata no Kokoro (2026-11-20): no pauses. Every eight beats her mood changes - purple, blue, aquamarine, orange, and again - and everything on the screen with it, glowing in its colour: arrowheads aimed
+        /// at the player, ellipses pulled at the player, stars that ricochet, then a fall to the bottom (arrows warn where each bullet will fall); a giant see-through mask of the mood shows on the background.
+        /// She shoots very dense rings of bullets, of her mood.
+        /// </summary>
+        Masks,
+
+        /// <summary>
+        /// Merlin Prismriver (2026-11-20): in her attacks the map's circles and sliders do not hurt and shoot nothing of their own: each sends out a thick white ring instead, as Raiko's ripples go out, which
+        /// hurts like a slider body - unless the player is on it when it is hit: then it clears every bullet and beam round it. They glow green, green arrows close in on them instead of their numbers. In a
+        /// spinner she throws rings of six circles and sliders, each sending out such rings, but not while the player is on it.
+        /// </summary>
+        Trumpet,
     }
 }

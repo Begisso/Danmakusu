@@ -939,7 +939,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float LARVA_WINGSPAN = 3f;
         public const double LARVA_FLAP_MS = 260;
         public const double LARVA_EVERY_BEATS = 8;
-        public const int LARVA_SWELL_EVERY = 20;
+        public const int LARVA_SWELL_EVERY = 10; // (20 until 2026-11-20: "Double the amount, but no more than 64")
+        public const int LARVA_SWELL_MOST = 64; // (at most this many swell at a mark)
         public const double LARVA_WARN_BEATS = 4;
         public const float LARVA_WARN_SLOW = 0.5f;
         public const float LARVA_SWELL_CIRCLES = 2f;
@@ -1001,6 +1002,121 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float MAI_ARM_TIP_WIDTH = 0.6f;
         public const double MAI_PREVIEW_BEATS = 2;
         public const float MAI_PREVIEW_ALPHA = 0.25f;
+
+        /// <summary>
+        /// Yamame (2026-11-20): a web every this many beats; it grows over this many (after a see-through preview this many beats ahead, this visible) and is taken away over this many. Its threads out from the
+        /// middle (this many) are this share of the playfield's width long; the arcs between two of them are this many circle radii apart along them, from this share of a thread out (the hub), every second gap
+        /// a half step further out (rungs side by side, as on a ladder), each bowing in towards the middle by this share of its distance from it; the threads out are as thick as a slider's beam, the arcs this
+        /// share of that. It sways round its middle by up to this many degrees, back and forth once every this many beats, its rim this many radians behind its middle.
+        /// </summary>
+        public const double YAMAME_EVERY_BEATS = 16;
+
+        public const double YAMAME_GROW_BEATS = 8;
+        public const double YAMAME_OUT_BEATS = 8;
+        public const double YAMAME_PREVIEW_BEATS = 8;
+        public const float YAMAME_PREVIEW_ALPHA = 0.25f;
+        public const int YAMAME_SPOKES = 25;
+        public const float YAMAME_SIZE = 1.2f;
+        public const float YAMAME_RUNG_CIRCLES = 1.6f;
+        public const float YAMAME_HUB = 0.06f;
+        public const float YAMAME_SAG = 0.06f;
+        public const float YAMAME_RUNG_WIDTH = 0.6f;
+        public const float YAMAME_SWAY_DEGREES = 2.5f;
+        public const double YAMAME_SWAY_BEATS = 8;
+        public const float YAMAME_SWAY_LAG = 1.2f;
+
+        /// <summary>Yamame: every this many-th bullet that flies into her web is caught there (the others go through).</summary>
+        public const int YAMAME_CATCH_EVERY = 2;
+
+        /// <summary>Yamame: touching her web stuns the player (held there, swaying with it) for this many beats, and not again for this many beats after that (2026-11-20).</summary>
+        public const double YAMAME_STUN_BEATS = 2;
+
+        public const double YAMAME_STUN_COOLDOWN_BEATS = 4;
+
+        /// <summary>
+        /// Kanako (2026-11-20): when each of her attacks begins and every this many beats in it she throws this many circles of talismans, each this many circle radii wide (round), their middles this many of
+        /// their own radii out from her; the talismans lie end to end all round each circle, every this many-th one left out. For this many beats the circles turn round her (once every this many beats), their
+        /// talismans going round them (once every this many beats); then the circles fly straight away from her at this share of a plain bullet's speed, their talismans still going round them.
+        /// </summary>
+        public const double KANAKO_EVERY_BEATS = 8;
+
+        public const int KANAKO_CIRCLES = 5;
+        public const float KANAKO_CIRCLE_RADII = 2.5f;
+        public const float KANAKO_HUB_OUT = 1.8f;
+        public const int KANAKO_SKIP_EVERY = 4;
+        public const double KANAKO_SPIN_BEATS = 2;
+        public const double KANAKO_HUB_TURN_BEATS = 8;
+        public const double KANAKO_RING_TURN_BEATS = 4;
+        public const float KANAKO_SPEED = 0.7f;
+
+        /// <summary>
+        /// Kokoro (2026-11-20): her mood changes every this many beats (purple, blue, aquamarine, orange). In blue everything is pulled at the player this many times as hard as Nazrin's ellipses; in aquamarine it
+        /// bounces off the border this many times; in orange it falls with this pull (a quarter of the fall when the player fails). What a mood changes glows this much. The arrows that warn of the fall show
+        /// this many beats before it, beside every this many-th bullet, pointing the way it will be flying this many beats into the fall. Her own rings: this many bullets every this many beats.
+        /// </summary>
+        public const double KOKORO_MOOD_BEATS = 8;
+
+        public const float KOKORO_PULL = 1f;
+
+        /// <summary>Kokoro's purple: every beat everything turns at most this many degrees towards where the player is (arrowheads homing in, a step a beat).</summary>
+        public const float KOKORO_AIM_TURN_DEGREES = 30f;
+
+        /// <summary>
+        /// Kokoro and a boss that freezes bullets (Cirno, Yukari, Sakuya, Reisen): who has priority when her fall begins while something is frozen - the one chosen first for this many beats from when she
+        /// first shoots, then the other, and so on (2026-11-20; see BossOps.UnfreezeAt).
+        /// </summary>
+        public const double KOKORO_PRIORITY_BEATS = 32;
+        public const int KOKORO_RICOCHETS = 3;
+        public const float KOKORO_GRAVITY = DEATH_GRAVITY / 4f;
+        public const float KOKORO_BLOOM = 0.6f;
+        public const double KOKORO_WARN_BEATS = 2;
+        public const int KOKORO_ARROW_EVERY = 2;
+        public const double KOKORO_ARROW_AHEAD_BEATS = 2;
+        public const float KOKORO_ARROW_SIZE = 1.6f;
+        public const int KOKORO_RING_BULLETS = 64;
+        public const double KOKORO_RING_EVERY_BEATS = 2;
+
+        /// <summary>
+        /// Merlin (2026-11-20): the rings her circles and sliders send out go out as fast as Raiko's ripples and are this many times as thick as their line, white, this solid. Being on one when it is hit
+        /// clears everything within this many circle radii of it. Green arrows close in on a circle over its approach (this many round it), and it glows. In a spinner, every this many beats, six circles and
+        /// sliders fly away from her at this share of a plain bullet's speed, each sending out a ring every this many beats.
+        /// </summary>
+        public const float MERLIN_RING_THICKNESS = 4f;
+
+        public const float MERLIN_RING_ALPHA = 0.95f;
+        public const float MERLIN_CLEAR_CIRCLES = 2f;
+        public const int MERLIN_ARROWS = 8;
+        public const float MERLIN_GLOW_ALPHA = 0.35f;
+        public const double MERLIN_THROW_EVERY_BEATS = 8;
+        public const int MERLIN_THROWN = 6;
+        public const float MERLIN_THROWN_SPEED = 0.5f;
+        public const double MERLIN_THROWN_RING_BEATS = 2;
+
+        /// <summary>
+        /// Alice (2026-11-20): this many fumos, each this tall (osu!pixels: as tall as a boss's picture), come out of her over this many beats when she starts shooting and wander over the playfield, going
+        /// from one place to the next in this many beats (each a little apart from the others), on a yellow magic circle this share of a boss's, this see-through; they go back into her over this many beats
+        /// when her section ends. Every this many beats each shoots a stream at the player: an arrowhead, a plain bullet, an ellipse and a ricochet star, this many bullet radii apart, at this share of a
+        /// plain bullet's speed (the star this many times as big), with a beam as long as the stream on either side of it, this many bullet radii out from its middle line.
+        /// </summary>
+        public const int ALICE_FUMOS = 25;
+
+        public const float ALICE_FUMO_HEIGHT = 32f;
+        public const double ALICE_COME_OUT_BEATS = 2;
+        public const double ALICE_WANDER_BEATS = 4;
+        public const float ALICE_CIRCLE_SHARE = 0.5f;
+        public const float ALICE_CIRCLE_ALPHA = 0.55f;
+        public const double ALICE_GO_BACK_BEATS = 1;
+        public const double ALICE_STREAM_EVERY_BEATS = 2;
+        public const float ALICE_STREAM_SPACING = 3f;
+        public const float ALICE_SPEED = 1f;
+        public const float ALICE_STAR_SIZE = 1.25f;
+        public const float ALICE_BEAM_SIDE = 3f;
+
+        /// <summary>Kokoro's background: the dim of her mood this dark, and its mask this see-through and this share of the playfield's height tall.</summary>
+        public const float KOKORO_BACKGROUND_ALPHA = 0.35f;
+
+        public const float KOKORO_MASK_ALPHA = 0.16f;
+        public const float KOKORO_MASK_SCREEN = 0.95f;
 
         /// <summary>
         /// Benben (2026-11-13): every slider's beam in her section has a copy this many circle radii above it and below it, every slice of them harmless (see-through) for this many beats; her own three parallel beams
@@ -1566,7 +1682,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MATENSHI_WING_APPEAR_BEATS = 0.5;
         public const double MATENSHI_WING_GROW_BEATS = 4;
         public const float MATENSHI_WING_ALPHA = 0.95f;
-        public const int MATENSHI_FROM_WINGS_EVERY = 2;
+        public const int MATENSHI_FROM_WINGS_EVERY = 1; // (2 until 2026-11-20: "double the amount of feathers coming out from wings")
         public const float MATENSHI_FEATHER_SIZE = 1.5f;
         public const float MATENSHI_FEATHER_BLOOM = 0.8f;
         public const double MATENSHI_BEAM_EVERY_BEATS = 4; // (8 until 2026-11-14: "twice more frequency"; every strike is two beams, one over the player and one at a place of its own)

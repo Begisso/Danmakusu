@@ -292,6 +292,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The outline of a horse's head and neck in white (to be tinted), an eye left open in it: Saki's, behind her attacks.</summary>
         HorseHead,
 
+        /// <summary>Kokoro's masks (2026-11-20), white (to be tinted), eyes and mouth left open: a calm one (purple), an oni's laughing one with horns and fangs (blue), a sad one (aquamarine), a smiling one (orange).</summary>
+        MaskNeutral,
+
+        MaskOni,
+        MaskSad,
+        MaskSmile,
+
         /// <summary>Futo's boat seen from above (Resources/Textures/futo_boat.png, the user's picture, made with Tools/Bake `boat`): a wooden ship, its stern on the left and its bow on the right, 1352 x 404.</summary>
         Boat,
 
@@ -306,6 +313,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Eternity Larva's butterfly seen from above (Resources/Textures/larva_butterfly.png, the user's picture, its white background taken away with Tools/Bake `cutout`): its head at the top, its wings across, 512 x 331.</summary>
         Butterfly,
+
+        /// <summary>Alice's fumo (Resources/Textures/alice_fumo.png, the user's photo of the plush, its white background and shadow taken away with Tools/Bake `fumo`): sitting, facing us, 186 x 256.</summary>
+        Fumo,
+
+        /// <summary>A boss's magic circle (Resources/Textures/magic_circle.png) all white, to be tinted (Alice's fumos stand on yellow ones).</summary>
+        BossCircleWhite,
     }
 
     /// <summary>
@@ -508,6 +521,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Eye => bake(renderer, makeEye()),
                     StageTexture.BigStar => bake(renderer, SoftStar.CreateBig(256, 0.6f, Color4.White)), // (to be tinted: Sanae's star behind her attacks)
                     StageTexture.HorseHead => bake(renderer, makeHorseHead()),
+                    StageTexture.MaskNeutral => bake(renderer, makeMask(0)),
+                    StageTexture.MaskOni => bake(renderer, makeMask(1)),
+                    StageTexture.MaskSad => bake(renderer, makeMask(2)),
+                    StageTexture.MaskSmile => bake(renderer, makeMask(3)),
                     StageTexture.CatFace => bake(renderer, makeCatFace()),
                     StageTexture.WingRight => BossCharacter.LoadResource(renderer, "Textures.matenshi_wing_right.png"),
                     StageTexture.WingLeft => BossCharacter.LoadResource(renderer, "Textures.matenshi_wing_left.png"),
@@ -519,6 +536,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Chevron => bake(renderer, makeChevron()),
                     StageTexture.SeijaArrow => bake(renderer, makeSeijaArrow()),
                     StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"), StageTexture.Butterfly => BossCharacter.LoadResource(renderer, "Textures.larva_butterfly.png"),
+                    StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
+                    StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc1 => bake(renderer, makeLitArc(1f - (1 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc2 => bake(renderer, makeLitArc(1f - (2 + 0.5f) / LIT_ARCS)),
@@ -1841,6 +1860,113 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float open = Math.Clamp((0.055f - (p - eye).Length) / 0.015f, 0f, 1f);
 
                     image[x, y] = new Rgba32(255, 255, 255, (byte)(255f * inside * (1f - open)));
+                }
+            }
+
+            return image;
+        }
+
+        /// <summary>
+        /// One of Kokoro's masks (<paramref name="kind"/>: 0 calm, 1 an oni laughing, 2 sad, 3 smiling): a white egg-shaped face, a little wider above, with its eyes and mouth left open and its brows drawn thin
+        /// and see-through; the oni's has two horns and a wide open grin with two fangs.
+        /// </summary>
+        private static Image<Rgba32> makeMask(int kind)
+        {
+            const int size = 256; // (soft and see-through, drawn big: enough, and a quarter of the work when it is made)
+            const float aa = 0.016f;
+            var image = new Image<Rgba32>(size, size);
+
+            static float segment(Vector2 p, Vector2 a, Vector2 b)
+            {
+                Vector2 ab = b - a;
+                float u = Math.Clamp(Vector2.Dot(p - a, ab) / Math.Max(ab.LengthSquared, 1e-9f), 0f, 1f);
+                return (p - (a + ab * u)).Length;
+            }
+
+            // (a curve through three points, as two segments and a bend: thick strokes are enough at this size)
+            static float bend(Vector2 p, Vector2 a, Vector2 middle, Vector2 b)
+            {
+                float best = float.MaxValue;
+                Vector2 previous = a;
+
+                for (int i = 1; i <= 12; i++)
+                {
+                    float u = i / 12f;
+                    Vector2 q = (1 - u) * (1 - u) * a + 2 * (1 - u) * u * middle + u * u * b;
+                    best = Math.Min(best, segment(p, previous, q));
+                    previous = q;
+                }
+
+                return best;
+            }
+
+            static float cover(float distance, float width) => Math.Clamp((width - distance) / aa, 0f, 1f);
+
+            static float ellipse(Vector2 p, Vector2 c, float rx, float ry, float tilt)
+            {
+                Vector2 d = p - c;
+                float cos = MathF.Cos(tilt), sin = MathF.Sin(tilt);
+                Vector2 q = new Vector2(d.X * cos + d.Y * sin, -d.X * sin + d.Y * cos);
+                float e = MathF.Sqrt(q.X * q.X / (rx * rx) + q.Y * q.Y / (ry * ry));
+                return Math.Clamp((1f - e) * Math.Min(rx, ry) / aa, 0f, 1f);
+            }
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var p = new Vector2((x + 0.5f - size / 2f) / (size / 2f), (y + 0.5f - size / 2f) / (size / 2f));
+
+                    // the face: an egg, wider above
+                    float half = 0.6f - 0.07f * p.Y;
+                    float face = Math.Clamp((1f - MathF.Sqrt(p.X * p.X / (half * half) + (p.Y + 0.02f) * (p.Y + 0.02f) / 0.78f)) / aa * 0.5f, 0f, 1f);
+                    float open = 0f, brows = 0f;
+                    var mirror = new Vector2(-1f, 1f);
+
+                    switch (kind)
+                    {
+                        case 0:
+                            // calm: long narrow eyes, small brows high up, a small closed mouth
+                            open = Math.Max(ellipse(p, new Vector2(-0.24f, -0.1f), 0.13f, 0.03f, 0f), ellipse(p, new Vector2(0.24f, -0.1f), 0.13f, 0.03f, 0f));
+                            brows = Math.Max(ellipse(p, new Vector2(-0.2f, -0.45f), 0.07f, 0.035f, 0f), ellipse(p, new Vector2(0.2f, -0.45f), 0.07f, 0.035f, 0f));
+                            open = Math.Max(open, cover(segment(p, new Vector2(-0.09f, 0.42f), new Vector2(0.09f, 0.42f)), 0.018f));
+                            break;
+
+                        case 1:
+                            // an oni laughing: horns, brows slanting down to the middle, eyes slanting up, a wide open grin with two fangs
+                            face = Math.Max(face, Math.Max(cover(bend(p, new Vector2(-0.3f, -0.62f), new Vector2(-0.52f, -0.8f), new Vector2(-0.46f, -1f)), 0.07f - 0.04f * Math.Clamp(-p.Y - 0.62f, 0f, 0.4f) * 2.5f),
+                                cover(bend(p * mirror, new Vector2(-0.3f, -0.62f), new Vector2(-0.52f, -0.8f), new Vector2(-0.46f, -1f)), 0.07f - 0.04f * Math.Clamp(-p.Y - 0.62f, 0f, 0.4f) * 2.5f)));
+                            brows = Math.Max(cover(segment(p, new Vector2(-0.42f, -0.36f), new Vector2(-0.1f, -0.22f)), 0.035f), cover(segment(p * mirror, new Vector2(-0.42f, -0.36f), new Vector2(-0.1f, -0.22f)), 0.035f));
+                            open = Math.Max(ellipse(p, new Vector2(-0.24f, -0.1f), 0.12f, 0.06f, -0.35f), ellipse(p, new Vector2(0.24f, -0.1f), 0.12f, 0.06f, 0.35f));
+
+                            float grin = ellipse(p, new Vector2(0f, 0.36f), 0.4f, 0.2f, 0f) * Math.Clamp((p.Y - 0.3f + 0.25f * p.X * p.X) / aa, 0f, 1f);
+                            float fangs = Math.Max(cover(segment(p, new Vector2(-0.2f, 0.27f), new Vector2(-0.17f, 0.42f)), 0.035f * Math.Clamp((0.44f - p.Y) / 0.17f, 0f, 1f)),
+                                cover(segment(p * mirror, new Vector2(-0.2f, 0.27f), new Vector2(-0.17f, 0.42f)), 0.035f * Math.Clamp((0.44f - p.Y) / 0.17f, 0f, 1f)));
+                            open = Math.Max(open, grin * (1f - fangs));
+                            break;
+
+                        case 2:
+                            // sad: eyes and brows sloping down to the outside, a mouth bent down
+                            open = Math.Max(cover(bend(p, new Vector2(-0.36f, -0.04f), new Vector2(-0.24f, -0.13f), new Vector2(-0.11f, -0.1f)), 0.03f),
+                                cover(bend(p * mirror, new Vector2(-0.36f, -0.04f), new Vector2(-0.24f, -0.13f), new Vector2(-0.11f, -0.1f)), 0.03f));
+                            brows = Math.Max(cover(segment(p, new Vector2(-0.38f, -0.3f), new Vector2(-0.12f, -0.42f)), 0.028f), cover(segment(p * mirror, new Vector2(-0.38f, -0.3f), new Vector2(-0.12f, -0.42f)), 0.028f));
+                            open = Math.Max(open, cover(bend(p, new Vector2(-0.2f, 0.5f), new Vector2(0f, 0.36f), new Vector2(0.2f, 0.5f)), 0.03f));
+                            break;
+
+                        default:
+                            // smiling: eyes closed in arcs, brows raised, a wide mouth bent up
+                            open = Math.Max(cover(bend(p, new Vector2(-0.36f, -0.06f), new Vector2(-0.24f, -0.18f), new Vector2(-0.12f, -0.06f)), 0.032f),
+                                cover(bend(p * mirror, new Vector2(-0.36f, -0.06f), new Vector2(-0.24f, -0.18f), new Vector2(-0.12f, -0.06f)), 0.032f));
+                            brows = Math.Max(cover(bend(p, new Vector2(-0.38f, -0.36f), new Vector2(-0.25f, -0.46f), new Vector2(-0.12f, -0.38f)), 0.025f),
+                                cover(bend(p * mirror, new Vector2(-0.38f, -0.36f), new Vector2(-0.25f, -0.46f), new Vector2(-0.12f, -0.38f)), 0.025f));
+
+                            float mouth = ellipse(p, new Vector2(0f, 0.3f), 0.3f, 0.16f, 0f) * Math.Clamp((p.Y - 0.3f) / aa, 0f, 1f);
+                            open = Math.Max(open, mouth);
+                            break;
+                    }
+
+                    float alpha = face * (1f - open) * (1f - 0.55f * brows);
+                    image[x, y] = new Rgba32(255, 255, 255, (byte)Math.Clamp((int)(alpha * 255f), 0, 255));
                 }
             }
 

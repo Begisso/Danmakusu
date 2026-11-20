@@ -360,7 +360,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Does the ops layer take care of this stage bullet? Only the ones that fly straight (or fall with a constant pull): the ones that an act moves itself keep doing what the act says.</summary>
         private bool stageBulletTraced(in StageBullet b)
-            => otherOpsOn && !b.Untraced && b.Trail == null && b.Legs == null && b.A <= 0f && b.FallAt <= 0 && b.StopAfter <= 0 && b.WrapHeight <= 0f && !b.Slider && (!b.Hidden || b.Ops) && !b.Harmless && b.Switch <= 0 && b.TurnT <= 0 && b.Pushes == null && b.Wander <= 0f;
+            => otherOpsOn && !b.Untraced && b.Trail == null && b.Legs == null && b.A <= 0f && b.FallAt <= 0 && b.StopAfter <= 0 && b.WrapHeight <= 0f && !b.Slider && (!b.Hidden || b.Ops) && !b.Harmless && b.Switch <= 0 && b.TurnT <= 0 && b.Pushes == null && b.Wander <= 0f
+               && b.SwayAmp <= 0f && b.Orbit <= 0f; // (what hangs on Yamame's web, and what goes round Kanako's circles, does as they do)
 
         /// <summary>Where a stage bullet is at <paramref name="t"/>: where the ops of the other bosses (walls that bounce, freezing, portals) leave it, or on its own straight line.</summary>
         private bool stageBulletAt(in StageBullet b, double t, out Vector2 position)

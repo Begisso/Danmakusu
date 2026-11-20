@@ -112,6 +112,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         op.InnerPoint = hollowOf(moon);
                         op.InnerRadius = hollowRadius(moon);
                         opsOf[k] = op;
+                        f.autoOpsMoved = true; // (the ways of the rings after it have changed: the autoplay looks again)
                     }
                 }
             }

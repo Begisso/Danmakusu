@@ -157,6 +157,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return k >= 0 && k < starts.Length && t >= starts[k] && t < starts[k] + cycle ? k : -1;
             }
 
+            private int sounded = -1; // (the last snowflake whose growing was heard)
+            private double resetTime = double.NegativeInfinity;
+
             public override void Reset(BulletField f, double time)
             {
                 ClearBullets();
@@ -164,6 +167,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 spots.Clear();
                 spawned = 0;
                 shapes.Forget();
+                sounded = -1;
+                resetTime = time;
             }
 
             public override void Update(BulletField f, double now)
@@ -177,6 +182,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 spawn(f, now);
 
                 int k = flakeAt(now);
+
+                // the snowflake starts growing (after its preview) with Byakuren's beam sound (2026-11-20)
+                if (k > sounded && now >= starts[k] + leadMs)
+                {
+                    sounded = k;
+                    double grows = starts[k] + leadMs;
+
+                    if (now - grows < 250 && grows > resetTime)
+                        f.playStageSound("touhou_strike");
+                }
 
                 if (k < 0 || k == placed)
                     return;

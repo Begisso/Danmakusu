@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Matenshi: she always stands in the middle of the screen. When her section begins two big white wings (the user's picture, each MATENSHI_WING_SIZE of the playfield wide) fade in at her back, closed:
         // small and standing up behind her, as if folded; with the sound of Yuyuko's tree growing they come out of her over four beats, each turning out about its shoulder and growing to full, then sway a little,
         // slowly, the two together; they close again over the last beat of her section. The wings hurt like a slider body (StageLayer.WingDistance: the picture's solid part).
-        // Every second bullet fired in her section (anyone's, counted ring by ring) does not come out where it was fired: it comes out of her wings - the two in turn, the places spread evenly over what each wing
+        // Every bullet fired in her section while her wings are out (anyone's, counted ring by ring: every MATENSHI_FROM_WINGS_EVERY-th, every second until 2026-11-20) does not come out where it was fired: it comes out of her wings - the two in turn, the places spread evenly over what each wing
         // covers (StageLayer.WING_SPOTS) - as a glowing white feather (the user's picture), flying straight away from her at the speed it had.
         // Her own shot: every four beats two straight beams three circle radii wide, straight down: one over where the player is, one at a place of its own (by its number): for four beats a see-through preview,
         // then they grow down from the top of the screen to the bottom in a quarter of a beat and hurt like a slider body for four beats.
@@ -261,7 +261,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            /// <summary>Every second bullet fired in her section comes out of her wings instead, as a feather.</summary>
+            /// <summary>Every bullet fired in her section (every MATENSHI_FROM_WINGS_EVERY-th) comes out of her wings instead, as a feather.</summary>
             public override bool Takes(BulletField f, double t, Vector2 from, Vector2 to, BulletEmitter emitter, int bullet)
             {
                 if (f.failed || t < Start || t > End || emitter.Sharp || emitter.Shape == BulletShape.Train || emitter.Homing)

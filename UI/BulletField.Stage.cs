@@ -198,6 +198,33 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public int PushFrom;
 
+            /// <summary>
+            /// When above 0 the bullet (standing still, or on its straight line) is turned back and forth round <see cref="SwayCentre"/> by <see cref="SwayAmp"/> x sin(<see cref="SwayOmega"/> x t +
+            /// <see cref="SwayPhase"/>) radians, t the time of the game: what hangs on one of Yamame's webs sways with it (2026-11-20).
+            /// </summary>
+            public float SwayAmp;
+
+            public float SwayOmega;
+            public float SwayPhase;
+            public Vector2 SwayCentre;
+
+            /// <summary>
+            /// When above 0 the bullet goes round a hub on a circle this many px wide (<see cref="OrbitOmega"/> radians per ms from <see cref="OrbitPhase"/>, from <see cref="T0"/>), and the hub turns round
+            /// <see cref="HubCentre"/> (<see cref="HubRadius"/> px out, <see cref="HubOmega"/> from <see cref="HubPhase"/>) until <see cref="HubUntil"/>, then flies off at <see cref="HubV"/>, and from
+            /// <see cref="HubBackAt"/> (when above 0) flies back the way it came: Kanako's circles of talismans (2026-11-20).
+            /// </summary>
+            public float Orbit;
+
+            public float OrbitOmega;
+            public float OrbitPhase;
+            public Vector2 HubCentre;
+            public float HubRadius;
+            public float HubOmega;
+            public float HubPhase;
+            public double HubUntil;
+            public Vector2 HubV;
+            public double HubBackAt;
+
             /// <summary>When above 0 the bullet wanders round its straight line, about this many px to each side, as a firefly does; <see cref="WanderPhase"/> makes it its own (Wriggle's).</summary>
             public float Wander;
 
@@ -1895,6 +1922,41 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Web:
+                        // Yamame's webs, and what hangs in them
+                        if (period.End > period.ShootStart)
+                            registerStage(new WebAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Onbashira:
+                        // Kanako's circles of talismans (what turns round when it has left the screen is an op, see BossOps)
+                        if (period.End > period.ShootStart)
+                            registerStage(new OnbashiraAct(period));
+
+                        break;
+
+                    case BossMechanic.Masks:
+                        // Kokoro's moods: the dim and the masks, the warning arrows, and where her aimed and pulled ops go (the ops are BossOps')
+                        if (period.End > period.ShootStart)
+                            registerStage(new MasksAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Trumpet:
+                        // Merlin: the rings of the map's circles and sliders in her attacks, her clearings, her spinner's thrown circles (the planner leaves out what the objects shoot then)
+                        if (period.End > period.ShootStart)
+                            registerStage(new TrumpetAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Dolls:
+                        // Alice: her fumos, their streams and the beams beside them (all her own shots)
+                        if (period.End > period.ShootStart)
+                            registerStage(new DollsAct(period));
+
+                        break;
+
                     case BossMechanic.Strings:
                         // Benben's notes (her beams and the copies of the sliders' beams are the planner's)
                         if (period.End > period.ShootStart)
@@ -2293,6 +2355,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     clawActs.Add(claw);
 
                     // (what her claws cut out of the beams is gone from them)
+                    foreach (var laser in lasers)
+                    {
+                        if (!laser.Immune)
+                            laser.Blasts ??= flandreBridge ??= new FlandreBridge(this);
+                    }
+
+                    break;
+
+                case TrumpetAct trumpet:
+                    trumpetActs.Add(trumpet);
+
+                    // (what her clearings clear of the beams is gone from them)
                     foreach (var laser in lasers)
                     {
                         if (!laser.Immune)
@@ -2904,6 +2978,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return Vector2.Lerp(b.Trail[i], b.Trail[i + 1], (float)(u - i));
             }
 
+            if (b.Orbit > 0f)
+                return orbitingPoint(b, t);
+
             if (b.A <= 0f && b.TurnT > 0)
                 return turnedPoint(b, t, out _);
 
@@ -2942,6 +3019,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         flown.Y -= b.WrapHeight; // (once: the second time it falls out of the bottom it is gone, see Until)
                 }
 
+                if (b.SwayAmp > 0f)
+                    flown = swayed(flown, b.SwayCentre, swayAngle(b.SwayAmp, b.SwayOmega, b.SwayPhase, t));
+
                 return flown;
             }
 
@@ -2950,6 +3030,39 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             Vector2 velocity = (orbitPoint(b, b.Release + 1) - orbitPoint(b, b.Release - 1)) * 0.5f;
             return orbitPoint(b, b.Release) + velocity * (float)(t - b.Release);
+        }
+
+        /// <summary>How far round a web sways at <paramref name="t"/> (radians): <paramref name="amp"/> x sin(<paramref name="omega"/> x t + <paramref name="phase"/>), t the time of the game (see <see cref="StageBullet.SwayAmp"/>).</summary>
+        private static float swayAngle(float amp, float omega, float phase, double t) => amp * (float)Math.Sin(omega * t + phase);
+
+        /// <summary><paramref name="p"/> turned round <paramref name="centre"/> by <paramref name="angle"/> radians.</summary>
+        private static Vector2 swayed(Vector2 p, Vector2 centre, float angle)
+        {
+            float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+            Vector2 d = p - centre;
+            return centre + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
+        }
+
+        /// <summary>Where the hub of a bullet that goes round one is at <paramref name="t"/> (see <see cref="StageBullet.Orbit"/>): turning round its centre, then flying off, and back from HubBackAt.</summary>
+        private static Vector2 hubPoint(in StageBullet b, double t)
+        {
+            double turning = Math.Min(t, b.HubUntil) - b.T0;
+            Vector2 hub = b.HubCentre + new Vector2(MathF.Cos(b.HubPhase + b.HubOmega * (float)turning), MathF.Sin(b.HubPhase + b.HubOmega * (float)turning)) * b.HubRadius;
+
+            if (t <= b.HubUntil)
+                return hub;
+
+            if (b.HubBackAt > b.HubUntil && t > b.HubBackAt)
+                return hub + b.HubV * (float)(b.HubBackAt - b.HubUntil) - b.HubV * (float)(t - b.HubBackAt);
+
+            return hub + b.HubV * (float)(t - b.HubUntil);
+        }
+
+        /// <summary>Where a bullet that goes round a hub is at <paramref name="t"/>.</summary>
+        private static Vector2 orbitingPoint(in StageBullet b, double t)
+        {
+            float angle = b.OrbitPhase + b.OrbitOmega * (float)(t - b.T0);
+            return hubPoint(b, t) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * b.Orbit;
         }
 
         /// <summary>How far a bullet whose speed pulses (<see cref="StageBullet.PulseMs"/>) has flown <paramref name="age"/> ms after it set off: the speed of its V times the integral of the swelling factor.</summary>
@@ -3052,6 +3165,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return (b.Trail[i + 1] - b.Trail[i]) / (float)b.TrailStep;
             }
 
+            if (b.Orbit > 0f)
+                return (orbitingPoint(b, t + 1) - orbitingPoint(b, t - 1)) * 0.5f;
+
             if (b.A <= 0f && b.TurnT > 0)
             {
                 turnedPoint(b, t, out Vector2 turned);
@@ -3083,6 +3199,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (b.FallAt > 0 && t > b.FallAt)
                     current += (b.FallDir.LengthSquared > 0f ? b.FallDir : Vector2.UnitY) * (DanmakusuBalance.ZANMU_GRAVITY * (b.FallScale > 0f ? b.FallScale : 1f) * (float)(t - b.FallAt));
+
+                // (swaying: the way round the centre, as fast as it swings there)
+                if (b.SwayAmp > 0f)
+                    current = (stageBulletPosition(b, t + 1) - stageBulletPosition(b, t - 1)) * 0.5f;
 
                 return current;
             }
@@ -3920,6 +4040,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             tideBackground.Alpha = 0f;
             mikoBackground.Alpha = 0f;
             kaguyaBackground.Alpha = 0f;
+            kokoroBackground.Alpha = 0f;
 
             if (hasScreenBounds)
             {
@@ -3934,6 +4055,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             stageMeshes.Clear();
             drawImpactFrame(t);
             drawShionArrows(t);
+            drawKokoroArrows(t);
 
             foreach (var act in stageActs)
                 act.Draw(this, t);

@@ -40,6 +40,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         return true;
                 }
 
+                // (and what Merlin's clearings clear)
+                foreach (var act in field.trumpetActs)
+                {
+                    if (act.Blasted(field, start, velocity, fired, time))
+                        return true;
+                }
+
                 return false;
             }
         }

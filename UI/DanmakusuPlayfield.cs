@@ -555,6 +555,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// Luna Child: in her attacks the circles and sliders are hidden the way the Hidden mod hides them (imitated): a circle (and a slider's head) fades out early, over 30 % of its approach
         /// from 40 % of it on, without an approach circle, and a slider's body fades out over the whole slider. Done after the objects' own updates (their transforms have been applied by then), on their
         /// colour's alpha, which osu! does not animate; every object outside her attacks gets its full colour back (the drawables are pooled and come back for other objects).
+        /// Merlin Prismriver: in her attacks the circles and sliders are green and have no numbers (a ring of green arrows closes in on them instead, TrumpetAct); the numbers come back once
+        /// a drawable is used for an object outside her attacks.
         /// </summary>
         protected override void UpdateAfterChildren()
         {
@@ -566,7 +568,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             else if (ringMap)
                 hideStillBalls();
 
-            if (bulletField == null || !bulletField.HasSilence)
+            bool silence = bulletField != null && bulletField.HasSilence;
+            bool trumpet = bulletField != null && bulletField.HasTrumpet;
+
+            if (!silence && !trumpet)
                 return;
 
             double time = Time.Current;
@@ -576,15 +581,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (drawable is not DrawableOsuHitObject osuObject || drawable.HitObject is not Rulesets.Osu.Objects.OsuHitObject hitObject)
                     continue;
 
-                bool hidden = bulletField.HitsoundsMuted(hitObject.StartTime);
+                bool hidden = silence && bulletField!.HitsoundsMuted(hitObject.StartTime);
+                bool green = trumpet && bulletField!.ObjectsHarmless(hitObject.StartTime);
+                var tint = green ? merlin_green : Color4.White;
                 double preempt = hitObject.TimePreempt;
                 double fadeOutStart = hitObject.StartTime - preempt + preempt * DanmakusuBalance.LUNA_HIDDEN_FADE_IN_SHARE;
                 float circle = hidden ? 1f - (float)Math.Clamp((time - fadeOutStart) / Math.Max(preempt * DanmakusuBalance.LUNA_HIDDEN_FADE_OUT_SHARE, 1), 0, 1) : 1f;
 
+                if (trumpet)
+                    showNumbers(osuObject, !green);
+
                 switch (osuObject)
                 {
                     case DrawableHitCircle hitCircle:
-                        hitCircle.Colour = new Color4(1f, 1f, 1f, Math.Max(circle, 0.002f));
+                        hitCircle.Colour = new Color4(tint.R, tint.G, tint.B, Math.Max(circle, 0.002f));
 
                         if (hidden)
                             hitCircle.ApproachCircle.Alpha = 0f;
@@ -596,6 +606,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         double end = slider.HitObject.EndTime;
                         float body = hidden ? 1f - (float)Math.Clamp((time - fadeOutStart) / Math.Max(end - fadeOutStart, 1), 0, 1) : 1f;
 
+                        // (the tint on the whole slider - its ball, ticks and repeats too -, the fading on its body and head)
+                        slider.Colour = tint;
                         slider.Body.Colour = new Color4(1f, 1f, 1f, Math.Max(body, 0.002f));
                         slider.HeadCircle.Colour = new Color4(1f, 1f, 1f, Math.Max(circle, 0.002f));
 
@@ -606,6 +618,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
             }
+        }
+
+        private static readonly Color4 merlin_green = new Color4(0.35f, 1f, 0.45f, 1f);
+
+        /// <summary>The drawables whose numbers are hidden (Merlin), so that they get them back, once, when they are used for another object.</summary>
+        private readonly HashSet<DrawableHitObject> numbersHidden = new HashSet<DrawableHitObject>();
+
+        private void showNumbers(DrawableHitObject drawable, bool show)
+        {
+            if (show && !numbersHidden.Remove(drawable))
+                return;
+
+            if (!show)
+                numbersHidden.Add(drawable);
+
+            foreach (var number in drawable.ChildrenOfType<osu.Framework.Graphics.Sprites.SpriteText>())
+                number.Alpha = show ? 1f : 0f;
         }
 
         /// <summary>A catch map (see ConvertedModes): its circles and sliders fall.</summary>

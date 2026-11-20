@@ -170,6 +170,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             for (int i = lo; i < hi; i++)
             {
                 var zone = circleZones[i];
+
+                if (ObjectsHarmless(zone.Time))
+                    continue; // (Merlin's attacks: it sends out her ring instead)
+
                 Vector2 position = Vector2.Lerp(p0, p1, (float)((zone.Time - t0) / span));
 
                 if (Vector2.Distance(position, zone.Position) > zone.Radius + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
@@ -522,7 +526,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             bool touching = false;
             string cause = "slider body";
 
-            for (int i = lo; i < hi && !touching; i++)
+            for (int i = lo; i < hi && !touching && !ObjectsHarmless(now); i++) // (Merlin's attacks: the sliders do not hurt)
             {
                 var zone = sliderZones[i];
 

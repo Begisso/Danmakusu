@@ -112,7 +112,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Haniwa] = 4, // Keiki
             [BossMechanic.PipeFox] = 3, // Tsukasa
             [BossMechanic.Poltergeist] = 3, // Kana Anaberal
-            [BossMechanic.Metamorphosis] = 3, // Eternity Larva
+            [BossMechanic.Metamorphosis] = 4, // Eternity Larva (3 until 2026-11-20: twice as many swell, and they hurt like a slider body)
+            [BossMechanic.Web] = 4, // Yamame
+            [BossMechanic.Onbashira] = 3, // Kanako
+            [BossMechanic.Masks] = 5, // Hata no Kokoro (her moods aim and pull everything at you, with no pauses)
+            [BossMechanic.Dolls] = 4, // Alice Margatroid (twenty-five fumos shooting aimed streams with beams beside them, no pauses)
+            [BossMechanic.Trumpet] = 3, // Merlin Prismriver (the objects send out thick rings instead of bullets; standing on them clears the screen round them)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece
