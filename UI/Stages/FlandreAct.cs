@@ -54,7 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Flandre Scarlet: she never pauses. Three clones of her turn round her (two and a half circle radii away; the other way every 18 beats). Every eight beats she throws three red eyes, two beats after each other: each is put on the
         // player's place at that moment and goes off four beats later: everything within about 3.4 circle radii of it is blown up (bullets and slices of beams alike; the player is hurt too). Everything that was blown up is shot again,
-        // three times, once from each clone (the clones two beats apart), twice as fast, half as big, glowing red like Remilia's last bullets, outwards, along the line from the eye through where the blown-up thing was; what is shot again cannot be blown up again (it belongs to the
+        // three times, once from each clone (the clones two beats apart), twice as fast, as big as it was (half until 2026-11-21), glowing red like Remilia's last bullets, outwards, along the line from the eye through where the blown-up thing was; what is shot again cannot be blown up again (it belongs to the
         // act, not to the rings that the eye looks at). Every fourth thing that was blown up also sends four bullets out, right, down, left and up, from the clones (they take it in turns).
         // ======================================================================================================================================================
 
@@ -343,10 +343,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             private static float shotSize(BulletField f, in Taken item)
-                => item.Slice ? Math.Max(item.Stored.Radius * DanmakusuBalance.FLANDRE_RESHOT_SIZE, f.circleRadius * 0.12f) : item.Stored.Radius * DanmakusuBalance.FLANDRE_RESHOT_SIZE;
+                => item.Slice ? Math.Max(item.Stored.Radius, f.circleRadius * 0.12f) : item.Stored.Radius; // (as big as it was: no multiplier since 2026-11-21, it was half, "flandre_size")
 
             private static float shotHit(BulletField f, in Taken item)
-                => item.Slice ? shotSize(f, item) * DanmakusuBalance.BULLET_HITBOX_SCALE : item.Stored.Hit * DanmakusuBalance.FLANDRE_RESHOT_SIZE;
+                => item.Slice ? shotSize(f, item) * DanmakusuBalance.BULLET_HITBOX_SCALE : item.Stored.Hit;
 
             /// <summary>The slices of the beams that are within reach of eye <paramref name="k"/> at the moment it goes off (the ones that an eye before it has not taken already).</summary>
             private void takeSlices(BulletField f, int k, double at)

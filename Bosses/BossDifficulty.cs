@@ -41,7 +41,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Dowsing] = 3, // Nazrin
             [BossMechanic.FateSpear] = 3, // Remilia
             [BossMechanic.FreeFall] = 3, // Toyohime
-            [BossMechanic.Unknown] = 3, // Nue
+            [BossMechanic.Unknown] = 4, // Nue (3 until 2026-11-21: her UFOs hurt like a slider body)
             [BossMechanic.Winter] = 3, // Letty
             [BossMechanic.Prism] = 3, // Sunny Milk
             [BossMechanic.Qi] = 3, // Meiling
@@ -97,7 +97,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Anchors] = 4, // Murasa
             [BossMechanic.Orbs] = 3, // Misumaru
             [BossMechanic.Fissure] = 4, // Suika
-            [BossMechanic.Scorch] = 4, // Yuki
+            [BossMechanic.Scorch] = 3, // Yuki (4 until 2026-11-20: one beam, twice as wide, instead of five)
             [BossMechanic.Recall] = 4, // Yumeko
             [BossMechanic.Pagoda] = 3, // Shou (4 until her cross turned half as fast, 2026-11-13)
             [BossMechanic.Constellation] = 3, // Eirin
@@ -114,10 +114,19 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Poltergeist] = 3, // Kana Anaberal
             [BossMechanic.Metamorphosis] = 4, // Eternity Larva (3 until 2026-11-20: twice as many swell, and they hurt like a slider body)
             [BossMechanic.Web] = 4, // Yamame
-            [BossMechanic.Onbashira] = 3, // Kanako
+            [BossMechanic.Onbashira] = 4, // Kanako (3 until 2026-11-21: her circles twice as often and twice as big)
             [BossMechanic.Masks] = 5, // Hata no Kokoro (her moods aim and pull everything at you, with no pauses)
-            [BossMechanic.Dolls] = 4, // Alice Margatroid (twenty-five fumos shooting aimed streams with beams beside them, no pauses)
-            [BossMechanic.Trumpet] = 3, // Merlin Prismriver (the objects send out thick rings instead of bullets; standing on them clears the screen round them)
+            [BossMechanic.Dolls] = 4, // Alice Margatroid (twelve fumos shooting streams with beams beside them, at you and to either side of you, no pauses)
+            [BossMechanic.Trumpet] = 2, // Merlin Prismriver (the objects send out thick rings instead of bullets; standing on them clears the screen round them; 3 until 2026-11-22: nothing hurts round them and on their follow points)
+            [BossMechanic.Kasha] = 3, // Rin Kaenbyou (what she fires stops and swells to twice its size sixteen beats later, with a flashing warning)
+            [BossMechanic.Komainu] = 4, // Aunn Komano (curving, looping beams; every bullet swells and sets off at you again and again)
+            [BossMechanic.Patrol] = 4, // Momiji Inubashiri (what leaves the top and the bottom piles up and crashes in the middle, flying off with beams behind it; no pauses)
+            [BossMechanic.Starlight] = 3, // Star Sapphire (a turning, tumbling sphere of stars as big as the screen, growing and pulled back, one after another; no pauses)
+            [BossMechanic.Frog] = 5, // Suwako Moriya (Junko's beams in a fan, faster, bouncing once; her reshots in five fans)
+            [BossMechanic.Creation] = 4, // Shinki (2026-11-22: everything fired comes out of her six wings as turning streams; the lasers from her wings, straight)
+            [BossMechanic.Mirage] = 4, // Watari Nina (2026-11-22: a huge golden beam at you every 16 beats; what leaves the screen comes back out of it; fans of big balls)
+            [BossMechanic.Effigy] = 4, // Ubame Chirizuka (2026-11-22: fans of dolls that hurt and shoot what they touch at you again, bigger; those bounce off each other)
+            [BossMechanic.Fossil] = 4, // Ariya Iwanaga (2026-11-22: everything stops every 16 beats, the circles and sliders hold their shots and fire them all at once; a grid of bouncing ellipses)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

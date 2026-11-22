@@ -51,3 +51,12 @@ The older `bench` mode only times ring positions (`BulletEmitter.Evaluate`), wit
 ## Images and GIFs
 
 There is no Python on this machine. Use a small C# console tool with SixLabors.ImageSharp (3.1.11 is in the NuGet cache, so it works offline): cut frames, centre them, scale them and save them as PNG under `Resources/Textures` (embedded resources).
+
+## New characters (placeholders)
+
+1. The art goes into `old builds and assets\Touhou Characters` as `<Name>.<ext>` (found by name). Art on white: cut it out first with `Bake cutout <in> <out.png> <its own longest side> <preview.png>` (keep its size: a bigger number enlarges it), and put the cut-out PNG there instead. Look at every cut-out on dark and light grey: white clothes and hair must stay.
+2. The yellow scribbles of ZUN's art (a line of Japanese beside the head) come out of the art before anything is made from it (the old pictures have none): find each with `..\Tools\BossPictures` `grid`, then `inpaint <art> <art> <box> 6` and `clearsoft` on a slightly bigger box; a letter over yellow hair needs `inpaint ... 3 strict` on its own small box, and a stub over the background `clear`. Check with `crop` and `sheet`.
+3. `bosspictures sprite <art> Resources\Bosses\Sprites\<id>.png` (172 x 193) and `bosspictures crop <art> Resources\Bosses\Heads\<id>.png <x> <y> <size>` (96 x 96: the whole head and a little room above it, as Zanmu's) - put the heads of the new ones next to an old one in a `sheet` before copying them in.
+4. `..\Tools\Portraits` with the art folder, the sprites, the portraits and the new ids: the big pictures (`Resources\Bosses\Portraits\<id>.webp`).
+5. `Bosses\BossRoster.cs`: one `make` each, by id in order (ordinal), the indices renumbered, the old entries' templates kept; the colours by eye (eye, hair, main clothes, second clothes or tool). A placeholder needs nothing else: one star and the placeholder text come by themselves.
+6. The ideas: a line each in `..\Tools\BossList\ideas.txt` (name, basic attack, mechanics, tab-separated, ending with the character it comes from - look the character up: their ability, species, story, spell cards). The user's ability sheet gets their rows with `bosslist addrows <Touhou_Boss_Abilities.xlsx> <name> <lore> ...`; then the usual run of the tool fills their ideas, and makes the boss list.

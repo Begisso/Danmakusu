@@ -21,6 +21,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly bool[] known;
             private readonly List<(double Start, double End)> pauses;
             private readonly bool[] pointed;
+            private readonly bool[] predicted; // (the push of the pause put where she is a little before it: for the autoplay)
             private readonly List<Vector2> petal = new List<Vector2>();
             private readonly List<float> widths = new List<float>();
             private readonly Vector2[] pushedFrom;
@@ -35,6 +36,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 centres = new Vector2[marks.Length];
                 known = new bool[marks.Length];
                 pointed = new bool[pauses.Count];
+                predicted = new bool[pauses.Count];
                 pushedFrom = new Vector2[pauses.Count];
                 Start = marks[0];
                 End = period.End;
@@ -69,7 +71,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int k = 0; k < pauses.Count; k++)
                 {
                     if (pauses[k].Start > time)
-                        pointed[k] = false;
+                        pointed[k] = predicted[k] = false;
                 }
             }
 
@@ -77,8 +79,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 for (int k = 0; k < pauses.Count; k++)
                 {
-                    if (pointed[k] || now < pauses[k].Start)
+                    if (pointed[k])
                         continue;
+
+                    // (a little before a pause, the push is put where she is then, so that the autoplay, which looks ahead, sees it coming from about there; 2026-11-21, it saw it from wherever the last one
+                    // was and was hit by what it threw at it)
+                    if (now < pauses[k].Start)
+                    {
+                        if (!predicted[k] && pauses[k].Start - now < 600)
+                        {
+                            predicted[k] = true;
+                            pointOps(f, k, f.bossVisualOf(Period));
+                        }
+
+                        continue;
+                    }
 
                     pointed[k] = true;
                     Vector2 here = f.bossVisualOf(Period);
@@ -88,11 +103,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (now - pauses[k].Start < 250)
                         f.playStageSound("yumemi_bomb");
 
-                    foreach (var op in f.bulletOps)
-                    {
-                        if (op.PointKept && op.Kind == TrajectoryOpKind.Outward && op.Time == pauses[k].Start)
-                            op.Point = here;
-                    }
+                    pointOps(f, k, here);
                 }
 
                 for (int k = 0; k < marks.Length && marks[k] <= now; k++)
@@ -103,6 +114,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         centres[k] = f.bossVisualOf(Period);
                     }
                 }
+            }
+
+            /// <summary>Puts the push of pause <paramref name="k"/> at <paramref name="here"/>, and tells the autoplay that what it foresaw of the rings and beams is out of date.</summary>
+            private void pointOps(BulletField f, int k, Vector2 here)
+            {
+                foreach (var op in f.bulletOps)
+                {
+                    if (op.PointKept && op.Kind == TrajectoryOpKind.Outward && op.Time == pauses[k].Start)
+                        op.Point = here;
+                }
+
+                f.autoOpsMoved = true;
             }
 
             /// <summary>0..1: the screen shakes all through a pause.</summary>

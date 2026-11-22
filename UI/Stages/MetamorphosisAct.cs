@@ -135,6 +135,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 butterflies.Clear();
                 warned.Clear();
                 swells.Clear();
+                bigButterflies.Clear();
                 resetTime = time;
 
                 for (int k = 0; k < volleys.Length; k++)
@@ -337,10 +338,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bug.AlphaOver = 1;
                 Bullets[index] = bug;
 
-                swell(f, mark, position, velocity, at, new Look { Radius = bug.Radius, Hit = bug.Hit, Style = bug.Style, Shape = BulletShape.Circle, Shade = bug.Shade });
+                swell(f, mark, position, velocity, at, new Look { Radius = bug.Radius, Hit = bug.Hit, Style = bug.Style, Shape = BulletShape.Circle, Shade = bug.Shade }, true);
             }
 
-            private void swell(BulletField f, int mark, Vector2 oneAt, Vector2 oneVelocity, double oneTime, in Look look)
+            /// <summary>The swollen butterflies (2026-11-21): drawn as big butterflies, not as balls.</summary>
+            private readonly List<int> bigButterflies = new List<int>();
+
+            /// <summary>
+            /// The bullet warned of, swollen and as it was again. A butterfly (<paramref name="butterfly"/>) stays a butterfly all through: warned of as a butterfly, it swells into a big butterfly (as big as
+            /// the ball would be, hurting as the ball does) and flies on as a butterfly (2026-11-21, "butterflies if they swell then swell into big butterflies instead"; it went on as a plain bullet before).
+            /// </summary>
+            private void swell(BulletField f, int mark, Vector2 oneAt, Vector2 oneVelocity, double oneTime, in Look look, bool butterfly = false)
             {
                 var one = (At: oneAt, Velocity: oneVelocity, Time: oneTime);
                 var stored = look;
@@ -372,6 +380,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Blades = stored.Blades,
                     BladeSpin = stored.BladeSpin,
                     Untraced = true, // (it swells where this puts it: the ops of the others leave it be)
+                    Hidden = butterfly,
+                    AlphaFrom = butterfly ? swellsAt : 0,
+                    AlphaOver = butterfly ? 1 : 0,
                     Until = swellsAt,
                 });
 
@@ -379,6 +390,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return;
 
                 warned.Add(index);
+
+                if (butterfly)
+                    butterflies.Add(index);
 
                 Vector2 there = one.At + slow * (float)(swellsAt - one.Time);
                 float margin = f.circleRadius * DanmakusuBalance.LARVA_SWELL_CIRCLES;
@@ -410,14 +424,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Bloom = DanmakusuBalance.LARVA_SWELL_BLOOM,
                     Untraced = true,
                     Slider = true,
+                    Hidden = butterfly, // (a butterfly's is drawn by the act, as a big butterfly)
                     Until = backs,
                 });
 
                 if (swells[^1] >= Bullets.Count)
                     swells.RemoveAt(swells.Count - 1); // (too many bullets: it is not there)
+                else if (butterfly)
+                    bigButterflies.Add(swells[^1]);
 
-                // and then it flies on as it was, aquamarine
+                // and then it flies on as it was, aquamarine (a butterfly as a butterfly)
                 Vector2 after = there + one.Velocity * (float)(backs - swellsAt);
+
+                if (butterfly)
+                    butterflies.Add(Bullets.Count);
 
                 AddBullet(new StageBullet
                 {
@@ -434,8 +454,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Shade = stored.Shade,
                     Blades = stored.Blades,
                     BladeSpin = stored.BladeSpin,
+                    Hidden = butterfly,
+                    AlphaFrom = butterfly ? backs + f.stageLife(one.Velocity) - DanmakusuBalance.WRIGGLE_TURN_MS : 0,
+                    AlphaOver = butterfly ? DanmakusuBalance.WRIGGLE_TURN_MS : 0,
                     Until = backs + f.stageLife(one.Velocity),
                 });
+
+                if (butterfly && butterflies[^1] >= Bullets.Count)
+                    butterflies.RemoveAt(butterflies.Count - 1); // (too many bullets)
             }
 
             /// <summary>A swollen bullet hurts like a slider body while the character is in it, at its whole drawn radius as it swells and shrinks back (the field's hit check leaves it to this).</summary>
@@ -493,6 +519,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     f.stageBack.Add(StageTexture.Glow, position, new Vector2(span * 1.6f), 0f, 0.3f * alpha, new Color4(0.3f, 0.75f, 1f, 1f), true);
                     f.stageBats.Add(StageTexture.Butterfly, position, new Vector2(span * flap, span * picture_aspect), heading, alpha, Color4.White);
+                }
+
+                // the swollen butterflies: big butterflies, as big as the ball would be (its wings as wide as the ball), glowing aquamarine (2026-11-21)
+                foreach (int index in bigButterflies)
+                {
+                    var bug = Bullets[index];
+
+                    if (t < bug.T0 || t > bug.Until)
+                        continue;
+
+                    Vector2 position = stageBulletPosition(bug, t);
+                    Vector2 way = bug.V.LengthSquared > 1e-10f ? bug.V : Vector2.UnitY;
+                    float heading = MathF.Atan2(way.Y, way.X) * 180f / MathF.PI + 90f;
+                    float flap = 0.3f + 0.7f * MathF.Abs(MathF.Cos((float)((t - bug.T0) / (DanmakusuBalance.LARVA_FLAP_MS * 1.6) * Math.PI)));
+                    float span = 2f * bug.Radius * stageBulletScale(bug, t);
+
+                    f.stageBack.Add(StageTexture.Glow, position, new Vector2(span * 1.5f), 0f, 0.45f, new Color4(0.3f, 0.95f, 0.85f, 1f), true);
+                    f.stageBats.Add(StageTexture.Butterfly, position, new Vector2(span * flap, span * picture_aspect), heading, 1f, Color4.White);
                 }
 
                 // the warning: a red ring as big as it will swell, flashing faster and faster in the last two beats (as Patchouli's fire)

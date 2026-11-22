@@ -86,7 +86,11 @@
         /// <summary>Bullets freeze mid-air, then shatter outwards.</summary>
         Freeze,
 
-        /// <summary>Bouncing frog bullets and iron rings.</summary>
+        /// <summary>
+        /// Suwako Moriya (2026-11-21): as Junko - every slider of her section is a sliderwhistle whose laser she fires, along the slider's path, every slice see-through and harmless for four beats - but her beams
+        /// go out in a fan 120 degrees wide round the way to the player, one and a half times as fast, and bounce once off the border of the screen. Every 8 beats she shoots every fourth bullet that appeared in them
+        /// out again, in five fans of 120 degrees, one after the other.
+        /// </summary>
         Frog,
 
         /// <summary>Gaps open in the screen: bullets teleport from one gap to another. Every ring fired in her attacks is two, the second turned ten degrees. A train comes at the player when an attack begins and in every pause.</summary>
@@ -395,7 +399,7 @@
         Fissure,
 
         /// <summary>
-        /// Yuki: in her attacks the old laser bursts (five beams from her, the first at the player, turning slowly towards them), but every slice of a beam goes out where the player was when it was fired, and leaves a
+        /// Yuki: in her attacks one beam from her, twice as thick as a spinner's and growing (it was the old laser bursts, five beams), aimed at the player and turning slowly towards them; every slice of it goes out where the player was when it was fired, and leaves a
         /// scorch mark there (a spot of the beam, as wide as the beam was) for eight beats that hurts like a slider body; Marisa's star is on her while she fires. Every four beats she shoots rings of five ricochet stars from five places round her.
         /// </summary>
         Scorch,
@@ -450,7 +454,7 @@
         Snowflake,
 
         /// <summary>
-        /// Benben Tsukumo: every slider's beam in her section has another above and below it (harmless for four beats); she throws three parallel beams at the player in her attacks; every second bullet that crosses a
+        /// Benben Tsukumo: every slider's beam in her section has another above and below it (harmless for four beats); she throws three parallel beams as thin as a slider's at the player in her attacks; every second bullet that crosses a
         /// beam becomes a note that flies at half speed, swelling to twice it and back, and turns towards the player once.
         /// </summary>
         Strings,
@@ -507,9 +511,57 @@
 
         /// <summary>
         /// Merlin Prismriver (2026-11-20): in her attacks the map's circles and sliders do not hurt and shoot nothing of their own: each sends out a thick white ring instead, as Raiko's ripples go out, which
-        /// hurts like a slider body - unless the player is on it when it is hit: then it clears every bullet and beam round it. They glow green, green arrows close in on them instead of their numbers. In a
-        /// spinner she throws rings of six circles and sliders, each sending out such rings, but not while the player is on it.
+        /// hurts like a slider body - but when the player is on it as it is hit it clears every bullet and beam round it, and its ring is half as solid and harmless. They glow green, green arrows close in on
+        /// them instead of their numbers. In a spinner she throws rings of six circles and sliders, each sending out such rings, half as solid and harmless while the player is on it.
         /// </summary>
         Trumpet,
+
+        /// <summary>
+        /// Rin Kaenbyou (2026-11-21): every bullet fired in her attacks stops 16 beats after it was fired and swells to twice its size (it hurts as big); 8 beats later it flies on as it flew, shrinking back.
+        /// A flashing circle as big as it will swell warns of it. She shoots round bullets.
+        /// </summary>
+        Kasha,
+
+        /// <summary>
+        /// Aunn Komano (2026-11-21): she shoots curving beams, six at a time, that bend ever more, loop and fly out. Every bullet fired in her section swells to twice its size as it is fired (it hurts as
+        /// big), then sets off at the player and moves four beats that way, stands four beats, sets off at the player again, and so on, each by its own clock; an arrow warns of every move.
+        /// </summary>
+        Komainu,
+
+        /// <summary>
+        /// Momiji Inubashiri (2026-11-21): no pauses. For 8 beats every bullet that crosses the top or the bottom of the screen is caught there and laid into a dense pile along it; then the two piles move to
+        /// the middle until they crash, and every bullet flies off away from the middle, drawing a narrow beam 8 beats long behind it. For 8 beats nothing is caught, then again.
+        /// </summary>
+        Patrol,
+
+        /// <summary>
+        /// Star Sapphire (2026-11-21): no pauses; she stands in the middle. She shoots stars out that make a turning sphere of lines round her, growing for 8 beats until its edge is just past the screen's,
+        /// turning as big for 8, and pulled back into her over 8; after 8 more beats again.
+        /// </summary>
+        Starlight,
+
+        /// <summary>
+        /// Shinki (2026-11-22): she stands at the top of the screen, as Kaguya does, with three pairs of swaying wings. Every bullet fired in her section comes out of the middle of a wing instead, the six in turn,
+        /// as six turning streams (neighbours turning the other way round); every beam is fired again from a wing, at the player, straight.
+        /// </summary>
+        Creation,
+
+        /// <summary>
+        /// Watari Nina (2026-11-22): every 16 beats a golden beam along the line from her to the player: 8 beats a see-through preview, then it widens from its middle line and hurts for 8 beats. While it is
+        /// there every bullet that leaves the screen comes back out of the beam's side, flying straight away from it. She shoots fans of three big balls.
+        /// </summary>
+        Mirage,
+
+        /// <summary>
+        /// Ubame Chirizuka (2026-11-22): every 8 beats she throws a fan of ten dolls that hurt like a slider body. Every bullet a doll touches is shot again from it at the player, half as big again, with a
+        /// flash; such bullets of two different dolls bounce off each other once.
+        /// </summary>
+        Effigy,
+
+        /// <summary>
+        /// Ariya Iwanaga (2026-11-22): her section goes in stretches of 16 beats: what is flying when one begins stops, grey; every circle and slider that is over in it stays, grey and still, and shoots nothing;
+        /// when it ends, after a big flash, they all shoot what they held at once and go, and the rest flies on. She shoots a grid of ellipses down from the top that bounce once off the bottom.
+        /// </summary>
+        Fossil,
     }
 }

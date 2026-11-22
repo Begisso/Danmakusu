@@ -75,6 +75,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 shot = 0;
                 ClearBullets();
                 sounded = time > Start;
+                soundedStrike = -1;
+                resetTime = time;
 
                 for (int k = 0; k < strikes.Length; k++)
                 {
@@ -105,7 +107,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     known[k] = true;
                     strikeX[k] = Math.Clamp(f.characterPosition.X, f.stageMin.X, f.stageMax.X);
                 }
+
+                // the beams come down with Byakuren's beam sound as they turn solid (2026-11-21)
+                for (; soundedStrike + 1 < strikes.Length && solidAt(soundedStrike + 1) <= now; soundedStrike++)
+                {
+                    double solid = solidAt(soundedStrike + 1);
+
+                    if (now - solid < 250 && solid > resetTime)
+                        f.playStageSound("touhou_strike");
+                }
             }
+
+            private int soundedStrike = -1; // (the last strike whose beams were heard turning solid)
+            private double resetTime = double.NegativeInfinity;
 
             // ---- the wings ----
 
@@ -129,9 +143,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private (float Angle, float Scale) fold(double t)
             {
                 float open = openness(t);
-                float sway = MathF.Sin((float)((t - Start) / (beat * DanmakusuBalance.MATENSHI_WING_SWAY_BEATS)) * MathF.Tau) * DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES * open;
+                float sway = swayDegrees(swayAt(t), 0) * open;
                 return (((1f - open) * DanmakusuBalance.MATENSHI_WING_CLOSED_DEGREES + sway) * MathF.PI / 180f, DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE + (1f - DanmakusuBalance.MATENSHI_WING_CLOSED_SCALE) * open);
             }
+
+            /// <summary>
+            /// How far (degrees; positive is down) a sway of <paramref name="s"/> (-1 .. 1) turns bone <paramref name="bone"/>: up a little, MATENSHI_WING_SWAY_DEGREES, but down as far as
+            /// MATENSHI_WING_SWAY_DOWN_DEGREES (2026-11-21, "now it can sway 45 degree down too"; it was the little sway both ways), each joint further out a little more.
+            /// </summary>
+            private static float swayDegrees(float s, int bone)
+                => s * ((s > 0f ? DanmakusuBalance.MATENSHI_WING_SWAY_DOWN_DEGREES : DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES) + DanmakusuBalance.MATENSHI_WING_FLEX_DEGREES * bone);
 
             // ---- the wing's bones and feathers (WingRig: 2026-11-15, the user: "you sliced her wings wrongly. You need to segment her feathers and bones instead") ----
 
@@ -143,7 +164,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// as a whip follows the hand; none of it while the wing is closed.
             /// </summary>
             private float boneDegrees(int bone, double t, float open)
-                => (DanmakusuBalance.MATENSHI_WING_SWAY_DEGREES + DanmakusuBalance.MATENSHI_WING_FLEX_DEGREES * bone) * swayAt(t - beat * DanmakusuBalance.MATENSHI_BONE_LAG_BEATS * bone) * open;
+                => swayDegrees(swayAt(t - beat * DanmakusuBalance.MATENSHI_BONE_LAG_BEATS * bone), bone) * open;
 
             // (the pose of the wing's pieces at the moment last asked for: every piece's turn, from the wing as a whole, and where its joint or root has gone - in pixels of the right wing's picture)
             private double posedAt = double.NaN;

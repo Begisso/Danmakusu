@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using osuTK;
 
@@ -254,11 +254,48 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Lifetime = Lifetime,
                 Fan = Fan,
                 FanCentre = FanCentre,
+                FanAimed = FanAimed,
                 Rotates = Rotates && HoldBeam, // (a long note's beams turn again; a spinner's are not fired again this way)
                 AngularSpeed = HoldBeam ? AngularSpeed : 0f,
                 HoldBeam = HoldBeam,
             };
         }
+
+        /// <summary>
+        /// Shinki's (2026-11-22): the same beam fired again from spot <paramref name="spot"/> of her act (one of her wings: the act puts <see cref="Origin"/> there before the beam starts), straight - every slice
+        /// from that one place, the way the beam was aimed as it started (beam 0 at the player) - for as long as it was going to fire, as wide and as fast. It counts as a slider's beam (its colour).
+        /// </summary>
+        public LaserEmitter FromSpotStraight(int spot, int bossRank, double lifetime) => new LaserEmitter
+        {
+            StartTime = StartTime,
+            EndTime = EndTime,
+            ComboIndex = ComboIndex,
+            Origin = Origin,
+            HalfWidth = HalfWidth,
+            HitHalfWidth = HitHalfWidth,
+            Speed = Speed,
+            BeamCount = BeamCount,
+            Directions = new Vector2[BeamCount],
+            BossRank = bossRank,
+            Grows = Grows,
+            StartHalfWidth = StartHalfWidth,
+            GrowthPower = GrowthPower,
+            PeakScale = PeakScale,
+            GrowthDistance = GrowthDistance,
+            GhostMs = GhostMs,
+            CutAge = CutAge,
+            CutStretch = CutStretch,
+            ShrinkDelay = ShrinkDelay,
+            Lifetime = Math.Max(Lifetime, lifetime),
+            KeepsSize = KeepsSize,
+            Rotates = true,
+            AngularSpeed = 0f,
+            HoldBeam = true,
+            FromSpot = spot,
+        };
+
+        /// <summary>The act of its boss puts <see cref="Origin"/> at its spot number this before the beam starts (Shinki's wings); -1: none.</summary>
+        public int FromSpot { get; init; } = -1;
 
         /// <summary>
         /// The same slider's beam with its path moved by <paramref name="shift"/> (Benben's strings above and below it): aimed as it is (from the same <see cref="Origin"/>), so it stays parallel, and every slice
@@ -298,6 +335,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Lifetime = Lifetime,
                 Fan = Fan,
                 FanCentre = FanCentre,
+                FanAimed = FanAimed,
                 WallSide = WallSide,
                 Rotates = Rotates,
                 AngularSpeed = AngularSpeed,
@@ -321,6 +359,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float Fan { get; init; }
 
         public float FanCentre { get; init; }
+
+        /// <summary>The fan (<see cref="Fan"/>) is centred on the way to the player when the beams start, whatever <see cref="FanCentre"/> says (Suwako's, 2026-11-21).</summary>
+        public bool FanAimed { get; init; }
 
         /// <summary>(osu!catch) the beams come out of a wall of the screen: 1 the bottom one, -1 the top one (the field moves the path there when the beams start). 0: where the path is.</summary>
         public int WallSide { get; init; }
@@ -604,6 +645,113 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             Finished = true;
         }
 
+        /// <summary>
+        /// (a beam that only bounces once - Suwako's, Tsukasa's - and that nothing else touches) When each of its beams has wholly left the screen: worked out when they are aimed (<see cref="WorkOutGoneTimes"/>),
+        /// null when not known. A bounced beam flies away from the screen another way than it was aimed, so the field's check of what flies away never found it gone (2026-11-21).
+        /// </summary>
+        public double[]? BeamGoneAt { get; private set; }
+
+        /// <summary>
+        /// Works out <see cref="BeamGoneAt"/> once the beams are aimed (their <see cref="Directions"/> set), for a beam whose only op is its own one bounce: every slice, sampled along the beam, bounces off the
+        /// first wall of the screen it gets to and flies straight out of the screen from there.
+        /// </summary>
+        public void WorkOutGoneTimes(Vector2 screenMin, Vector2 screenMax)
+        {
+            BeamGoneAt = null;
+
+            if (Ops == null || OpsArea == null || Freezer != null || Portals != null || Blasts != null || Clock != null || BallPositions.Length == 0 || Rotates)
+                return;
+
+            foreach (var op in Ops)
+            {
+                if (op.Kind != TrajectoryOpKind.Bounce || !op.OnlyMarked)
+                    return;
+            }
+
+            limits(out Vector2 min, out Vector2 max, out _);
+            Vector2 margin = new Vector2(MaxHalfWidth * 2f + 8f);
+            Vector2 outMin = screenMin - margin, outMax = screenMax + margin;
+            var gone = new double[BeamCount];
+            const int samples = 48;
+
+            for (int beam = 0; beam < BeamCount; beam++)
+            {
+                double latest = EndTime;
+                Vector2 v = Directions[beam] * Speed;
+
+                void slice(double fired)
+                {
+                    Vector2 p = ballAt(fired, beam);
+                    latest = Math.Max(latest, fired + outAfterOneBounce(p, v, min, max, outMin, outMax));
+                }
+
+                for (int i = 0; i <= samples; i++)
+                    slice(StartTime + (EndTime - StartTime) * i / samples);
+
+                foreach (double fired in BallTimes)
+                {
+                    if (fired >= StartTime && fired <= EndTime)
+                        slice(fired);
+                }
+
+                gone[beam] = latest + 250;
+            }
+
+            BeamGoneAt = gone;
+        }
+
+        /// <summary>How long a slice at <paramref name="p"/> flying <paramref name="v"/> takes to leave the box <paramref name="outMin"/>..<paramref name="outMax"/>, bouncing once off <paramref name="min"/>..<paramref name="max"/> if it is inside that.</summary>
+        private static double outAfterOneBounce(Vector2 p, Vector2 v, Vector2 min, Vector2 max, Vector2 outMin, Vector2 outMax)
+        {
+            double taken = 0;
+
+            // (fired outside the screen: it comes in, or it is folded in - see bouncedOnce)
+            if ((p.X < min.X || p.X > max.X || p.Y < min.Y || p.Y > max.Y) && entersAfter(p, v, min, max, out double enter))
+            {
+                p = Vector2.Clamp(p + v * (float)enter, min, max);
+                taken = enter;
+            }
+
+            if (p.X < min.X || p.X > max.X || p.Y < min.Y || p.Y > max.Y)
+                foldIn(ref p, ref v, min, max);
+            else
+            {
+                double tx = timeToLeave(p.X, v.X, min.X, max.X), ty = timeToLeave(p.Y, v.Y, min.Y, max.Y);
+                double hit = Math.Min(tx, ty);
+
+                if (double.IsPositiveInfinity(hit))
+                    return 0;
+
+                p += v * (float)hit;
+
+                if (tx <= hit + 1e-6)
+                    v.X = -v.X;
+
+                if (ty <= hit + 1e-6)
+                    v.Y = -v.Y;
+
+                taken += hit;
+            }
+
+            double leave = Math.Min(timeToLeave(p.X, v.X, outMin.X, outMax.X), timeToLeave(p.Y, v.Y, outMin.Y, outMax.Y));
+            return double.IsPositiveInfinity(leave) ? 0 : taken + leave;
+        }
+
+        /// <summary>When something at <paramref name="x"/> moving <paramref name="speed"/> per ms gets past <paramref name="low"/> or <paramref name="high"/> (infinity: never; 0 if it is past already).</summary>
+        private static double timeToLeave(float x, float speed, float low, float high)
+        {
+            if (x < low || x > high)
+                return 0;
+
+            if (speed > 1e-9f)
+                return (high - x) / speed;
+
+            if (speed < -1e-9f)
+                return (low - x) / speed;
+
+            return double.PositiveInfinity;
+        }
+
         public void ResetFinished()
         {
             Array.Clear(BeamFinished);
@@ -647,6 +795,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if ((op.Time <= StartTime && !op.Window) || StartTime >= op.BornBefore || op.Time >= EndTime + Lifetime || (op.Window && StartTime > op.End))
                     continue;
 
+                // (an op for what is fired in a stretch of time is not for a beam that was all fired before it: Suwako's and Tsukasa's bounces are for the beams of their own section - 2026-11-21, a slow beam
+                // of Suwako's got the bounce of every section of hers after it too. One for whole beams: for the beams that start in it)
+                if (op.WholeBeams ? StartTime < op.BornAfter : EndTime < op.BornAfter)
+                    continue;
+
                 list.Add(op);
 
                 if (op.Kind == TrajectoryOpKind.Freeze)
@@ -670,6 +823,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             Ops = list.ToArray();
             OpsArea = area;
             fallsInPieces = list.Exists(op => op.Kind == TrajectoryOpKind.Fall);
+
+            // (a beam whose only op is its own one bounce - Suwako's, Tsukasa's: a slice crosses the screen at most twice, there and back; 2026-11-21, every beam of Suwako's kept three times as long had her
+            // cost 10 ms a frame)
+            bounceOnly = list.TrueForAll(op => op.Kind == TrajectoryOpKind.Bounce && op.OnlyMarked);
+
+            if (bounceOnly)
+            {
+                Lifetime = Lifetime * DanmakusuBalance.BOUNCE_ONCE_LIFE + 1000;
+                return;
+            }
+
             Lifetime = Math.Max(Lifetime, reach) + Lifetime * 2 + frozen + 2000 + (windowed ? 6000 : 0); // (a bounced slice flies on, back across the screen)
         }
 
@@ -687,6 +851,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public void TraceSlice(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out BulletLook? look)
         {
             look = null;
+            time = clocked(fired, time);
+
+            // (a beam whose only op is its own one bounce: the bounce in closed form, as the trace would do it - the trace cost Suwako, whose every beam bounces, most of her 10 ms a frame)
+            if (bounceOnly && Ops is { Length: 1 } && OpsArea != null)
+            {
+                position = bouncedOnce(Ops[0], start, velocity, fired, time, out look);
+                return;
+            }
 
             if (Ops != null && OpsArea != null)
             {
@@ -710,9 +882,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         private void evaluate(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out BulletLook? look, out double shown, out bool stopped)
         {
             look = null;
+            time = clocked(fired, time);
 
-            // (a slice of Junko's that is still see-through is not fully formed: nothing the bosses do touches it yet - it flies straight, and what they do starts from where it is when it has formed)
-            if (GhostMs > 0)
+            // (a slice of Junko's that is still see-through is not fully formed: nothing the bosses do touches it yet - it flies straight, and what they do starts from where it is when it has formed.
+            // Suwako's own bounce is not another boss's doing: it touches her slices from the start - 2026-11-21, most flew out of the screen before they had formed)
+            if (GhostMs > 0 && !BouncesOnce)
             {
                 double formed = fired + GhostMs;
 
@@ -861,7 +1035,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             evaluate(start, velocity, fired, time, out Vector2 position, out BulletLook? look, out double shown, out bool stopped);
 
-            if (stopped)
+            // (stopped, as wide as it was then; sped up by Gengetsu, as wide as it is where it has flown)
+            if (stopped || Clock != null)
                 width = HalfWidthAtAge(shown - fired);
 
             if (widths != null)
@@ -1082,7 +1257,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Where the slice of beam <paramref name="beam"/> that was fired at <paramref name="fired"/> is at <paramref name="now"/> (it flies straight on in the direction of the beam).</summary>
         public Vector2 SlicePosition(double fired, double now, int beam)
-            => ballAt(fired, beam) + Directions[beam] * (Speed * (float)(now - fired));
+            => ballAt(fired, beam) + Directions[beam] * (Speed * (float)(clocked(fired, now) - fired));
 
         /// <summary>The way the slider's path goes where the slice fired at <paramref name="fired"/> comes from (unit vector; zero if the slider does not move there).</summary>
         public Vector2 PathDirection(double fired, int beam)
@@ -1134,10 +1309,45 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             int count = pointsOf(time, buffer, beam, widths, distances, flags);
 
             count = refineBends(time, beam, buffer, widths, distances, flags, count);
-            // (only what the bosses can move can have a point that is not a number)
+            // (only what the bosses can move can have a point that is not a number, or two neighbours that went wholly different ways)
             if (!Rigid && ((Ops != null && OpsArea != null) || Freezer != null || Portals != null))
+            {
+                cutStretched(time, beam, buffer, flags, count);
                 cutNotNumbers(buffer, flags, count);
+            }
+
             return count;
+        }
+
+        /// <summary>How far apart in a beam the portal numbers of two pieces are that are cut where they went different ways (see <see cref="cutStretched"/>).</summary>
+        private const int stretch_cut_step = 1 << 20;
+
+        /// <summary>
+        /// Two neighbouring points that are still far apart when the bends have been refined - more than <see cref="DanmakusuBalance.BEAM_CUT_PX"/>, and more than <see cref="DanmakusuBalance.BEAM_CUT_STRETCH"/> times
+        /// as far as they would be if nothing had happened to them - went wholly different ways (2026-11-21: Kokoro's moods leave alone what is off the screen, so a slice that had left it went on falling, out to
+        /// y = 120,000, and Kanako's turn sends back what has left the screen while its neighbour still flies out): they are cut from each other, so no line is drawn across the screen between them. A beam that
+        /// only reaches off the screen, or that a boss stretches all along, is never cut.
+        /// </summary>
+        private void cutStretched(double time, int beam, Vector2[] buffer, BulletLook?[] looks, int count)
+        {
+            int cuts = 0;
+
+            for (int k = 0; k + 1 < count; k++)
+            {
+                Vector2 a = buffer[k], b = buffer[k + 1];
+                float apart = Vector2.Distance(a, b);
+
+                if (float.IsFinite(apart) && apart > DanmakusuBalance.BEAM_CUT_PX && !fallenOrGap(looks[k]) && !fallenOrGap(looks[k + 1]))
+                {
+                    float natural = Vector2.Distance(flownStraight(pointFired[k], k, beam, time), flownStraight(pointFired[k + 1], k, beam, time));
+
+                    if (apart > natural * DanmakusuBalance.BEAM_CUT_STRETCH + DanmakusuBalance.BEAM_CUT_PX)
+                        cuts++;
+                }
+
+                if (cuts > 0 && looks[k + 1]?.Gone != true && !fallenOrGap(looks[k + 1]))
+                    looks[k + 1] = BulletLook.Portaled(looks[k + 1], (looks[k + 1]?.Portal ?? 0) + cuts * stretch_cut_step);
+            }
         }
 
         /// <summary>(Tools/SectionCheck: leaves the bends unrefined, to see what refining does)</summary>
@@ -1153,6 +1363,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             if (count < 2 || Rigid || KeepBends || ((Ops == null || OpsArea == null) && Freezer == null && Portals == null))
                 return count;
+
+            if (bounceOnly && Freezer == null && Portals == null && Blasts == null && !Rotates)
+                return bounceCorners(time, beam, buffer, widths, distances, looks, count);
 
             // (only while something can have steered its slices: an op that has begun by now and does not end before the beam began; portals and ripples always)
             if (Freezer == null && Portals == null)
@@ -1214,6 +1427,223 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             refinePair(k, depth - 1, time, beam, buffer, widths, distances, looks, ref count);
         }
 
+        /// <summary>The only op of the beam is its own one bounce (Suwako's, Tsukasa's): see <see cref="bounceCorners"/>.</summary>
+        private bool bounceOnly;
+
+        /// <summary>
+        /// Nothing touches the beam but its own one bounce, so it is let go as soon as its beams have left the screen (<see cref="BeamGoneAt"/>): it may live as long as it takes to cross the screen twice, past the 64
+        /// beats everything else gets (2026-11-21: Suwako's slow beams vanished on the screen when their time was up).
+        /// </summary>
+        public bool OnlyBouncesOnce => bounceOnly && Freezer == null && Portals == null && Blasts == null && Clock == null && !Rotates;
+
+        /// <summary>
+        /// (a beam whose only op is its own one bounce, 2026-11-21) Its slices all fly the same way at the same speed, so the beam bends only where the line they would have flown without the bounce crosses a wall
+        /// of the screen: the slice that is on that wall now is put in there - no searching (refinePair cost Suwako, whose every beam bounces, 8 ms a frame). Between two neighbouring points the slider ball goes
+        /// straight, so the line without the bounce is straight there too.
+        /// </summary>
+        private int bounceCorners(double time, int beam, Vector2[] buffer, float[]? widths, float[]? distances, BulletLook?[] looks, int count)
+        {
+            limits(out Vector2 min, out Vector2 max, out _);
+            bool sideWall = false, endWall = false; // (whether the line without the bounce gets to a side wall, to the top or the bottom anywhere)
+
+            for (int k = count - 2; k >= 0; k--)
+            {
+                if (count + 2 >= buffer.Length || count + 2 >= looks.Length || (widths != null && count + 2 >= widths.Length) || (distances != null && count + 2 >= distances.Length))
+                    break;
+
+                double fa = pointFired[k], fb = pointFired[k + 1];
+
+                if (fb - fa < 1e-3)
+                    continue;
+
+                Vector2 a = flownStraight(fa, k, beam, time), b = flownStraight(fb, k, beam, time);
+                double across = wallCrossing(a.X, b.X, min.X, max.X), down = wallCrossing(a.Y, b.Y, min.Y, max.Y);
+                sideWall |= !double.IsNaN(across) || a.X < min.X || a.X > max.X || b.X < min.X || b.X > max.X;
+                endWall |= !double.IsNaN(down) || a.Y < min.Y || a.Y > max.Y || b.Y < min.Y || b.Y > max.Y;
+
+                // (the later one first: what is put in before it does not move it)
+                double first = double.IsNaN(across) ? down : double.IsNaN(down) ? across : Math.Min(across, down);
+                double second = double.IsNaN(across) || double.IsNaN(down) ? double.NaN : Math.Max(across, down);
+
+                if (!double.IsNaN(second) && second < 1 && second > 0 && second != first)
+                    insertPointAt(k + 1, fa + (fb - fa) * second, k, beam, time, buffer, widths, distances, looks, ref count);
+
+                if (!double.IsNaN(first) && first < 1 && first > 0)
+                    insertPointAt(k + 1, fa + (fb - fa) * first, k, beam, time, buffer, widths, distances, looks, ref count);
+            }
+
+            // (where the beam got to a corner of the screen its slices bounced off two walls: the ones on either side of the corner fly apart, and nothing joins them - it is cut between two neighbours that
+            // bounced off different walls; 2026-11-21, lines from the corners). Only a beam whose line without the bounce gets past walls of both kinds can have been there.
+            if (!sideWall || !endWall)
+                return count;
+
+            var op = Ops![0];
+            int cuts = 0, wallBefore = 0;
+
+            for (int k = 0; k < count; k++)
+            {
+                stateAt(pointFired[k], k, beam, out Vector2 start, out Vector2 velocity);
+                bouncedOnce(op, start, velocity, pointFired[k], clocked(pointFired[k], time), out _, out int wall);
+
+                if (wallBefore > 0 && wall > 0 && wall != wallBefore)
+                    cuts++;
+
+                if (cuts > 0 && looks[k]?.Gone != true)
+                    looks[k] = BulletLook.Portaled(looks[k], (looks[k]?.Portal ?? 0) + cuts * corner_cut_step);
+
+                if (wall > 0)
+                    wallBefore = wall;
+            }
+
+            return count;
+        }
+
+        /// <summary>How far apart in a beam the portal numbers of two pieces are that are cut where they bounced off different walls (see <see cref="bounceCorners"/>).</summary>
+        private const int corner_cut_step = 1 << 24;
+
+        /// <summary>
+        /// Where a slice fired at <paramref name="fired"/> from <paramref name="start"/> with <paramref name="velocity"/> is at <paramref name="time"/> when <paramref name="op"/> (a bounce) is all that happens to it: it
+        /// bounces off the first wall of the screen it gets to while the op is on (not if it is outside the screen when the op begins for it), and flies straight on - as <see cref="Trajectory.Trace"/> has it.
+        /// </summary>
+        private Vector2 bouncedOnce(TrajectoryOp op, Vector2 start, Vector2 velocity, double fired, double time, out BulletLook? look) => bouncedOnce(op, start, velocity, fired, time, out look, out _);
+
+        /// <summary>(<paramref name="wall"/>: which walls it has bounced off, or been folded in at, by <paramref name="time"/> - 1 a side one, 2 the top or the bottom, 3 both at once, 0 none)</summary>
+        private Vector2 bouncedOnce(TrajectoryOp op, Vector2 start, Vector2 velocity, double fired, double time, out BulletLook? look, out int wall)
+        {
+            look = null;
+            wall = 0;
+
+            if (op.Time > time || (!op.Window && op.Time <= fired) || (fired >= op.BornBefore && !op.WholeBeams) || (op.Window && fired > op.End))
+                return start + velocity * (float)(time - fired);
+
+            limits(out Vector2 min, out Vector2 max, out _);
+            double from = Math.Max(op.Time, fired);
+            Vector2 p = start + velocity * (float)(from - fired);
+
+            // (a slice that is fired outside the screen - Suwako's beams lay the slider's path out from her, and a long one reaches past the wall - has bounced already: it is folded back in at the wall, as the
+            // line of the beam is folded there (bounceCorners). The trace leaves such a slice alone, and it flew out while its neighbour bounced: a line across the screen between them, 2026-11-21)
+            // (one fired outside that flies into the screen - she stands near its edge - comes in, and bounces off the wall it gets to then: 2026-11-21, folded it was sent back out, a line across the screen
+            // to its neighbours)
+            if (p.X < min.X || p.X > max.X || p.Y < min.Y || p.Y > max.Y)
+            {
+                if (!entersAfter(p, velocity, min, max, out double enter))
+                {
+                    look = op.After;
+                    wall = (p.X < min.X || p.X > max.X ? 1 : 0) | (p.Y < min.Y || p.Y > max.Y ? 2 : 0);
+                    foldIn(ref p, ref velocity, min, max);
+                    return p + velocity * (float)(time - from);
+                }
+
+                if (from + enter >= time)
+                    return p + velocity * (float)(time - from);
+
+                p = Vector2.Clamp(p + velocity * (float)enter, min, max);
+                from += enter;
+            }
+
+            double limit = Math.Min(op.End, time) - from;
+            double tx = timeToWall(p.X, velocity.X, min.X, max.X), ty = timeToWall(p.Y, velocity.Y, min.Y, max.Y);
+            double hit = Math.Min(tx, ty);
+
+            if (double.IsPositiveInfinity(hit) || hit > limit)
+                return p + velocity * (float)(time - from);
+
+            Vector2 at = Vector2.Clamp(p + velocity * (float)hit, min, max);
+            Vector2 v = velocity;
+
+            if (tx <= hit + 1e-6)
+            {
+                v.X = -v.X;
+                wall |= 1;
+            }
+
+            if (ty <= hit + 1e-6)
+            {
+                v.Y = -v.Y;
+                wall |= 2;
+            }
+
+            look = op.After;
+            Trajectory.recordBounce(op, from + hit, at, time);
+            return at + v * (float)(time - from - hit);
+        }
+
+        /// <summary>
+        /// Does something at <paramref name="p"/>, outside <paramref name="min"/>..<paramref name="max"/>, flying <paramref name="v"/>, come into it - and when (<paramref name="enter"/>, ms from now)? Not if it flies away
+        /// from a side it is past, nor if it goes by a corner outside.
+        /// </summary>
+        private static bool entersAfter(Vector2 p, Vector2 v, Vector2 min, Vector2 max, out double enter)
+        {
+            enter = 0;
+
+            if (!enterAxis(p.X, v.X, min.X, max.X, ref enter) || !enterAxis(p.Y, v.Y, min.Y, max.Y, ref enter))
+                return false;
+
+            Vector2 q = p + v * (float)enter;
+            const float slack = 0.01f;
+            return q.X >= min.X - slack && q.X <= max.X + slack && q.Y >= min.Y - slack && q.Y <= max.Y + slack;
+        }
+
+        private static bool enterAxis(float x, float speed, float low, float high, ref double enter)
+        {
+            if (x < low)
+            {
+                if (speed <= 1e-9f)
+                    return false;
+
+                enter = Math.Max(enter, (low - x) / speed);
+            }
+            else if (x > high)
+            {
+                if (speed >= -1e-9f)
+                    return false;
+
+                enter = Math.Max(enter, (high - x) / speed);
+            }
+
+            return true;
+        }
+
+        /// <summary>A place past a wall of <paramref name="min"/>..<paramref name="max"/> mirrored back in at that wall (on each side it is past), and its way turned with it.</summary>
+        private static void foldIn(ref Vector2 p, ref Vector2 v, Vector2 min, Vector2 max)
+        {
+            if (p.X < min.X || p.X > max.X)
+            {
+                p.X = p.X < min.X ? 2f * min.X - p.X : 2f * max.X - p.X;
+                v.X = -v.X;
+            }
+
+            if (p.Y < min.Y || p.Y > max.Y)
+            {
+                p.Y = p.Y < min.Y ? 2f * min.Y - p.Y : 2f * max.Y - p.Y;
+                v.Y = -v.Y;
+            }
+        }
+
+        /// <summary>When something at <paramref name="x"/> (between <paramref name="low"/> and <paramref name="high"/>) moving <paramref name="speed"/> per ms gets to one of them (infinity: never).</summary>
+        private static double timeToWall(float x, float speed, float low, float high)
+        {
+            if (speed > 1e-12f)
+                return (high - x) / speed > 1e-9 ? (high - x) / speed : double.PositiveInfinity;
+
+            if (speed < -1e-12f)
+                return (low - x) / speed > 1e-9 ? (low - x) / speed : double.PositiveInfinity;
+
+            return double.PositiveInfinity;
+        }
+
+        /// <summary>How far (0..1) from <paramref name="a"/> to <paramref name="b"/> the line crosses <paramref name="low"/> or <paramref name="high"/>; NaN when it crosses neither.</summary>
+        private static double wallCrossing(float a, float b, float low, float high)
+        {
+            if ((a - low) * (b - low) < 0f)
+                return (low - a) / (double)(b - a);
+
+            if ((a - high) * (b - high) < 0f)
+                return (high - a) / (double)(b - a);
+
+            return double.NaN;
+        }
+
         private static float distanceToLine(Vector2 p, Vector2 a, Vector2 b)
         {
             Vector2 ab = b - a;
@@ -1247,8 +1677,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         private Vector2 flownStraight(double fired, int segment, int beam, double time)
         {
             stateAt(fired, segment, beam, out Vector2 start, out Vector2 velocity);
-            return start + velocity * (float)(time - fired);
+            return start + velocity * (float)(clocked(fired, time) - fired);
         }
+
+        /// <summary>
+        /// The clock of what bosses do to the speed of everything on the screen that beams go by too: Gengetsu's haste (2026-11-21, "affects all bullets and laserbeams that is on the screen"; beams kept
+        /// their speed before). Null: none. Every slice on the screen speeds up with it, whenever it was fired.
+        /// </summary>
+        public Bosses.BossEffects? Clock { get; set; }
+
+        /// <summary>The moment a slice fired at <paramref name="fired"/> has flown up to at <paramref name="time"/>, on <see cref="Clock"/>.</summary>
+        private double clocked(double fired, double time) => Clock != null && !Immune ? Clock.Effective(fired, time) : time;
 
         private int pointsOf(double time, Vector2[] buffer, int beam, float[]? widths, float[]? distances, BulletLook?[]? looks)
         {

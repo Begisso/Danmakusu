@@ -486,6 +486,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             foreach (var act in stageActs)
             {
+                if (t < act.Start - 1 || from > Math.Max(act.End, act.MechanicsEnd) + act_linger_ms)
+                    continue; // (its time has not come, or went long ago: 2026-11-21)
+
                 long since = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
                 bool springs = act.Springs(this, p, from, t);
 
@@ -597,6 +600,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 foreach (var act in stageActs)
                 {
+                    if (t < act.Start - 1 || t > Math.Max(act.End, act.MechanicsEnd) + act_linger_ms)
+                        continue; // (its time has not come, or went long ago: 2026-11-21)
+
                     long since = AutoActCost != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
                     act.Beads(this, t, beads);
                     autoActCost(act.GetType().Name + ".Beads", since);
@@ -767,7 +773,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (float.IsPositiveInfinity(minX))
                         return; // (nothing of it is left)
 
-                    float out_ = fastest * Math.Max(emitter.SpeedRampTo, 1f) * (emitter.Falling ? 3f : 1.25f) * (float)ownSpan
+                    float out_ = fastest * Math.Max(emitter.SpeedRampTo, 1f) * emitter.OpsSpeedMax * (emitter.Falling ? 3f : 1.25f) * (float)ownSpan
                                  + Math.Max(ringHitRadius(emitter, growMax), emitter.FlowerScale > 1f || treeActs.Count > 0 ? fallFlowerRadius * emitter.FlowerScale : 0f) * growMax * emitter.BigScaleMax
                                  + emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * 2f + auto_bend + room;
 
@@ -802,7 +808,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int b = 0; b < emitter.Count; b++)
                     fastest = Math.Max(fastest, emitter.SpeedOf(b));
 
-                float out_ = fastest * Math.Max(emitter.SpeedRampTo, 1f) * (emitter.Falling ? 3f : 1.25f) * (float)ownSpan + emitter.SpawnRadius + body * growMax * emitter.BigScaleMax + extra + auto_bend + room;
+                float out_ = fastest * Math.Max(emitter.SpeedRampTo, 1f) * emitter.OpsSpeedMax * (emitter.Falling ? 3f : 1.25f) * (float)ownSpan + emitter.SpawnRadius + body * growMax * emitter.BigScaleMax + extra + auto_bend + room;
 
                 if (float.IsFinite(low.X) && float.IsFinite(high.X) && (centre.X < low.X - out_ || centre.X > high.X + out_ || centre.Y < low.Y - out_ || centre.Y > high.Y + out_))
                 {
@@ -881,7 +887,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (((emitter.ConsumedMask | emitter.AbsorbedMask | emitter.HiddenMask) & (1UL << b)) != 0)
                     continue;
 
-                float reach = body * (emitter.KeepsSize ? 1f : growMax * emitter.BigScale(b)) + extra;
+                float reach = body * (emitter.KeepsSize ? 1f : growMax * emitter.BigScale(b) * emitter.OpsGrowMax) + extra; // (a bullet that Rin or Aunn swells: as big as it gets, all along)
 
                 if (emitter.Homing)
                 {
@@ -932,7 +938,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
 
                     // (as fast as it flies, ramped up, and more for what falls or what the ops of the bosses steer)
-                    float fastest = emitter.SpeedOf(b) * Math.Max(emitter.SpeedRampTo, 1f) * (emitter.Falling ? 3f : 1.25f);
+                    float fastest = emitter.SpeedOf(b) * Math.Max(emitter.SpeedRampTo, 1f) * emitter.OpsSpeedMax * (emitter.Falling ? 3f : 1.25f);
                     float flown = fastest * (float)ownSpan + auto_bend;
 
                     if (!float.IsFinite(a.X) || !float.IsFinite(a.Y) || Vector2.Distance(a, centre) > radius + reach + flown)
@@ -1122,6 +1128,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>An act has placed an op (where it goes): what the autoplay foresaw of the rings is forgotten at its next frame (set by the acts: Kokoro's, Mima's).</summary>
         private bool autoOpsMoved;
+
+        /// <summary>
+        /// An act has placed an op of one ring's own (Aunn's moves, 2026-11-21): only what the autoplay foresaw of ring <paramref name="index"/> is forgotten. (Forgetting every ring, many times a beat,
+        /// had the autoplay work out all of them again every frame.)
+        /// </summary>
+        private void autoRingMoved(int index)
+        {
+            if (autoRingTracks.Remove(index, out var track))
+                autoRingTrackPool.Push(track);
+
+            if (index < autoPassedUntil.Length)
+                autoPassedUntil[index] = 0;
+        }
 
         /// <summary>(a new frame) the rings not looked at for a while are forgotten; when time went back, all of them.</summary>
         private void autoForgetTracks(double now, bool all)
@@ -1436,6 +1455,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
         }
 
+        /// <summary>Does an op that moves what flies faster than it flew by itself (a push, a pull, a fall, a turn to the player) act around <paramref name="t"/>?</summary>
+        private static bool pushedAround(TrajectoryOp[] ops, double t)
+        {
+            foreach (var op in ops)
+            {
+                if (op.Kind is TrajectoryOpKind.Outward or TrajectoryOpKind.Pull or TrajectoryOpKind.Gravity or TrajectoryOpKind.Aim or TrajectoryOpKind.Redirect
+                    && op.Time <= t + auto_beam_grid_ms && Math.Max(op.End, op.Time) + 2000 >= t)
+                    return true;
+            }
+
+            return false;
+        }
+
         /// <summary>A beam at a moment of the grid: its pieces, as wide as they hurt and more by as far as its slices fly in half a step, and the box round them (worked out once, then kept).</summary>
         private AutoShape<AutoBeam> autoLaserShape(int l, LaserEmitter laser, long moment)
         {
@@ -1455,9 +1487,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (t < laser.StartTime || t > laser.EndTime + laser.Lifetime || t >= laser.VanishAt)
                 return shape;
 
+            // (while a boss pushes or pulls its slices they fly far faster than the beam's own speed - Yumemi's push, eight times Zanmu's pull: between two moments of the grid they went further than this
+            // allowed for, and the autoplay stood where it thought a beam was not; 2026-11-21, "you keep missing on Yumemi")
+            if (laser.Ops != null && pushedAround(laser.Ops, t))
+                moved *= DanmakusuBalance.AUTO_PUSHED_BEAM_ROOM;
+
             for (int beam = 0; beam < laser.BeamCount; beam++)
             {
-                if (laser.BeamFinished[beam])
+                if (laser.BeamFinished[beam] || (laser.BeamGoneAt != null && t > laser.BeamGoneAt[beam]))
                     continue;
 
                 int n = laser.GetPoints(t, autoLaserPoints, beam, autoLaserWidths, null, autoLaserLooks);

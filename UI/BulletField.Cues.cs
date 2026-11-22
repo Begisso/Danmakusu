@@ -261,6 +261,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            // Star Sapphire: the sound of Yuyuko's petals flying off the tree every time she shoots out her sphere (2026-11-22)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Starlight)
+                    continue;
+
+                foreach (var sphere in SphereAct.Schedule(period))
+                    list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" });
+            }
+
             // Sannyo: the sound of Kyouko's walls appearing at every throw of smoke
             foreach (var period in bosses)
             {

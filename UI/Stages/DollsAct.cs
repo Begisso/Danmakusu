@@ -9,9 +9,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Alice Margatroid (2026-11-20): no pauses. When she starts shooting, twenty-five fumos of her (the user's photo of the plush, as tall as a boss's picture) come out of her over two beats and wander
-        // over the playfield, each from one place to the next every four beats (chosen by its number, a little apart from the others), each standing on a yellow magic circle half as big as a boss's. Every two
-        // beats each shoots a stream at the player: an arrowhead, a plain bullet, an ellipse (it falls on towards the player, as an ellipse of a ring does) and a ricochet star (it bounces once off the edge of
+        // Alice Margatroid (2026-11-20): no pauses. When she starts shooting, twelve fumos of her (twenty-five until 2026-11-21; the user's photo of the plush, as tall as a boss's picture) come out of her over two
+        // beats and wander over the whole screen, each from one place to the next every eight beats of moving (chosen by its number, a little apart from the others), standing still while they shoot a stream;
+        // each stands on a yellow magic circle half as big as a boss's, drawn above everything but the fumos. Every two beats each shoots a stream - two of every four at the player, one thirty degrees to its
+        // right, one to its left: an arrowhead, a plain bullet, an ellipse (it falls on towards the player, as an ellipse of a ring does) and a ricochet star (it bounces once off the edge of
         // the screen), one after another along one line, with a straight beam as long as the stream on either side of it, flying with it; the beams hurt like a slider body. The fumos themselves do not hurt.
         // They go back into her over a beat when her section ends. Where each fumo is follows from the time; where each stream was aimed is kept, so time going back fires them again the same way.
         // ======================================================================================================================================================
@@ -61,28 +62,56 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // ---- the fumos ----
 
-            /// <summary>Place <paramref name="k"/> of fumo <paramref name="i"/>'s wandering: anywhere on the playfield (512 x 384), a fumo's height in from its edges.</summary>
-            private Vector2 spot(int i, int k)
+            /// <summary>Place <paramref name="k"/> of fumo <paramref name="i"/>'s wandering: anywhere on the screen (2026-11-21; it was the 512 x 384 playfield), a fumo's height in from its edges.</summary>
+            private Vector2 spot(BulletField f, int i, int k)
             {
                 float margin = DanmakusuBalance.ALICE_FUMO_HEIGHT;
-                float x = margin + hash01(i * 7 + 1, k, seed) * (DanmakusuBalance.RICOCHET_WIDTH - 2f * margin);
-                float y = margin + hash01(k * 13 + 5, i, seed + 11) * (DanmakusuBalance.RICOCHET_HEIGHT - 2f * margin);
-                return new Vector2(x, y);
+                Vector2 low = f.stageMin + new Vector2(margin), size = Vector2.ComponentMax(f.stageMax - f.stageMin - new Vector2(2f * margin), Vector2.One);
+                return low + new Vector2(hash01(i * 7 + 1, k, seed) * size.X, hash01(k * 13 + 5, i, seed + 11) * size.Y);
+            }
+
+            /// <summary>How long a stream takes to come out (from its first bullet to its last).</summary>
+            private double streamMs(BulletField f)
+                => 3.0 * DanmakusuBalance.ALICE_STREAM_SPACING * f.stageBaseRadius(Period) / Math.Max(stageBulletSpeed(Period) * DanmakusuBalance.ALICE_SPEED, 1e-4f);
+
+            /// <summary>
+            /// How long the fumos have moved by <paramref name="t"/>: they stand still while they shoot a stream and move between streams (2026-11-21, "stop when shooting stream, move during pauses").
+            /// The streams come evenly, every two beats from the first, so this is worked out from the time.
+            /// </summary>
+            private double movingTime(BulletField f, double t)
+            {
+                if (volleys.Count == 0 || t <= volleys[0])
+                    return t - comeOut;
+
+                double every = beat * DanmakusuBalance.ALICE_STREAM_EVERY_BEATS;
+                double stand = Math.Min(streamMs(f), every * 0.9);
+                double after = t - volleys[0];
+                double n = Math.Floor(after / every);
+                double within = after - n * every;
+                return volleys[0] - comeOut + n * (every - stand) + Math.Clamp(within - stand, 0, every - stand);
             }
 
             /// <summary>Where fumo <paramref name="i"/> has wandered to at <paramref name="t"/>: from one place to the next, easing in and out, each fumo a little apart from the others.</summary>
-            private Vector2 wanderAt(int i, double t)
+            private Vector2 wanderAt(BulletField f, int i, double t)
             {
-                double u = (t - comeOut) / (beat * DanmakusuBalance.ALICE_WANDER_BEATS) + i * 0.37;
+                double u = movingTime(f, t) / (beat * DanmakusuBalance.ALICE_WANDER_BEATS) + i * 0.37;
                 int k = (int)Math.Floor(u);
-                return Vector2.Lerp(spot(i, k), spot(i, k + 1), smoothStep(u - k));
+                return Vector2.Lerp(spot(f, i, k), spot(f, i, k + 1), smoothStep(u - k));
             }
 
             /// <summary>How far out of her the fumos are at <paramref name="t"/> (0 in her, 1 out).</summary>
             private float outOfHer(double t)
                 => smoothStep((t - comeOut) / (beat * DanmakusuBalance.ALICE_COME_OUT_BEATS)) * (1f - smoothStep((t - Period.End) / (beat * DanmakusuBalance.ALICE_GO_BACK_BEATS)));
 
-            private Vector2 fumoAt(BulletField f, int i, double t) => Vector2.Lerp(f.bossPositionOf(Period), wanderAt(i, t), outOfHer(t));
+            private Vector2 fumoAt(BulletField f, int i, double t) => Vector2.Lerp(f.bossPositionOf(Period), wanderAt(f, i, t), outOfHer(t));
+
+            /// <summary>Which way fumo <paramref name="i"/> aims (radians from straight at the player): two of every four at the player, one 30 degrees to the right of the player, one to the left.</summary>
+            private static float asideOf(int i) => (i % 4) switch
+            {
+                2 => DanmakusuBalance.ALICE_ASIDE_DEGREES * MathF.PI / 180f,
+                3 => -DanmakusuBalance.ALICE_ASIDE_DEGREES * MathF.PI / 180f,
+                _ => 0f,
+            };
 
             // ---- the streams ----
 
@@ -130,7 +159,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         Vector2 from = fumoAt(f, i, t);
                         Vector2 toPlayer = f.characterPosition - from;
-                        each[i] = (from, toPlayer.LengthSquared > 1f ? Vector2.Normalize(toPlayer) : Vector2.UnitY);
+                        float angle = (toPlayer.LengthSquared > 1f ? MathF.Atan2(toPlayer.Y, toPlayer.X) : MathF.PI / 2f) + asideOf(i);
+                        each[i] = (from, new Vector2(MathF.Cos(angle), MathF.Sin(angle)));
                         stream(f, t, i, each[i].From, each[i].Way, true);
                     }
 
@@ -307,14 +337,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 fumo = new Vector2(DanmakusuBalance.ALICE_FUMO_HEIGHT * 186f / 256f, DanmakusuBalance.ALICE_FUMO_HEIGHT);
                 float alpha = Math.Clamp(there * 2f, 0f, 1f);
 
+                // (the circles above everything but the fumos - all of them, then all the fumos over them: 2026-11-21; they were under the bullets. Each turns slowly as a boss's does, from its own angle)
+                for (int i = 0; i < DanmakusuBalance.ALICE_FUMOS; i++)
+                    f.stageFront.Add(StageTexture.BossCircleWhite, fumoAt(f, i, t), new Vector2(circle * (0.4f + 0.6f * there)), (float)(t * 0.024) + i * 37f, DanmakusuBalance.ALICE_CIRCLE_ALPHA * alpha, yellow);
+
+                // (the fumo rocks a little from side to side as it goes)
                 for (int i = 0; i < DanmakusuBalance.ALICE_FUMOS; i++)
                 {
-                    Vector2 at = fumoAt(f, i, t);
-
-                    // (the circle turns slowly as a boss's does, each from its own angle; the fumo rocks a little from side to side as it goes)
-                    f.stageBack.Add(StageTexture.BossCircleWhite, at, new Vector2(circle * (0.4f + 0.6f * there)), (float)(t * 0.024) + i * 37f, DanmakusuBalance.ALICE_CIRCLE_ALPHA * alpha, yellow);
                     float rock = 6f * MathF.Sin((float)((t - comeOut) / beat * MathF.PI) + i * 1.3f);
-                    f.stageFront.Add(StageTexture.Fumo, at, fumo * (0.3f + 0.7f * there), rock, alpha, Color4.White);
+                    f.stageFront.Add(StageTexture.Fumo, fumoAt(f, i, t), fumo * (0.3f + 0.7f * there), rock, alpha, Color4.White);
                 }
             }
         }

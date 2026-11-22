@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -319,6 +319,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>A boss's magic circle (Resources/Textures/magic_circle.png) all white, to be tinted (Alice's fumos stand on yellow ones).</summary>
         BossCircleWhite,
+
+        /// <summary>Ubame's doll (Resources/Textures/rumia_fumo.png, the user's photo of a fumo, its white background taken away with Tools/Bake `fumo`): sitting, facing us, 256 x 226.</summary>
+        RumiaFumo,
+
+        /// <summary>
+        /// Shinki's wings (2026-11-22, drawn here: white, pink towards the scalloped lower edge, the tip curling up), cut into <see cref="StageLayer.SHINKI_WING_STRIPS"/> strips from the root out, each a little wider than its share so
+        /// that no gap opens where the wing bends (see <see cref="StageLayer.ShinkiWingStrip"/>): the right wing's, its root on the left, then the left one's, its mirror image.
+        /// </summary>
+        ShinkiWingRight0,
+        ShinkiWingRight1,
+        ShinkiWingRight2,
+        ShinkiWingRight3,
+        ShinkiWingRight4,
+        ShinkiWingRight5,
+        ShinkiWingRight6,
+        ShinkiWingRight7,
+        ShinkiWingLeft0,
+        ShinkiWingLeft1,
+        ShinkiWingLeft2,
+        ShinkiWingLeft3,
+        ShinkiWingLeft4,
+        ShinkiWingLeft5,
+        ShinkiWingLeft6,
+        ShinkiWingLeft7,
     }
 
     /// <summary>
@@ -385,7 +409,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
         }
 
-        private const int max_arcs = 64;
+        private const int max_arcs = 384; // (64 until 2026-11-20: Merlin's rings are arcs too, many at once; 192 until 2026-11-21: and green parts of them where they go over a safe place)
 
         /// <summary>The layer takes as many sprites as it is given (otherwise what does not fit is left out).</summary>
         public bool Grows { get; init; }
@@ -537,6 +561,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.SeijaArrow => bake(renderer, makeSeijaArrow()),
                     StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"), StageTexture.Butterfly => BossCharacter.LoadResource(renderer, "Textures.larva_butterfly.png"),
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
+                    StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
                     StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc1 => bake(renderer, makeLitArc(1f - (1 + 0.5f) / LIT_ARCS)),
@@ -567,6 +592,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     >= StageTexture.Bat0 and <= StageTexture.Bat7 => bake(renderer, makeBat(kind - StageTexture.Bat0)),
                     >= StageTexture.WingRightPiece0 and <= StageTexture.WingRightPiece20 => wingPiece(renderer, false, kind - StageTexture.WingRightPiece0),
                     >= StageTexture.WingLeftPiece0 and <= StageTexture.WingLeftPiece20 => wingPiece(renderer, true, kind - StageTexture.WingLeftPiece0),
+                    >= StageTexture.ShinkiWingRight0 and <= StageTexture.ShinkiWingRight7 => bake(renderer, shinkiWingStrip(false, kind - StageTexture.ShinkiWingRight0)),
+                    >= StageTexture.ShinkiWingLeft0 and <= StageTexture.ShinkiWingLeft7 => bake(renderer, shinkiWingStrip(true, kind - StageTexture.ShinkiWingLeft0)),
                     >= StageTexture.SekibankiHead0 and <= StageTexture.SekibankiHead11 => BossCharacter.LoadResource(renderer, $"Textures.sekibanki_head_{kind - StageTexture.SekibankiHead0}.png"),
                     _ => null,
                 };
@@ -594,7 +621,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// A solid ring (Raiko's ripples): its outer edge at <paramref name="radius"/>, <paramref name="thickness"/> pixels thick however big it is, with a sharp edge. Drawn as an arc by the framework, so it
         /// is exact at every size (no picture that has to be stretched, and nothing fading between two of them).
         /// </summary>
-        public void AddSolidRing(Vector2 centre, float radius, float thickness, float alpha, Color4 colour)
+        public void AddSolidRing(Vector2 centre, float radius, float thickness, float alpha, Color4 colour, bool additive = true)
         {
             if (arcs == null || arcUsed >= arcs.Length || radius < 1f || alpha <= 0.002f)
                 return;
@@ -605,7 +632,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             arc.InnerRadius = Math.Clamp(thickness / radius, 0.001f, 1f);
             arc.Alpha = Math.Min(alpha, 1f);
             arc.Colour = colour;
-            arc.Blending = BlendingParameters.Additive;
+            arc.Blending = additive ? BlendingParameters.Additive : BlendingParameters.Mixture; // (not added: a dark ring - Merlin's black outlines - shows)
+            arc.Progress = 1;
+            arc.Rotation = 0f;
+        }
+
+        /// <summary>
+        /// A part of a solid ring (see <see cref="AddSolidRing"/>): from <paramref name="from"/> (radians, 0 along +x, growing the way the screen turns clockwise) round over <paramref name="sweep"/> radians
+        /// (Merlin's rings, green where they go over a safe place: 2026-11-21).
+        /// </summary>
+        public void AddArc(Vector2 centre, float radius, float thickness, float from, float sweep, float alpha, Color4 colour, bool additive = false)
+        {
+            if (arcs == null || arcUsed >= arcs.Length || radius < 1f || alpha <= 0.002f || sweep <= 1e-4f)
+                return;
+
+            var arc = arcs[arcUsed++];
+            arc.Position = centre;
+            arc.Size = new Vector2(2f * radius);
+            arc.InnerRadius = Math.Clamp(thickness / radius, 0.001f, 1f);
+            arc.Alpha = Math.Min(alpha, 1f);
+            arc.Colour = colour;
+            arc.Blending = additive ? BlendingParameters.Additive : BlendingParameters.Mixture;
+            arc.Progress = Math.Min(sweep / MathF.Tau, 1f);
+            arc.Rotation = from * 180f / MathF.PI + 90f; // (an arc is filled clockwise from its top)
         }
 
         /// <summary>A solid ring whose edges are softened over <paramref name="soft"/> pixels on each side: three solid rings over each other, each wider than the last, a third as bright (they add up: full in the middle).</summary>
@@ -818,6 +867,132 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             return image;
+        }
+
+        // ---- Shinki's wings (2026-11-22: the user's picture of her old sprite - long white wings, pink towards their scalloped lower edge, three on each side, rubbery: they bend, they have no joints) ----
+
+        /// <summary>How many strips a wing of Shinki's is cut into, and how much (of the wing's length) each reaches into its neighbours.</summary>
+        public const int SHINKI_WING_STRIPS = 8;
+
+        public const float SHINKI_WING_OVERLAP = 0.012f;
+
+        /// <summary>The wing picture: this tall for its length; its root (where it grows out of her) this far along and this far down, in shares of the picture.</summary>
+        public const float SHINKI_WING_ASPECT = 240f / 512f;
+
+        public const float SHINKI_WING_ROOT_U = 0.03f;
+        public const float SHINKI_WING_ROOT_V = 0.55f;
+
+        /// <summary>Where strip <paramref name="k"/> of a wing begins and ends, in shares of the picture's length from its root end.</summary>
+        public static (float From, float To) ShinkiWingStrip(int k)
+            => (Math.Max(0f, k / (float)SHINKI_WING_STRIPS - SHINKI_WING_OVERLAP), Math.Min(1f, (k + 1) / (float)SHINKI_WING_STRIPS + SHINKI_WING_OVERLAP));
+
+        private static readonly Lazy<Image<Rgba32>> shinki_wing = new Lazy<Image<Rgba32>>(makeShinkiWing);
+
+        /// <summary>The top edge of the wing at <paramref name="u"/> (shares of the picture): it rises towards the tip, which curls up.</summary>
+        private static float shinkiTop(float u) => 0.31f - 0.23f * MathF.Pow(u, 1.3f) - 0.05f * MathF.Sin(MathF.PI * Math.Clamp(u, 0f, 1f));
+
+        /// <summary>The cusps of its lower edge, from the root out (the last is the tip).</summary>
+        private static readonly float[] shinki_cusps = { 0.03f, 0.24f, 0.46f, 0.66f, 0.84f, 0.985f };
+
+        /// <summary>The line its lower edge hangs from, without the scallops.</summary>
+        private static float shinkiHang(float u) => 0.9f + (0.1f - 0.9f) * MathF.Pow(Math.Clamp((u - 0.03f) / 0.955f, 0f, 1f), 1.35f);
+
+        /// <summary>The lower edge at <paramref name="u"/>: between every two cusps it arcs up, a scallop.</summary>
+        private static float shinkiBottom(float u)
+        {
+            for (int k = 1; k < shinki_cusps.Length; k++)
+            {
+                if (u > shinki_cusps[k])
+                    continue;
+
+                float w = (u - shinki_cusps[k - 1]) / (shinki_cusps[k] - shinki_cusps[k - 1]);
+                return shinkiHang(u) - 0.17f * (1f - 0.55f * u) * MathF.Pow(MathF.Sin(Math.Clamp(w, 0f, 1f) * MathF.PI), 0.7f);
+            }
+
+            return shinkiHang(u);
+        }
+
+        /// <summary>
+        /// A wing of Shinki's, the right one, its root on the left: long and tapering to a tip that curls up, its lower edge in scallops between pointed cusps; white, going pink towards the lower edge, a pink
+        /// line from the root to every cusp (as the fingers of a bat's wing), a darker pink rim.
+        /// </summary>
+        private static Image<Rgba32> makeShinkiWing()
+        {
+            const int width = 512;
+            int height = (int)MathF.Round(width * SHINKI_WING_ASPECT);
+            var image = new Image<Rgba32>(width, height);
+            var root = new Vector2(0.06f, SHINKI_WING_ROOT_V);
+            float aa = 1.5f / height;
+            var white = new Vector3(1f, 0.99f, 1f);
+            var pink = new Vector3(0.97f, 0.78f, 0.88f);
+            var rim = new Vector3(0.9f, 0.56f, 0.74f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float u = (x + 0.5f) / width, v = (y + 0.5f) / height;
+                    float top = shinkiTop(u), bottom = shinkiBottom(u);
+
+                    // (the root end is round)
+                    bool outsideRoot = u < root.X && ((new Vector2(u, v) - root) * new Vector2(1f, SHINKI_WING_ASPECT)).Length > 0.085f;
+
+                    if (u < 0.0f || u > shinki_cusps[^1] || v < top - aa || v > bottom + aa || bottom <= top || outsideRoot)
+                    {
+                        image[x, y] = new Rgba32(255, 255, 255, 0);
+                        continue;
+                    }
+
+                    // (how far in from the edge, in shares of the picture's height: the rim, and the soft edge outside it)
+                    float edge = Math.Min(v - top, bottom - v);
+                    edge = Math.Min(edge, (shinki_cusps[^1] - u) * SHINKI_WING_ASPECT * 0.4f);
+                    float alpha = Math.Clamp(edge / aa + 0.5f, 0f, 1f);
+                    float across = (v - top) / (bottom - top);
+
+                    Vector3 colour = Vector3.Lerp(white, pink, smooth((across - 0.55f) / 0.45f) * 0.9f);
+
+                    // (the fingers: a pink line from the root to every cusp)
+                    float finger = 0f;
+
+                    for (int k = 1; k < shinki_cusps.Length; k++)
+                    {
+                        var cusp = new Vector2(shinki_cusps[k], shinkiHang(shinki_cusps[k]));
+                        float d = segmentDistance(new Vector2(u, v * SHINKI_WING_ASPECT), new Vector2(root.X, root.Y * SHINKI_WING_ASPECT), new Vector2(cusp.X, cusp.Y * SHINKI_WING_ASPECT));
+                        finger = Math.Max(finger, line(d, 0.002f, 0.003f) * Math.Clamp(u / Math.Max(cusp.X, 0.05f), 0f, 1f));
+                    }
+
+                    colour = Vector3.Lerp(colour, rim, finger * 0.35f);
+                    colour = Vector3.Lerp(colour, rim, Math.Clamp(1f - (edge - 0.012f) / 0.012f, 0f, 1f) * 0.85f);
+
+                    image[x, y] = new Rgba32((byte)Math.Clamp((int)(colour.X * 255f), 0, 255), (byte)Math.Clamp((int)(colour.Y * 255f), 0, 255), (byte)Math.Clamp((int)(colour.Z * 255f), 0, 255),
+                        (byte)Math.Clamp((int)(alpha * 255f), 0, 255));
+                }
+            }
+
+            return image;
+
+            static float smooth(float x)
+            {
+                float t = Math.Clamp(x, 0f, 1f);
+                return t * t * (3f - 2f * t);
+            }
+        }
+
+        /// <summary>Strip <paramref name="k"/> of a wing of Shinki's (<see cref="ShinkiWingStrip"/>); the left wing's are mirrored, from its root out too.</summary>
+        private static Image<Rgba32> shinkiWingStrip(bool left, int k)
+        {
+            var full = shinki_wing.Value;
+            var (from, to) = ShinkiWingStrip(k);
+            int x0 = (int)MathF.Floor(from * full.Width), x1 = Math.Max((int)MathF.Ceiling(to * full.Width), x0 + 1);
+            var strip = new Image<Rgba32>(x1 - x0, full.Height);
+
+            for (int y = 0; y < full.Height; y++)
+            {
+                for (int i = 0; i < x1 - x0; i++)
+                    strip[i, y] = full[left ? x1 - 1 - i : x0 + i, y];
+            }
+
+            return strip;
         }
 
         /// <summary>A chevron pointing right (white, to be tinted), with soft edges.</summary>

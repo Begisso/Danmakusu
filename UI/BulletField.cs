@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -288,6 +288,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             this.lasers = lasers;
             this.bosses = bosses;
             effects = BossEffects.Build(bosses);
+
+            // (Gengetsu speeds up every beam on the screen too: 2026-11-21)
+            if (BossEffects.ForBeams(bosses) is BossEffects beamClock)
+            {
+                foreach (var laser in lasers)
+                    laser.Clock = beamClock;
+            }
 
             // Seija turns the screen round during every attack of hers
             var mirrorList = new List<(double, double)>();
@@ -850,6 +857,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stormBackground = new Box { Colour = new Color4(0.1f, 0.11f, 0.13f, 1f), Alpha = 0f }, // (Tojiko's sections: a dark grey dim, under her clouds)
                 tideBackground = new Box { Colour = new Color4(0.03f, 0.24f, 0.46f, 1f), Alpha = 0f }, // (Wakasagihime's attacks: an ocean blue dim)
                 kokoroBackground = new Box { Colour = new Color4(0.2f, 0.06f, 0.32f, 1f), Alpha = 0f }, // (Kokoro's section: a dim of her mood's colour, with its mask on it)
+                merlinBackground = new Box { Colour = new Color4(0.75f, 0.04f, 0.04f, 1f), Alpha = 0f }, // (Merlin's attacks: the screen flashes red before each ends)
                 mikoBackground = new Box { Colour = Color4.Black, Alpha = 0f }, // (Miko's beams: the screen dims round them)
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
@@ -858,6 +866,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (Matenshi's wings, their bones and feathers: only when she is on the map, as the World's Ender's Earth)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.FallenAngel)
                         ? Enumerable.Range(0, WingRig.Pieces).SelectMany(piece => new[] { StageTexture.WingRightPiece0 + piece, StageTexture.WingLeftPiece0 + piece })
+                        : Enumerable.Empty<StageTexture>())
+                    // (Shinki's wings, strip by strip: only when she is on the map)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Creation)
+                        ? Enumerable.Range(0, StageLayer.SHINKI_WING_STRIPS).SelectMany(strip => new[] { StageTexture.ShinkiWingRight0 + strip, StageTexture.ShinkiWingLeft0 + strip })
                         : Enumerable.Empty<StageTexture>())
                     // (and Kokoro's masks, only when she is on the map: they are drawn when the field loads)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Masks)
@@ -869,7 +881,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 playerCircle, // (the player's magic circle: under the bullets, so that it hides none of them)
                 renderer = new BulletRenderer(),
                 new Container { Children = portalPieces }, // (Okina's portals: rounded bars, above the bullets)
-                stageTree = new StageLayer(1024, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Light, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (Yuyuko's petals and their bloom: above the bullets)
+                stageTree = new StageLayer(1024, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Light, StageTexture.SeijaArrow, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (Yuyuko's petals and their bloom: above the bullets)
                 moonTopLayer = new MoonLayer(true) { BaseColour = backgroundColour }, // (the big star where the moon beams start: above them)
                 circleSlot = new Container(), // (Ichirin's magic circle is drawn here, under her cloud: see the constructor)
                 stageCloud = new StageLayer(8, false, StageTexture.UnzanHead, StageTexture.UnzanHandLeft, StageTexture.UnzanHandRight), // (Ichirin's cloud, the hands and then the head: right under her, above her magic circle and the bullets)
@@ -885,7 +897,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
                 stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
@@ -1574,7 +1586,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
-                if (gap > 0 && gap <= max_sweep_gap_ms && !swapping)
+                // (Merlin: round her circles and sliders, and along the follow points between them, nothing hurts - and nothing is used up: it goes through)
+                bool shielded = trumpetActs.Count > 0 && merlinShields(characterPosition, now);
+
+                if (gap > 0 && gap <= max_sweep_gap_ms && !swapping && !shielded)
                 {
                     Vector2 start = sweep ? previousCharacterPosition : characterPosition;
 
@@ -1676,6 +1691,36 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Where the character is on the screen (the place the skinned cursor is drawn at while <see cref="CursorSwapped"/>).</summary>
         public Vector2 CharacterScreenPosition => ToScreenSpace(characterPosition - Position);
+
+        /// <summary>Focus Lens (2026-11-21): how many times closer the camera is (1: as near as without it; 0: the mod is off). The playfield sets it.</summary>
+        public float FocusZoom { get; set; }
+
+        /// <summary>Focus Lens: where the camera looks (the middle of the screen): the character - or, while it is frozen or stunned, its ghost, where the mouse is (2026-11-21).</summary>
+        public Vector2 FocusPoint => frozen || forcedHeld ? cursorPosition : characterPosition;
+
+        /// <summary>The field the character moves in (the screen as it is without Focus Lens, in the playfield's coordinates): Focus Lens draws its edges.</summary>
+        public Vector2 FieldMin => stageMin;
+
+        public Vector2 FieldMax => stageMax;
+
+        /// <summary>
+        /// Focus Lens: how the playfield is moved and sized round the character (set by the playfield with its Position and Scale): its Position turned back by Seija's turn, and its Scale. The screen is
+        /// worked out as it is without them (see updateScreenBounds): the camera moves, the field does not (2026-11-22: the screen moved with it, and every frame looked like a resized window - every ring
+        /// started over, the boss HUD and the bosses slid about with the player).
+        /// </summary>
+        public Vector2 ViewShift { get; set; }
+
+        public float ViewScale { get; set; } = 1f;
+
+        /// <summary>A point of this field as the moved playfield shows it -> the point shown at that place without Focus Lens.</summary>
+        private Vector2 unview(Vector2 local)
+        {
+            if (ViewShift == Vector2.Zero && ViewScale == 1f)
+                return local;
+
+            Vector2 centre = DrawSize / 2;
+            return centre + ViewShift + (local - centre) * ViewScale;
+        }
 
         /// <summary>
         /// 0..1: how strongly a spinner or boss beam is firing right now (the widest beam counts; the beams grow like a parabola over their time).
@@ -2122,7 +2167,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // them all in it: one beam alone points at the player, if the player is in the fan)
                 float fanTurn = 0f;
 
-                if (laser.Fan > 0f && !laser.Rotates)
+                // (Suwako's: the fan is centred on the way to the player)
+                float fanCentre = laser.FanAimed ? MathF.Atan2(toPlayer.Y, toPlayer.X) : laser.FanCentre;
+
+                if (laser.Fan > 0f && !laser.Rotates && !laser.FanAimed)
                 {
                     float share = laser.Fan / laser.BeamCount; // (each beam's share of the fan: turned by more than half of it, the outermost would leave the fan)
                     fanTurn = Math.Clamp(MathF.IEEERemainder(MathF.Atan2(toPlayer.Y, toPlayer.X) - laser.FanCentre, MathF.Tau), -share / 2f, share / 2f);
@@ -2131,11 +2179,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int b = 0; b < laser.BeamCount; b++)
                 {
                     float angle = laser.Fan > 0f && !laser.Rotates
-                        ? laser.FanCentre + fanTurn + laser.Fan * ((b + 0.5f) / laser.BeamCount - 0.5f)
+                        ? fanCentre + fanTurn + laser.Fan * ((b + 0.5f) / laser.BeamCount - 0.5f)
                         : first + b * MathF.Tau / laser.BeamCount;
 
                     laser.Directions[b] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
                 }
+
+                // (a beam that only bounces once: when each of its beams will have left the screen, now that they are aimed)
+                if (laser.BouncesOnce && hasScreenBounds)
+                    laser.WorkOutGoneTimes(screenMin, screenMax);
             }
         }
 
@@ -2468,8 +2520,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             var quad = ScreenBounds != null ? ScreenBounds.ScreenSpaceDrawQuad : inputManager!.ScreenSpaceDrawQuad;
             // (in the space of the field's parent: the field's Position is only the shake, and the screen does not shake with it. Taken as the field's own space plus the shake, it moved whenever the shake was
             // not yet in what ToLocalSpace knew - every bounce of the shake looked like a resized window, and every ring was started over, the trains aimed again at the player: several times a frame)
-            Vector2 a = unturn(Parent != null ? Parent.ToLocalSpace(quad.TopLeft) : ToLocalSpace(quad.TopLeft));
-            Vector2 b = unturn(Parent != null ? Parent.ToLocalSpace(quad.BottomRight) : ToLocalSpace(quad.BottomRight));
+            // (and without Focus Lens's camera: the playfield moves round the player, the screen it is played in does not)
+            Vector2 a = unturn(unview(Parent != null ? Parent.ToLocalSpace(quad.TopLeft) : ToLocalSpace(quad.TopLeft)));
+            Vector2 b = unturn(unview(Parent != null ? Parent.ToLocalSpace(quad.BottomRight) : ToLocalSpace(quad.BottomRight)));
 
             Vector2 newMin = Vector2.ComponentMin(a, b);
             Vector2 newMax = Vector2.ComponentMax(a, b);
@@ -2506,6 +2559,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     continue;
 
                 double needed = Math.Min((diagonal + laser.MaxHalfWidth * 2f) / laser.Speed, laser.MostLifetime); // (never past 64 beats)
+
+                // (one that only bounces once: across the screen twice, whatever the 64 beats say - it is let go when it has left the screen, see LaserEmitter.BeamGoneAt)
+                if (laser.OnlyBouncesOnce)
+                    needed = (diagonal + laser.MaxHalfWidth * 2f) * DanmakusuBalance.BOUNCE_ONCE_LIFE / laser.Speed + 1000;
 
                 if (needed > laser.Lifetime)
                 {
@@ -2612,6 +2669,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             double shionMark = turnLevel > 0f ? warnedReverse(drawTime) : double.NaN;
             shionArrows.Clear();
             kokoroArrows.Clear();
+            swellWarnings.Clear();
+            goArrows.Clear();
             double kokoroBeat = 0;
             float kokoroLevel = failed || kokoroFalls.Count == 0 ? 0f : kokoroWarning(drawTime, out _, out kokoroBeat);
             float tideLevel = failed || tideWindows.Count == 0 ? 0f : attackPresence(tideWindows, drawTime);
@@ -2859,6 +2918,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (what Sakuya's mirroring will move gets a green copy where it will be put, below; the bullet itself keeps its own colour. What was fired while time stands still flies on, and is mirrored too: its copy flies with it)
                     bool sakuyaMarked = sakuyaAlpha > 0f && (emitter.Time < sakuyaFrom || emitter.Ops != null) && !(look?.Harmless ?? false);
 
+                    // (Rin's warning: a circle as big as the bullet will swell flashes round it; Aunn's: an arrow beside it points at the player before every move)
+                    if (!failed && !double.IsNaN(emitter.SwellAt) && ringTime < emitter.SwellAt && ringTime >= emitter.SwellAt - emitter.SwellWarnMs)
+                        swellWarnings.Add((position, ownRadius * emitter.BigScale(b) * emitter.SwellScale, (float)(1.0 - (emitter.SwellAt - ringTime) / Math.Max(emitter.SwellWarnMs, 1))));
+
+                    if (!failed && emitter.GoAt != null)
+                        addGoArrow(emitter.GoAt, emitter.GoWarnMs, ringTime, position, ownRadius * emitter.BigScale(b) * (look?.Scale ?? 1f));
+
                     // a big round bullet (Utsuho's, or any at least twice as big as a plain one) is drawn as Mokou's ball is, from a big picture (see drawStage), not by the renderer, under the bullets, so it
                     // stays sharp; Utsuho's grow from nothing to their size over a moment when they are shot (only the picture: the hitbox is whole from the start)
                     float drawnRadius = ownRadius * (emitter.KeepsSize ? 1f : (look?.Scale ?? 1f)) * emitter.BigScale(b);
@@ -2921,6 +2987,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         var ghost = instanceBuffer[count - 1];
                         float ahead = look.SlideSign * reisenShift * (1f - reisenSlide);
+
+                        // (the see-through bullet sliding from where it was is not shown while it slides: only the preview of where it goes - 2026-11-21, "remove old position preview when sliding, leave new one")
+                        instanceBuffer[count - 1].Fade = 1f - (1f - instanceBuffer[count - 1].Fade) * (1f - reisenAlpha);
 
                         ghost.Decal = BulletDecal.None;
                         ghost.OverlayAmount = 1f;

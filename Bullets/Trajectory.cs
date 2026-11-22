@@ -60,6 +60,19 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Kokoro's orange: at Time - or when it is fired, in the window - the thing starts to fall down by <see cref="TrajectoryOp.Push"/> px/ms², keeping its way and speed (whatever pulled it before is over).</summary>
         Gravity,
+
+        /// <summary>
+        /// Rin (2026-11-21): not an op the trace knows - every ring fired between <see cref="TrajectoryOp.BornAfter"/> and <see cref="TrajectoryOp.BornBefore"/> gets a freeze of its own,
+        /// <see cref="TrajectoryOp.Delay"/> after it was fired, <see cref="TrajectoryOp.Span"/> long, with the op's looks (see <see cref="BulletEmitter.ConfigureOps"/>).
+        /// </summary>
+        LaterFreeze,
+
+        /// <summary>
+        /// Aunn (2026-11-21): not an op the trace knows - every ring fired between <see cref="TrajectoryOp.BornAfter"/> and <see cref="TrajectoryOp.BornBefore"/> stands still for
+        /// <see cref="TrajectoryOp.FirstStop"/> after it was fired (taking on the op's looks), then over and over turns at the player (an <see cref="Aim"/> that the field places), moves
+        /// <see cref="TrajectoryOp.MoveMs"/> and stands <see cref="TrajectoryOp.StopMs"/>, by its own clock, until <see cref="TrajectoryOp.GoUntil"/> (see <see cref="BulletEmitter.ConfigureOps"/>).
+        /// </summary>
+        StopAndGo,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -112,8 +125,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The bullet glows this much (as a stage bullet's Bloom): Kokoro's moods (2026-11-20).</summary>
         public float Bloom { get; init; }
 
-        /// <summary>The bullet is drawn this much bigger (its hitbox keeps its size).</summary>
+        /// <summary>The bullet is drawn this much bigger (its hitbox keeps its size, unless <see cref="HitScale"/> says otherwise).</summary>
         public float Scale { get; init; } = 1f;
+
+        /// <summary>The bullet's hitbox is this much bigger (Rin's and Aunn's swollen bullets: as big as they are drawn).</summary>
+        public float HitScale { get; init; } = 1f;
 
         /// <summary>How far the bullet has turned into <see cref="Shape"/> (0 = still its own shape, 1 = all of the way): the two are drawn faded into each other.</summary>
         public float Morph { get; init; } = 1f;
@@ -170,7 +186,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ? new BulletLook { StretchVisible = visible }
                     : new BulletLook
                     {
-                        Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, Morph = look.Morph, Alpha = look.Alpha,
+                        Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, HitScale = look.HitScale, Morph = look.Morph, Alpha = look.Alpha,
                         Harmless = look.Harmless, SlideSign = look.SlideSign, SlideVertical = look.SlideVertical, FallsAt = look.FallsAt, ShakeFrom = look.ShakeFrom, ShakeTo = look.ShakeTo,
                         Level = look.Level, Shaking = look.Shaking, Dark = look.Dark, Portal = look.Portal, Gone = look.Gone, StretchVisible = visible,
                     };
@@ -200,7 +216,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 var made = new BulletLook
                 {
-                    Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, Morph = look.Morph, Alpha = look.Alpha,
+                    Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, HitScale = look.HitScale, Morph = look.Morph, Alpha = look.Alpha,
                     Harmless = look.Harmless, SlideSign = look.SlideSign, SlideVertical = look.SlideVertical, FallsAt = look.FallsAt, ShakeFrom = look.ShakeFrom, ShakeTo = look.ShakeTo,
                     Level = look.Level, Shaking = look.Shaking, Dark = look.Dark, Portal = look.Portal, Gone = true, StretchVisible = look.StretchVisible,
                 };
@@ -227,7 +243,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ? new BulletLook { Portal = times }
                     : new BulletLook
                     {
-                        Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, Morph = look.Morph, Alpha = look.Alpha,
+                        Shape = look.Shape, Overlay = look.Overlay, OverlayAmount = look.OverlayAmount, Decal = look.Decal, Scale = look.Scale, HitScale = look.HitScale, Morph = look.Morph, Alpha = look.Alpha,
                         Harmless = look.Harmless, SlideSign = look.SlideSign, SlideVertical = look.SlideVertical, FallsAt = look.FallsAt, ShakeFrom = look.ShakeFrom, ShakeTo = look.ShakeTo,
                         Level = look.Level, Shaking = look.Shaking, Dark = look.Dark, Portal = times, StretchVisible = look.StretchVisible,
                     };
@@ -396,6 +412,39 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>When above 0 an <see cref="TrajectoryOpKind.Aim"/> turns the thing at most this far (radians) towards Point: Kokoro's arrowheads turn a little every beat, as homing ones do.</summary>
         public float TurnLimit { get; init; }
+
+        /// <summary>LaterFreeze: how long after a ring is fired its freeze begins, and how long it lasts (ms).</summary>
+        public double Delay { get; init; }
+
+        public double Span { get; init; }
+
+        /// <summary>LaterFreeze / StopAndGo: how long before each freeze (each move) the field warns of it (ms).</summary>
+        public double WarnMs { get; init; }
+
+        /// <summary>StopAndGo: how long a ring stands when it is fired, how long each move and each stop after it lasts (ms), and when the last stop may begin.</summary>
+        public double FirstStop { get; init; }
+
+        public double MoveMs { get; init; }
+        public double StopMs { get; init; }
+        public double GoUntil { get; init; } = double.PositiveInfinity;
+
+        /// <summary>An <see cref="TrajectoryOpKind.Aim"/> whose Point is where the player is when its time comes (the act of its boss places it): Aunn's moves.</summary>
+        public bool PlayerAim { get; init; }
+
+        /// <summary>
+        /// An <see cref="TrajectoryOpKind.Aim"/> also makes the thing this many times as fast, from its time on, whether it has been placed yet or not (Aunn's first move: her bullets move twice as fast as
+        /// they were fired, 2026-11-22).
+        /// </summary>
+        public float SpeedFactor { get; init; } = 1f;
+
+        /// <summary>A freeze that the field warns of with a flashing circle round every bullet (Rin's swell).</summary>
+        public bool SwellWarn { get; init; }
+
+        /// <summary>
+        /// (for beams) The op takes whole beams: every beam that started between <see cref="BornAfter"/> and <see cref="BornBefore"/>, every slice of it whenever it was fired - Suwako's and Tsukasa's
+        /// bounces (2026-11-21: the slices of a slider that went on past the end of her section flew out, while the ones before them bounced).
+        /// </summary>
+        public bool WholeBeams { get; init; }
     }
 
     /// <summary>Where a thing is, and what state it is in, after its flight has been worked out by <see cref="Trajectory.Trace"/>.</summary>
@@ -429,7 +478,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// Something bounced off what the op is (the screen's border for Seija, Kyouko's glass, Mima's moon) at <paramref name="now"/> at <paramref name="position"/>: the op keeps it for the field to flash there, if it is
         /// recent enough to be seen at <paramref name="time"/> (the same bounce worked out again is kept once).
         /// </summary>
-        private static void recordBounce(TrajectoryOp op, double now, Vector2 position, double time)
+        internal static void recordBounce(TrajectoryOp op, double now, Vector2 position, double time)
         {
             if (op.Bounces != null && time - now < DanmakusuBalance.RICOCHET_FLASH_MS && op.Bounces.Count < 512)
                 op.Bounces.TryAdd(((int)Math.Floor(now / 25), (int)MathF.Floor(position.X / 8f), (int)MathF.Floor(position.Y / 8f)), (now, position));
@@ -469,14 +518,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             foreach (var op in ops)
             {
-                if ((op.Time <= t0 && !op.Window) || t0 >= op.BornBefore)
+                if ((op.Time <= t0 && !op.Window) || (t0 >= op.BornBefore && !op.WholeBeams))
                     continue; // it did not exist yet when this began
 
                 if (op.Window && t0 > op.End)
                     continue; // (it was fired after the window)
 
-                if (t0 < op.BornAfter)
-                    continue; // (it was fired before the stretch the op is for)
+                if (t0 < op.BornAfter && !op.WholeBeams)
+                    continue; // (it was fired before the stretch the op is for) // (an op for whole beams: the beam has it, see LaserEmitter.ConfigureOps)
 
                 if (op.OfEight > 0 && bullet >= 0 && bullet * op.OfEight % 8 >= op.OfEight)
                     continue;
@@ -776,8 +825,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case TrajectoryOpKind.Pull:
                     case TrajectoryOpKind.Gravity:
                     {
-                        // (Kokoro's moods: when the mood comes, or when the thing is fired in it - and after whatever froze it has let it go)
-                        if (op.Kind != TrajectoryOpKind.Gravity && !op.Placed)
+                        // (Kokoro's moods: when the mood comes, or when the thing is fired in it - and after whatever froze it has let it go. An aim that also speeds the thing up does that even
+                        // before it is placed, keeping its way)
+                        if (op.Kind != TrajectoryOpKind.Gravity && !op.Placed && op.SpeedFactor == 1f)
                             break;
 
                         double from = Math.Max(op.Time, now);
@@ -796,6 +846,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         {
                             float speed = v.Length;
 
+                            if (!op.Placed)
+                            {
+                                v *= op.SpeedFactor;
+                                acc = Vector2.Zero;
+                                break;
+                            }
+
+                            speed *= op.SpeedFactor;
+
                             if (speed > 1e-6f && toPoint.LengthSquared > 1f)
                             {
                                 float now_ = MathF.Atan2(v.Y, v.X), wanted = MathF.Atan2(toPoint.Y, toPoint.X);
@@ -812,6 +871,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                                 v = new Vector2(MathF.Cos(now_ + turn), MathF.Sin(now_ + turn)) * speed;
                             }
+                            else
+                                v *= op.SpeedFactor;
 
                             acc = Vector2.Zero;
                         }

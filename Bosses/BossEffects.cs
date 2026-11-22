@@ -202,6 +202,23 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             return found;
         }
 
+        /// <summary>The clock that beams go by (2026-11-21): only Gengetsu's haste - every slice on the screen speeds up in her attacks as every bullet does; no other boss's clock touches beams. None: null.</summary>
+        public static BossEffects? ForBeams(IEnumerable<BossPeriod> bosses)
+        {
+            var windows = new List<(double start, double end, float sight, double speedFrom, double speedTo, int source)>();
+
+            foreach (var period in bosses.Where(p => p.Boss?.Mechanic == BossMechanic.Haste))
+            {
+                foreach (var (start, end) in BossOps.Attacks(period))
+                {
+                    if (end > start)
+                        windows.Add((start, end, 0f, 1.0, DanmakusuBalance.GENGETSU_SPEED_UP, (int)BossMechanic.Haste));
+                }
+            }
+
+            return windows.Count > 0 ? new BossEffects(windows) : null;
+        }
+
         public static BossEffects Build(IEnumerable<BossPeriod> bosses)
         {
             var windows = new List<(double start, double end, float sight, double speedFrom, double speedTo, int source)>();

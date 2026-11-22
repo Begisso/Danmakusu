@@ -39,7 +39,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         private static readonly HashSet<BossMechanic> placeholder_mechanics = new HashSet<BossMechanic>
         {
             BossMechanic.None, BossMechanic.Density, BossMechanic.Distance, // (Dolls: Alice's, built 2026-11-20)
-            BossMechanic.Elixir,BossMechanic.Frog, BossMechanic.Illusions,
+            BossMechanic.Elixir, BossMechanic.Illusions, // (Frog: Suwako's, built 2026-11-21)
             BossMechanic.Poison, BossMechanic.Psychokinesis, BossMechanic.Thunder, // (Onbashira: Kanako's, built 2026-11-20)
         };
 

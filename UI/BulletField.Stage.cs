@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using osu.Framework.Audio.Sample;
@@ -185,6 +185,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public float Tint2Amount;
             public double Tint2Over;
 
+            /// <summary>When above 0 the tint of <see cref="Tint2At"/> goes again from this moment, over <see cref="Tint2Over"/> ms (Ariya's grey, while she has stopped it).</summary>
+            public double Tint2Until;
+
             /// <summary>When above 0 the bullet starts to bloom (up to <see cref="BloomTo"/>) at this moment.</summary>
             public double BloomAt;
 
@@ -224,6 +227,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public double HubUntil;
             public Vector2 HubV;
             public double HubBackAt;
+
+            /// <summary>When above 0 a bullet that goes round a hub stops going round it from this moment on (it stays where it is on its circle, and stops turning: Kanako's, 2026-11-21).</summary>
+            public double OrbitUntil;
 
             /// <summary>When above 0 the bullet wanders round its straight line, about this many px to each side, as a firefly does; <see cref="WanderPhase"/> makes it its own (Wriggle's).</summary>
             public float Wander;
@@ -1030,8 +1036,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return double.IsInfinity(Math.Min(acrossX, acrossY)) ? 60.0 : Math.Max(Math.Min(acrossX, acrossY), 0.0);
         }
 
-        /// <summary>Do circles and sliders fall in this map (Urumi's sections)?</summary>
-        public bool HasFallingObjects => objectFallActs.Count > 0;
+        private readonly List<FossilAct> fossilActs = new List<FossilAct>();
+
+        /// <summary>Do circles and sliders fall in this map (Urumi's sections), or stay grey (Ariya's)?</summary>
+        public bool HasFallingObjects => objectFallActs.Count > 0 || fossilActs.Count > 0;
 
         /// <summary>A <see cref="FallLayer"/> shows the falling objects as what they are; without one (the boss menu's preview, the bench) the act draws them itself.</summary>
         public bool FallingObjectsShown { get; set; }
@@ -1043,6 +1051,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return;
 
             foreach (var act in objectFallActs)
+                act.Collect(t, into);
+
+            // (Ariya's held ones, grey and still: after Urumi's, which go first)
+            foreach (var act in fossilActs)
                 act.Collect(t, into);
         }
         private readonly List<BossPeriod> nuclearPeriods = new List<BossPeriod>();
@@ -1957,6 +1969,55 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Komainu:
+                        // Aunn: her curving beams, and where the player is when each of her bullets sets off (the stops and moves are BossOps', made for every ring by BulletEmitter.ConfigureOps)
+                        if (period.End > period.ShootStart)
+                            registerStage(new KomainuAct(this, period, attacks));
+
+                        break;
+
+                    case BossMechanic.Patrol:
+                        // Momiji: the piles at the top and the bottom, their crash, and the beams behind what flies off
+                        if (period.End > period.ShootStart)
+                            registerStage(new PatrolAct(period));
+
+                        break;
+
+                    case BossMechanic.Starlight:
+                        // Star Sapphire: her sphere of stars
+                        if (period.End > period.ShootStart)
+                            registerStage(new SphereAct(period));
+
+                        break;
+
+                    case BossMechanic.Creation:
+                        // Shinki: her wings, the streams that come out of them and where her beams start (that the beams are fired from her wings, straight, is the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new CreationAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Mirage:
+                        // Nina: her golden beams, and what comes back out of them (her balls are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new MirageAct(period));
+
+                        break;
+
+                    case BossMechanic.Effigy:
+                        // Ubame: her dolls, and what they shoot again
+                        if (period.End > period.ShootStart)
+                            registerStage(new EffigyAct(period));
+
+                        break;
+
+                    case BossMechanic.Fossil:
+                        // Ariya: the circles and sliders she holds, her flash and her grid of ellipses (that everything stops is BossOps', that what they would shoot is held the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new FossilAct(period, circleZones, sliderZones));
+
+                        break;
+
                     case BossMechanic.Strings:
                         // Benben's notes (her beams and the copies of the sliders' beams are the planner's)
                         if (period.End > period.ShootStart)
@@ -2409,6 +2470,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 case ObjectFallAct falling:
                     objectFallActs.Add(falling);
+                    break;
+
+                case FossilAct fossil:
+                    fossilActs.Add(fossil);
                     break;
 
                 case ReturnAct returned:
@@ -3061,9 +3126,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Where a bullet that goes round a hub is at <paramref name="t"/>.</summary>
         private static Vector2 orbitingPoint(in StageBullet b, double t)
         {
-            float angle = b.OrbitPhase + b.OrbitOmega * (float)(t - b.T0);
+            float angle = b.OrbitPhase + b.OrbitOmega * (float)(orbitClock(b, t) - b.T0);
             return hubPoint(b, t) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * b.Orbit;
         }
+
+        /// <summary>The moment a bullet that goes round a hub has turned up to at <paramref name="t"/> (it stops turning at <see cref="StageBullet.OrbitUntil"/>).</summary>
+        private static double orbitClock(in StageBullet b, double t) => b.OrbitUntil > 0 ? Math.Min(t, b.OrbitUntil) : t;
 
         /// <summary>How far a bullet whose speed pulses (<see cref="StageBullet.PulseMs"/>) has flown <paramref name="age"/> ms after it set off: the speed of its V times the integral of the swelling factor.</summary>
         private static double pulsedFlown(in StageBullet b, double age)
@@ -3092,7 +3160,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Which way a bullet that turns by itself points at <paramref name="t"/> (see <see cref="StageBullet.Spin"/>).</summary>
         private static Vector2 stageSpun(in StageBullet b, double t)
         {
-            float angle = b.SpinPhase + b.Spin * (float)(t - b.T0);
+            float angle = b.SpinPhase + b.Spin * (float)((b.Orbit > 0f ? orbitClock(b, t) : t) - b.T0); // (one that stops going round its hub stops turning with it)
 
             if (b.FallAt > 0 && t > b.FallAt)
                 angle += (b.FallSpin - b.Spin) * (float)(t - b.FallAt);
@@ -3129,11 +3197,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             float amount = b.FadeIn > 0 ? b.TintAmount * smoothStep((t - b.T0) / b.FadeIn) : b.TintAmount;
 
+            // (the second tint has gone again: its own, as it was)
+            if (secondTintOver(b, t))
+                return amount;
+
             if (b.Tint2At > 0 && t >= b.Tint2At)
                 amount += (b.Tint2Amount - amount) * smoothStep((t - b.Tint2At) / Math.Max(b.Tint2Over, 1.0));
 
+            // (it fades out over as long as it came in; then its own tint is back: stageTint)
+            if (b.Tint2Until > 0 && t >= b.Tint2Until)
+                amount *= 1f - smoothStep((t - b.Tint2Until) / Math.Max(b.Tint2Over, 1.0));
+
             return amount;
         }
+
+        private static bool secondTintOver(in StageBullet b, double t) => b.Tint2Until > 0 && t >= b.Tint2Until + Math.Max(b.Tint2Over, 1.0);
+
+        /// <summary>The tint a stage bullet is shown in at <paramref name="t"/>: the second one from its moment until it has gone again.</summary>
+        private static int stageTint(in StageBullet b, double t) => b.Tint2At > 0 && t >= b.Tint2At && !secondTintOver(b, t) ? b.Tint2 : b.Tint;
 
         private static float stageBladeAngle(in StageBullet b, double t)
         {
@@ -3342,7 +3423,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         YellowHandle = bullet.YellowHandle,
                         Shape = look?.Shape ?? bullet.Shape,
                         Speed = velocity.Length,
-                        Overlay = look is { Overlay: > 0 } ? look.Overlay : bullet.Tint2At > 0 && drawTime >= bullet.Tint2At ? bullet.Tint2 : bullet.Tint,
+                        Overlay = look is { Overlay: > 0 } ? look.Overlay : stageTint(bullet, drawTime),
                         OverlayAmount = look is { Overlay: > 0 } ? look.OverlayAmount : stageTintAmount(bullet, drawTime),
                         Fade = Math.Max(Math.Max(Math.Max(look is { Alpha: < 1f } ? 1f - look.Alpha : 0f, bullet.AlphaOver > 0 ? smoothStep((drawTime - bullet.AlphaFrom) / bullet.AlphaOver) : 0f),
                             drawTime < bullet.GhostUntil ? 1f - bullet.GhostVisible : drawTime < bullet.GhostUntil + 200 ? (1f - bullet.GhostVisible) * (1f - smoothStep((drawTime - bullet.GhostUntil) / 200.0)) : 0f),
@@ -3547,6 +3628,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Is the character on a planet, the tree, the black hole or a chain right now? (They hurt like a slider body.)</summary>
         private string lastStageHurt = string.Empty;
 
+        /// <summary>How long after its end (or the end of its mechanics) an act can still have something that hurts: what it threw is out of the screen long before.</summary>
+        private const double act_linger_ms = 30000;
+
         private bool touchesStage(double now)
         {
             if (stageActs.Count == 0)
@@ -3556,6 +3640,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             foreach (var act in stageActs)
             {
+                // (an act whose time has not come, or went long ago, has nothing that hurts: with a hundred bosses on a map, asking every one of them every frame - and the autoplay, many times a frame - cost
+                // milliseconds; 2026-11-21)
+                if (now < act.Start - 1 || now > Math.Max(act.End, act.MechanicsEnd) + act_linger_ms)
+                    continue;
+
                 long since = timed ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
                 bool hurts = act.Hurts(this, now);
 
@@ -3767,6 +3856,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.Anchors: // nor does Murasa
                 case BossMechanic.Pagoda: // Shou stands in the middle of her cross
                 case BossMechanic.FallenAngel: // Matenshi too, with her wings
+                case BossMechanic.Onbashira: // Kanako always stands in the middle (2026-11-21)
+                case BossMechanic.Starlight: // Star Sapphire, in the middle of her sphere (2026-11-21)
                     return true;
 
                 case BossMechanic.Unknown:
@@ -4041,6 +4132,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             mikoBackground.Alpha = 0f;
             kaguyaBackground.Alpha = 0f;
             kokoroBackground.Alpha = 0f;
+            merlinBackground.Alpha = 0f;
 
             if (hasScreenBounds)
             {
@@ -4056,6 +4148,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             drawImpactFrame(t);
             drawShionArrows(t);
             drawKokoroArrows(t);
+            drawSwellWarnings();
+            drawGoArrows();
 
             foreach (var act in stageActs)
                 act.Draw(this, t);

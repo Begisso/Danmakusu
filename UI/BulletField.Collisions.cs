@@ -57,7 +57,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (the beam can be wider in some places than in others: every point has its own width)
                 for (int beam = 0; beam < laser.BeamCount; beam++)
                 {
-                    if (laser.BeamFinished[beam])
+                    if (laser.BeamFinished[beam] || (laser.BeamGoneAt != null && now > laser.BeamGoneAt[beam]))
                         continue;
 
                     int n = beamPoints(i, beam, now, true); // (kept for the drawing, at the same moment)
@@ -398,7 +398,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float smoke = stageSmokeCount > 0 ? smokeAt(positionB) : 0f;
                     float ripple = stageRippleCount > 0 ? rippleGrow(positionB) : 1f;
-                    float grow = emitter.KeepsSize ? 1f : (growMax > 1f ? ripple * smokeGrow(smoke) * (sukunaLevel > 0f ? sukunaGrow(positionB) : 1f) : 1f) * emitter.BigScale(b); // (Utsuho's big balls and the trains keep their size: their hitbox too)
+                    float grow = emitter.KeepsSize ? 1f : (growMax > 1f ? ripple * smokeGrow(smoke) * (sukunaLevel > 0f ? sukunaGrow(positionB) : 1f) : 1f) * emitter.BigScale(b) * (lookB?.HitScale ?? 1f); // (Utsuho's big balls and the trains keep their size: their hitbox too) // (Rin's and Aunn's swollen bullets hurt as big as they are)
 
                     // (Raiko: a bullet that her ripple has swollen far enough hurts like a slider body while it is swollen; what keeps its size is not swollen)
                     bool swollen = !emitter.KeepsSize && ripple >= 1f + (DanmakusuBalance.RAIKO_RIPPLE_GROW - 1f) * DanmakusuBalance.RAIKO_SLIDER_FROM;
@@ -569,8 +569,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (!touching)
             {
-                if (touchesLaser(now) || touchesStarTail(now))
+                if (touchesLaser(now))
                     cause = "laser beam";
+                else if (touchesStarTail(now))
+                    cause = "star tail"; // (a beam too: as much damage; told apart since 2026-11-21)
                 else if (touchesMoonStream(now))
                     cause = "moon stream";
                 else

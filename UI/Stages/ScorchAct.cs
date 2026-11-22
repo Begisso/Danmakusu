@@ -9,9 +9,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Yuki: in her attacks the laser bursts every boss had before Marisa's Master Spark: five beams evenly round her (three with another boss on the screen, two with two more), the first aimed at the player
-        // when the attack begins, turning slowly together (as fast as a spinner's beams) so that the nearest comes round to the player; their slices fly out twice as fast as a plain bullet. Since 2026-11-14 they
-        // are as thick as a spinner's beams and grow as theirs do (an osu! circle's radius where they are fired, widening to the spinner beam's widest; they were thin). But every slice goes out (fading) as far
+        // Yuki: in her attacks one beam from her (since 2026-11-20; it was the laser bursts every boss had before Marisa's Master Spark, five beams evenly round her), aimed at the player when the attack begins,
+        // turning slowly (as fast as a spinner's beams) so that it comes round to the player; its slices fly out twice as fast as a plain bullet. Since 2026-11-14 it is as thick as a spinner's beam and grows as
+        // theirs do (an osu! circle's radius where it is fired, widening to the spinner beam's widest), and since 2026-11-20 twice that all along. But every slice goes out (fading) as far
         // from her as the player was when it was fired, and every third leaves a scorch mark where it went out: a round spot that looks like the beam (its edge, its colour, its white core), as wide as the
         // beam was there, all the marks one seamless spot where they overlap, that burns for eight beats and hurts like a slider body. Slices still flying when her attack ends (or she leaves) fly on out to the
         // edge of the screen instead, and leave no mark. Marisa's big star is on her while she fires (BossCharacter).
@@ -61,19 +61,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 volleyFrom = new Vector2[volleys.Length];
                 volleyKnown = new bool[volleys.Length];
 
-                // (with another boss on the screen as many beams as any boss keeps then: half, or a third)
-                int sharing = 1;
-
-                foreach (var other in f.bosses)
-                {
-                    if (other != period && other.Rank != period.Rank && !other.Borrowed && other.ShootStart < period.End && other.End > period.ShootStart)
-                        sharing = Math.Max(sharing, other.Rank + 1);
-                }
-
-                sharing = Math.Max(sharing, period.Rank + 1);
-
-                if (sharing > 1)
-                    beamCount = Math.Max(1, (DanmakusuBalance.SPINNER_LASER_BEAMS + sharing - 1) / sharing);
+                // (one beam, with other bosses on the screen too: it was five, halved or a third with others, until 2026-11-20)
+                beamCount = DanmakusuBalance.YUKI_BEAMS;
             }
 
             private float speed => stageBulletSpeed(Period) * DanmakusuBalance.YUKI_BEAM_SPEED;
@@ -85,18 +74,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// How wide a slice is when it has flown <paramref name="flown"/> px: as a spinner's beam (2026-11-14, "as thick and growing as spinner placeholder laserbeams") - an osu! circle's radius where it is
             /// fired, widening fast at first and ever more slowly to the spinner beam's widest over <see cref="DanmakusuBalance.LASER_GROWTH_DISTANCE"/>.
             /// </summary>
+            /// (2026-11-20: twice as wide all along, YUKI_BEAM_WIDER)
             private float widthAt(float flown)
             {
                 if (Period.SpinnerBeamHalfWidth <= 0f)
-                    return scorchHalf;
+                    return scorchHalf * DanmakusuBalance.YUKI_BEAM_WIDER;
 
                 float start = Period.SpinnerBeamStartHalfWidth;
                 float grown = Math.Max(Period.SpinnerBeamHalfWidth * DanmakusuBalance.LASER_PEAK_FACTOR, start);
                 float u = Math.Clamp(flown / DanmakusuBalance.LASER_GROWTH_DISTANCE, 0f, 1f);
-                return start + (grown - start) * (1f - (1f - u) * (1f - u));
+                return (start + (grown - start) * (1f - (1f - u) * (1f - u))) * DanmakusuBalance.YUKI_BEAM_WIDER;
             }
 
-            private float widest => Period.SpinnerBeamHalfWidth > 0f ? Math.Max(Period.SpinnerBeamHalfWidth * DanmakusuBalance.LASER_PEAK_FACTOR, Period.SpinnerBeamStartHalfWidth) : scorchHalf;
+            private float widest => (Period.SpinnerBeamHalfWidth > 0f ? Math.Max(Period.SpinnerBeamHalfWidth * DanmakusuBalance.LASER_PEAK_FACTOR, Period.SpinnerBeamStartHalfWidth) : scorchHalf) * DanmakusuBalance.YUKI_BEAM_WIDER;
 
             /// <summary>
             /// How far a slice goes: as far as the player was when it was fired - but one still flying when its attack ends (or she leaves) flies on out to the edge of the screen, so the beam is not gone at once
@@ -297,6 +287,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (drawing)
                     {
                         f.addPlainBeam(line, widest, runColour, runBorder, ref drawnBeams, ref drawnTotal, widths);
+                        f.laserInstances[drawnBeams - 1].Piece = drawnPiece;
 
                         for (int i = 0; i < fades.Count; i++)
                             f.laserFadePointBuffer[drawnTotal - line.Count + i] = fades[i];
@@ -327,16 +318,48 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 drawing = true;
                 drawnBeams = beams;
                 drawnTotal = pointTotal;
+                drawnPiece = ++f.beamPieces; // (her beam and its marks are one piece: every edge under every inside, so they run into each other seamlessly - 2026-11-21)
 
                 int from = firstShown(f, t);
 
                 for (int beam = 0; beam < beamCount; beam++)
                     beamAt(f, beam, t, from);
 
+                // the scorch marks: round spots of the beam itself (a dot of beam, as wide as the beam was where the slice went out), in the same piece as the beam
+                for (int i = from; i < slices.Count; i++)
+                {
+                    var slice = slices[i];
+                    float level = burning(slice, t);
+
+                    if (level < 0.01f)
+                        continue;
+
+                    float radius = markRadius(slice);
+
+                    for (int beam = 0; beam < beamCount; beam++)
+                    {
+                        Vector2 at = markOf(slice, beam);
+                        line.Clear();
+                        line.Add(at);
+                        line.Add(at + wayOf(slice.Angle + beam * MathF.Tau / beamCount) * 0.5f);
+                        f.addPlainBeam(line, radius, runColour, runBorder, ref drawnBeams, ref drawnTotal);
+                        f.laserInstances[drawnBeams - 1].Piece = drawnPiece;
+
+                        if (level < 0.999f)
+                            Array.Fill(f.laserFadePointBuffer, level, drawnTotal - 2, 2);
+                    }
+                }
+
+                line.Clear();
                 beams = drawnBeams;
                 pointTotal = drawnTotal;
                 drawing = false;
             }
+
+            private int drawnPiece;
+
+            /// <summary>Is she firing her beam at <paramref name="now"/> (it has the beam sound then)?</summary>
+            public bool Firing(double now) => inAttack(now);
 
             // ---- the scorch marks ----
 
@@ -359,55 +382,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>How big (radius) the mark a slice leaves is: as wide as the beam was where it went out (2026-11-14, "scorch should be same radius as laserbeam when it landed").</summary>
             private float markRadius(in Slice slice) => widthAt(slice.Reach);
 
-            /// <summary>
-            /// The scorch marks (2026-11-14: they look like the beam that left them - "make scorch area look same as laserbeam"): a round spot of beam, its dark edge, its colour and its white core, as wide as the
-            /// beam where it went out. Every edge of every mark is drawn first, then every colour, then every core, so where marks overlap they run into one seamless spot (no edge across another).
-            /// </summary>
-            public override void Draw(BulletField f, double t)
-            {
-                if (f.failed || slices.Count == 0 || f.palette.Length == 0)
-                    return;
+            // (the scorch marks look like the beam that left them, 2026-11-14, "make scorch area look same as laserbeam": since 2026-11-21 they are drawn as the beam is, round dots of beam in the same piece as
+            // the beam - see DrawBeams - so marks and beam run into one seamless shape; they were pictures of a spot on a layer of their own, which never joined the beam)
 
-                int style = f.comboStyle(1, true, Period.Rank);
-                Color4 body = f.palette[style % f.palette.Length], edge = f.borderPalette[style % f.borderPalette.Length];
-                var core = DanmakusuBalance.IsWhiteBullet(body) ? DanmakusuBalance.WHITE_BULLET_CENTRE_COLOUR : Color4.White;
-                int first = firstShown(f, t);
-
-                for (int pass = 0; pass < 3; pass++)
-                {
-                    for (int i = first; i < slices.Count; i++)
-                    {
-                        var slice = slices[i];
-                        float level = burning(slice, t);
-
-                        if (level < 0.01f)
-                            continue;
-
-                        float radius = markRadius(slice);
-
-                        for (int beam = 0; beam < beamCount; beam++)
-                        {
-                            Vector2 at = markOf(slice, beam);
-
-                            // (the layers of a beam: the edge as wide as it, the colour inside, the white core in the middle)
-                            switch (pass)
-                            {
-                                case 0:
-                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius), 0f, level, edge);
-                                    break;
-
-                                case 1:
-                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius * DanmakusuBalance.YUKI_SCORCH_BODY), 0f, level, body);
-                                    break;
-
-                                default:
-                                    f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(2f * radius * DanmakusuBalance.YUKI_SCORCH_CORE), 0f, level, core);
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
 
             /// <summary>The beams and the scorch marks hurt like a slider body.</summary>
             public override bool Hurts(BulletField f, double now)

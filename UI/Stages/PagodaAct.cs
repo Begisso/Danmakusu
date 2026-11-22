@@ -9,9 +9,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Shou Toramaru: she stands in the middle of the screen. When her section begins a cross of four beams grows out of her, over a beat, until it reaches past every edge (it starts turned so that the player is
-        // between two of its arms): three plain bullets wide on each side, glowing, drawn as one piece, with the big star a boss has while she fires (Marisa's) on its middle, over her. It turns clockwise in her attacks
-        // and anticlockwise in her pauses, one and a half times as fast as a spinner's beams, and hurts like a slider body; when her section is over it shrinks back. Every fourth
+        // Shou Toramaru: she stands in the middle of the screen. When her section begins a see-through preview of her cross shows for two beats (2026-11-21), then the cross of four beams grows out of her, over a
+        // beat, until it reaches past every edge (it starts turned so that the player is between two of its arms): three plain bullets wide on each side, glowing, drawn as one piece, so its joint in the middle is
+        // seamless (no big star over it since 2026-11-21). It turns one way and then the other, the way changing at every second start or end of one of her attacks (2026-11-21; it was at every one: clockwise in
+        // her attacks, anticlockwise in her pauses), as fast as a spinner's beams times SHOU_CROSS_SPIN, flashing another colour before it turns, and hurts like a slider body; when her section is over it shrinks back. Every fourth
         // bullet fired in her section (anyone's, counted ring by ring) does not come out where it was fired: it comes out of the cross, the places spread evenly over its four arms and along them, and flies straight
         // across the arm, to one side or the other (half each), at the speed it had. Every four beats she shoots a ring of sixteen beams that wave from side to side as they fly out (as what Wakasagihime makes swim,
         // every second one the other way), each a beat and a half long, hurting like a slider body.
@@ -55,7 +56,34 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 rings = times.ToArray();
                 ringFrom = new Vector2[rings.Length];
                 ringKnown = new bool[rings.Length];
+
+                crossFrom = period.ShootStart + beat * DanmakusuBalance.SHOU_PREVIEW_BEATS;
+
+                // (where the cross turns the other way: every second start or end of an attack after it has grown out; it begins turning clockwise if it begins in an attack, as it always did)
+                var bounds = new List<double>();
+
+                foreach (var (start, end) in attacks)
+                {
+                    foreach (double at in new[] { start, end })
+                    {
+                        if (at > crossFrom && at < period.End)
+                            bounds.Add(at);
+                    }
+                }
+
+                bounds.Sort();
+
+                for (int i = 1; i < bounds.Count; i += 2)
+                    turns.Add(bounds[i]);
+
+                firstWay = attacks.Exists(a => crossFrom >= a.Start && crossFrom < a.End) ? 1f : -1f;
             }
+
+            private readonly double crossFrom; // (when the cross grows out, after its preview)
+            private readonly List<double> turns = new List<double>(); // (when it turns the other way)
+            private readonly float firstWay; // (1 clockwise, -1 anticlockwise, until its first turn)
+
+            private double previewMs => beat * DanmakusuBalance.SHOU_PREVIEW_BEATS;
 
             private double growMs => beat * DanmakusuBalance.SHOU_CROSS_GROW_BEATS;
 
@@ -110,49 +138,50 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // ---- the cross ----
 
-            /// <summary>How far the cross has turned at <paramref name="t"/> (radians): clockwise for the time spent in her attacks, anticlockwise for the rest.</summary>
+            /// <summary>How far the cross has turned at <paramref name="t"/> (radians): one way until its first turn, the other way until the next, and so on (from when it grows out).</summary>
             private float angleAt(double t)
             {
-                double inAttacks = 0;
-                double since = Math.Max(t - Start, 0);
+                double from = crossFrom;
+                float way = firstWay;
+                double turned = 0;
 
-                foreach (var (start, end) in attacks)
+                foreach (double turn in turns)
                 {
-                    double from = Math.Max(start, Start), to = Math.Min(end, t);
+                    if (turn >= t)
+                        break;
 
-                    if (to > from)
-                        inAttacks += to - from;
+                    turned += way * (turn - from);
+                    from = turn;
+                    way = -way;
                 }
 
-                return aim + spin * (float)(inAttacks - (since - inAttacks));
+                turned += way * Math.Max(t - from, 0);
+                return aim + spin * (float)turned;
             }
 
-            /// <summary>How long the arms are at <paramref name="t"/>: growing out at the start, shrinking back after her section.</summary>
+            /// <summary>How long the arms are at <paramref name="t"/>: growing out after the preview, shrinking back after her section.</summary>
             private float lengthAt(double t)
             {
-                float grown = smoothStep((t - Start) / growMs);
+                float grown = smoothStep((t - crossFrom) / growMs);
                 float shrunk = 1f - smoothStep((t - Period.End) / growMs);
                 return reach * Math.Min(grown, shrunk);
             }
 
             /// <summary>
-            /// How much the cross shows its other colour at <paramref name="t"/> (0..1): over the last <see cref="DanmakusuBalance.SHOU_FLASH_BEATS"/> before it turns the other way (the start or the end of an
-            /// attack in her section), on and off <see cref="DanmakusuBalance.SHOU_FLASHES"/> times.
+            /// How much the cross shows its other colour at <paramref name="t"/> (0..1): over the last <see cref="DanmakusuBalance.SHOU_FLASH_BEATS"/> before it turns the other way, on and off
+            /// <see cref="DanmakusuBalance.SHOU_FLASHES"/> times.
             /// </summary>
             private float switchFlash(double t)
             {
                 double span = beat * DanmakusuBalance.SHOU_FLASH_BEATS;
 
-                foreach (var (start, end) in attacks)
+                foreach (double turn in turns)
                 {
-                    foreach (double turn in new[] { start, end })
-                    {
-                        if (turn <= Period.ShootStart || turn >= Period.End || t >= turn || t < turn - span)
-                            continue;
+                    if (t >= turn || t < turn - span)
+                        continue;
 
-                        double u = 1 - (turn - t) / span;
-                        return 0.5f - 0.5f * MathF.Cos((float)(u * DanmakusuBalance.SHOU_FLASHES * MathF.Tau));
-                    }
+                    double u = 1 - (turn - t) / span;
+                    return 0.5f - 0.5f * MathF.Cos((float)(u * DanmakusuBalance.SHOU_FLASHES * MathF.Tau));
                 }
 
                 return 0f;
@@ -292,6 +321,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || !aimed || f.palette.Length == 0 || t < Start || t > End + waveLife(f))
                     return;
 
+                // the preview of the cross: see-through, harmless, thinner, where it will grow out (2026-11-21)
+                if (t < crossFrom)
+                {
+                    int previewStyle = f.comboStyle(1, true, Period.Rank);
+                    Vector2 centre = (f.stageMin + f.stageMax) * 0.5f;
+                    float seen = DanmakusuBalance.SHOU_PREVIEW_ALPHA * smoothStep((t - Start) / (beat * 0.25));
+                    int ghost = ++f.beamPieces;
+
+                    for (int arm = 0; arm < 2; arm++)
+                    {
+                        Vector2 way = armWay(aim, arm);
+                        int from = pointTotal;
+
+                        line.Clear();
+                        line.Add(centre - way * reach);
+                        line.Add(centre);
+                        line.Add(centre + way * reach);
+                        f.addPlainBeam(line, crossHalf(f) * 0.6f, f.palette[previewStyle % f.palette.Length], f.borderPalette[previewStyle % f.borderPalette.Length], ref beams, ref pointTotal);
+                        f.laserInstances[beams - 1].Piece = ghost;
+                        Array.Fill(f.laserFadePointBuffer, seen, from, pointTotal - from);
+                    }
+                }
+
                 // the cross: two beams through the middle, drawn as one piece (no seams where they cross) and glowing
                 float length = lengthAt(t);
 
@@ -345,29 +397,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            /// <summary>The middle of the cross (and Shou, who stands there) is covered by the big star a boss has while she fires, Marisa's, spinning, as long as the cross is out.</summary>
-            public override void Draw(BulletField f, double t)
-            {
-                if (f.failed || !aimed || t < Start || t > End)
-                    return;
-
-                float shown = lengthAt(t) / reach;
-
-                if (shown <= 0.002f)
-                    return;
-
-                Vector2 middle = (f.stageMin + f.stageMax) * 0.5f;
-                float size = 2f * f.circleRadius * big_star_radius_factor / big_star_fraction * (0.4f + 0.6f * shown);
-                float rotation = (float)(-t / 1000.0 * big_star_spin);
-                Color4 colour = BossCharacter.MainColour(Period.Boss); // (in her colour, as every boss's big star is since 2026-11-14)
-
-                f.stageFront.Add(StageTexture.Glow, middle, new Vector2(size * 1.3f), 0f, 0.6f * shown, colour, true);
-                f.stageFront.Add(StageTexture.BigStar, middle, new Vector2(size), rotation, shown, colour);
-            }
-
-            private const float big_star_radius_factor = 2.1f; // (as big as the boss's big star: see BossCharacter)
-            private const float big_star_fraction = 0.6f;
-            private const float big_star_spin = 40f; // (degrees per second, the same way as the boss's)
+            // (no big star over the middle of the cross since 2026-11-21, "remove marisa star above": the cross is one piece, its joint seamless)
 
             /// <summary>The cross and the waving beams hurt like a slider body.</summary>
             public override bool Hurts(BulletField f, double now)

@@ -147,7 +147,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         public static readonly Parameter FlandreEyeRadius = add(BossMechanic.Destruction, "flandre_eye_radius", "Explosion radius (circles)", 3.375, 1, 8);
         public static readonly Parameter FlandreAsyncBeats = add(BossMechanic.Destruction, "flandre_async_beats", "Clone shots apart (beats)", 2, 0, 8, interval: true);
         public static readonly Parameter FlandreSpeed = add(BossMechanic.Destruction, "flandre_speed", "Shot again: speed", 2, 0.5, 4);
-        public static readonly Parameter FlandreSize = add(BossMechanic.Destruction, "flandre_size", "Shot again: size", 0.5, 0.2, 2);
+        // (flandre_size, "Shot again: size", 0.5: taken out 2026-11-21 - what she shoots again keeps its own size)
         public static readonly Parameter FlandreCross = add(BossMechanic.Destruction, "flandre_cross", "Every n-th makes a cross", 4, 1, 16, interval: true, whole: true);
 
         public static IReadOnlyList<Parameter> All => all;

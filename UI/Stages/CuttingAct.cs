@@ -166,7 +166,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     pieces.Add(new Piece(before, outline, tint > 0 ? BulletRenderer.SpecialBodies[tint - 1] : f.palette[style % f.palette.Length], bloom, wholeRadius > 0f ? wholeRadius : radius));
             }
 
-            /// <summary>The outline of a bullet of this shape, facing the way it flies.</summary>
+            /// <summary>A corner of a piece moved <paramref name="by"/> px further out from its <paramref name="middle"/> (for the piece's outline).</summary>
+        private static Vector2 grown(Vector2 corner, Vector2 middle, float by)
+        {
+            Vector2 out_ = corner - middle;
+            float length = out_.Length;
+            return length > 1e-4f ? corner + out_ * (by / length) : corner;
+        }
+
+        /// <summary>The outline of a bullet of this shape, facing the way it flies.</summary>
             private static Vector2[] outlineOf(BulletShape shape, float r, Vector2 facing)
             {
                 Vector2 across = new Vector2(-facing.Y, facing.X);
@@ -278,6 +286,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // a little; 2026-11-14, the pieces had lost it)
                     float bloom = Math.Max(piece.Bloom, f.pieceBloom);
                     f.stageOrbs.Add(StageTexture.Glow, middle, new Vector2(piece.Radius * (2.6f + 2.4f * bloom)), 0f, 0.3f + 0.55f * Math.Min(bloom, 1f), piece.Colour, true);
+
+                    // (its outline, as a bullet has one, all round it and along the cut: the same shape a little bigger, in the bullet's edge colour, under it - 2026-11-21, "preserve outlines of cut bullets")
+                    float edge = piece.Radius * 0.14f + 0.6f;
+                    Color4 border = DanmakusuBalance.BorderColour(piece.Colour);
+
+                    for (int k = 0; k < piece.Outline.Length; k++)
+                    {
+                        Vector2 a = grown(at + piece.Outline[k], middle, edge), b = grown(at + piece.Outline[(k + 1) % piece.Outline.Length], middle, edge);
+                        f.stageMeshes.Add(new MeshQuad { A = middle, B = middle, C = a, D = b, Near = border, Far = border });
+                    }
 
                     for (int k = 0; k < piece.Outline.Length; k++)
                     {

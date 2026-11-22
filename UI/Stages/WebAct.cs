@@ -186,6 +186,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // ---- drawing ----
 
+            private static readonly Color4 active_edge = new Color4(0.78f, 0.8f, 0.84f, 1f);
+
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
             {
                 if (f.failed)
@@ -211,8 +213,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Array.Fill(f.laserFadePointBuffer, DanmakusuBalance.YAMAME_PREVIEW_ALPHA, from, pointTotal - from);
                     }
 
+                    // (the web itself is white, its edge a light silver: 2026-11-20, "previews stay same but are white on activation"; it was the preview's cream with a dark brown edge)
                     if (grown > gone + 0.5f)
-                        drawWeb(f, k, t, gone, grown, gone, half, silk, border, ++f.beamPieces, ref beams, ref pointTotal, false);
+                        drawWeb(f, k, t, gone, grown, gone, half, Color4.White, active_edge, ++f.beamPieces, ref beams, ref pointTotal, false);
                 }
             }
 

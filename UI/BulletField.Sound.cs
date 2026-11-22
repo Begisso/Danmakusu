@@ -62,6 +62,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 // (Clownpiece's moon laser has no sound of its own and does not use the beam sound either)
+
+                // (Yuki's beam is her act's: it has the beam sound while she fires, 2026-11-21)
+                if (!firing)
+                {
+                    foreach (var act in stageActs)
+                    {
+                        if (act is ScorchAct scorch && scorch.Firing(now))
+                        {
+                            firing = true;
+                            otherLaser = true;
+                            break;
+                        }
+                    }
+                }
             }
 
             bool active = masterSparkStartChannel != null || masterSparkChannel != null;

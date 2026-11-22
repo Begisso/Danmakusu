@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Shapes;
 using osu.Framework.Testing;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Objects;
@@ -502,6 +503,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (field.HasStage)
                 addLayer(into, field.CreateStageTopProxy());
 
+            // Focus Lens: the playfield's edges and the black past them, above everything but the HUD (unseen without the mod)
+            addLayer(into, new FocusFrame());
+
             addLayer(into, field.CreateHudProxy());
             return (field, light);
         }
@@ -561,6 +565,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         protected override void UpdateAfterChildren()
         {
             base.UpdateAfterChildren();
+            updateFocus(); // (Focus Lens: the camera on where the character is now)
             swapCursor();
 
             if (catchMap)
@@ -714,7 +719,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             double time = Time.Current;
 
-            if (bulletField != null && bulletField.HasMirror)
+            if (bulletField != null && (bulletField.HasMirror || FocusZoom > 0f || mirrorWasOn))
                 updateMirror(time);
 
             // Koishi: the circles and sliders vanish with her bullets (never exactly 0: a drawable that is not present would stop updating and could never be judged)
@@ -822,10 +827,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// </summary>
         private void updateMirror(double time)
         {
-            float angle = bulletField!.MirrorAngleAt(time);
+            float angle = bulletField!.HasMirror ? bulletField.MirrorAngleAt(time) : 0f;
             Rotation = angle;
 
-            bool on = angle > 0;
+            bool focus = FocusZoom > 0f;
+            bool on = angle > 0 || focus;
 
             // (also in the frame after the last mirrored one: a mouse move in that frame was placed by the still-turned playfield, and without this the cursor - and the
             // character, which follows it - would jump to the mirror image and sweep through every bullet on its way)
@@ -835,28 +841,86 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (input != null)
                 {
-                    // (the mouse in the turned playfield's coordinates, then back through the turn: where it is without it)
+                    // (the mouse in the turned - and with Focus Lens zoomed and moved - playfield's coordinates, then back through all that: where it is without it. The playfield shows a point p at
+                    // its place without the view + Position + the turn of (Scale x (p - centre)))
                     Vector2 local = ToLocalSpace(input.CurrentState.Mouse.Position);
                     Vector2 centre = DrawSize / 2;
-                    Vector2 d = local - centre;
+                    Vector2 d = (local - centre) * Scale.X;
                     float radians = angle * MathF.PI / 180f;
                     float cos = MathF.Cos(radians), sin = MathF.Sin(radians);
 
-                    Cursor.ActiveCursor.Position = centre + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
+                    Cursor.ActiveCursor.Position = centre + Position + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
                 }
             }
 
-            // the trail of the cursor remembers where the mouse really went: it would not follow the mirrored cursor, so it is hidden meanwhile
+            // the trail of the cursor remembers where the mouse really went: it would not follow the mirrored cursor, so it is hidden meanwhile (and all the time with Focus Lens)
             if (on || mirrorWasOn)
             {
                 if (cursorTrail?.Parent == null && Cursor != null)
                     cursorTrail = findTrail(Cursor);
 
                 if (cursorTrail != null)
-                    cursorTrail.Alpha = 1f - angle / 180f;
+                    cursorTrail.Alpha = focus ? 0f : 1f - angle / 180f;
             }
 
             mirrorWasOn = on;
+        }
+
+        #endregion
+
+        #region Focus Lens
+
+        /// <summary>Focus Lens (2026-11-21): the camera on the character, this many times closer (1: as near as without it, the default since 2026-11-22; 0: the mod is off). Set by the mod.</summary>
+        public float FocusZoom { get; set; }
+
+        /// <summary>
+        /// Focus Lens: the camera follows the character (or its ghost, while it is frozen or stunned): it stays in the middle of the screen and the playfield moves round it instead, as it looks without the
+        /// mod (or FocusZoom times as big). Only the look: the cursor is put where the mouse is without it (see updateMirror), so the character moves as it always does - only inside the playfield (the
+        /// field keeps it there: BulletField.FieldMin/FieldMax). Its edges are a thin white line, and nothing past them is seen (FocusFrame, under the boss HUD only). Done after the field has moved the
+        /// character this frame.
+        /// </summary>
+        private void updateFocus()
+        {
+            if (bulletField == null)
+                return;
+
+            float zoom = FocusZoom > 0f ? Math.Max(FocusZoom, 1f) : 0f;
+            bulletField.FocusZoom = zoom;
+
+            FocusFrame? frame = null;
+
+            foreach (var layer in fieldLayers)
+            {
+                if (layer is FocusFrame found)
+                    frame = found;
+            }
+
+            if (zoom <= 0f)
+            {
+                if (frame != null)
+                    frame.Alpha = 0f;
+
+                return;
+            }
+
+            Vector2 centre = DrawSize / 2;
+            Vector2 focus = bulletField.FocusPoint;
+            float radians = Rotation * MathF.PI / 180f;
+            float cos = MathF.Cos(radians), sin = MathF.Sin(radians);
+            Vector2 d = (focus - centre) * zoom;
+
+            Scale = new Vector2(zoom);
+            Position = -new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
+
+            // (the field works the screen out as it is without this: see BulletField.ViewShift)
+            bulletField.ViewShift = -d;
+            bulletField.ViewScale = zoom;
+
+            if (frame != null)
+            {
+                frame.Alpha = 1f;
+                frame.Place(bulletField.FieldMin, bulletField.FieldMax, zoom);
+            }
         }
 
         private static CursorTrail? findTrail(Drawable drawable)

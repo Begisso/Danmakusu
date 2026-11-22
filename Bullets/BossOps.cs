@@ -112,6 +112,49 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A bullet that Sakuya has turned into a knife.</summary>
         public static readonly BulletLook Knife = new BulletLook { Shape = BulletShape.Knife };
 
+        /// <summary>A bullet (or a beam) that Ariya has stopped: grey, as stone.</summary>
+        public static readonly BulletLook Stone = new BulletLook { Overlay = BulletRenderer.TINT_GRAY, OverlayAmount = 1f };
+
+        /// <summary>
+        /// Ariya's stretches (2026-11-22): ARIYA_STONE_BEATS each, one after the other from when she starts shooting, the last one begun at least a beat before her section ends (it ends after it, whole):
+        /// what is flying when one begins stops until it ends, and what the circles and sliders would shoot in it is shot as it ends.
+        /// </summary>
+        public static List<(double Start, double End)> StoneStretches(BossPeriod period)
+        {
+            var list = new List<(double, double)>();
+            double beat = Math.Max(period.BeatLength, 1);
+            double length = beat * DanmakusuBalance.ARIYA_STONE_BEATS;
+
+            for (double t = period.ShootStart; t < period.End - beat && list.Count < 10000; t += length)
+                list.Add((t, t + length));
+
+            return list;
+        }
+
+        private static readonly Dictionary<float, BulletLook[]> swell_steps = new Dictionary<float, BulletLook[]>();
+
+        /// <summary>The looks a bullet goes through as it swells to <paramref name="scale"/> times its size, drawn and hit (Rin's, Aunn's): the first is its own size, the last the whole swell. The same scale gives the same looks.</summary>
+        public static BulletLook[] SwellSteps(float scale)
+        {
+            lock (swell_steps)
+            {
+                if (swell_steps.TryGetValue(scale, out var known))
+                    return known;
+
+                const int steps = 16;
+                var made = new BulletLook[steps];
+
+                for (int i = 0; i < steps; i++)
+                {
+                    float s = 1f + (scale - 1f) * i / (steps - 1);
+                    made[i] = new BulletLook { Scale = s, HitScale = s };
+                }
+
+                swell_steps[scale] = made;
+                return made;
+            }
+        }
+
         /// <summary>A sakura flower that Yuyuko's tree has turned a bullet into: pink.</summary>
         public static readonly BulletLook PinkFlower = new BulletLook { Shape = BulletShape.Flower, Overlay = BulletRenderer.TINT_PINK, OverlayAmount = 1f };
 
@@ -412,12 +455,79 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                         break;
 
+                    case BossMechanic.Kasha:
+                    {
+                        // Rin (2026-11-21): every bullet fired in her attacks stops 16 beats after it was fired, swelling to twice its size (and hurting as big), and flies on as it flew 8 beats later, shrinking back
+                        // (each ring by its own clock: BulletEmitter.ConfigureOps makes the freezes; the field warns of each with a flashing circle)
+                        double beat = Math.Max(period.BeatLength, 1);
+
+                        foreach (var (start, end) in Attacks(period))
+                        {
+                            if (end <= start)
+                                continue;
+
+                            bullets.Add(new TrajectoryOp
+                            {
+                                Kind = TrajectoryOpKind.LaterFreeze, Time = start, End = end, BornAfter = start, BornBefore = end,
+                                Delay = beat * DanmakusuBalance.RIN_FREEZE_AFTER_BEATS, Span = beat * DanmakusuBalance.RIN_FREEZE_BEATS, WarnMs = beat * DanmakusuBalance.RIN_WARN_BEATS,
+                                Steps = SwellSteps(DanmakusuBalance.RIN_SWELL), During = SwellSteps(DanmakusuBalance.RIN_SWELL)[^1], Blend = beat * DanmakusuBalance.RIN_SWELL_BEATS,
+                            });
+                        }
+
+                        break;
+                    }
+
+                    case BossMechanic.Komainu:
+                    {
+                        // Aunn (2026-11-21): every bullet fired in her section swells to twice its size as it is fired (and hurts as big), then sets off at the player, moves four beats on that way, stands four
+                        // beats, sets off at the player again... by its own clock, until her section is over (then its last move goes on). The field warns of every move with an arrow beside every bullet; her act
+                        // places where the player is when each move begins. It moves AUNN_MOVE_SPEED times as fast as it was fired (2026-11-22)
+                        double beat = Math.Max(period.BeatLength, 1);
+                        var swell = SwellSteps(DanmakusuBalance.AUNN_SWELL);
+
+                        bullets.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.StopAndGo, Time = period.Start, End = period.End, BornAfter = period.Start, BornBefore = period.End, SpeedFactor = DanmakusuBalance.AUNN_MOVE_SPEED,
+                            FirstStop = beat * DanmakusuBalance.AUNN_SWELL_BEATS, MoveMs = beat * DanmakusuBalance.AUNN_MOVE_BEATS, StopMs = beat * DanmakusuBalance.AUNN_STOP_BEATS, GoUntil = period.End,
+                            WarnMs = beat * DanmakusuBalance.AUNN_WARN_BEATS, Steps = swell, During = swell[^1], After = swell[^1], Blend = beat * DanmakusuBalance.AUNN_SWELL_BEATS,
+                        });
+
+                        break;
+                    }
+
+                    case BossMechanic.Fossil:
+                    {
+                        // Ariya (2026-11-22): when each of her stretches begins everything that is flying, bullets and beams, stops, grey, until it ends (what came before the stretch before it stopped then already:
+                        // let go as this one begins, it flies on - nothing stops twice). What the circles and sliders held is shot as the stretch ends (the planner), after it: it does not stop
+                        double before = double.NegativeInfinity;
+
+                        foreach (var (start, end) in StoneStretches(period))
+                        {
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, BornAfter = before, During = Stone });
+                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, BornAfter = before, During = Stone });
+                            before = start;
+                        }
+
+                        break;
+                    }
+
+                    case BossMechanic.Frog:
+                        // Suwako (2026-11-21): her beams (the planner marks them) bounce once off the border of the screen, as Tsukasa's do - also long after her section: her slices are slow, and one that got to
+                        // the wall after the window flew out while its neighbour had bounced, a line across the screen between them
+                        beams.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.Bounce, Time = period.Start, End = period.End + DanmakusuBalance.SUWAKO_BOUNCE_AFTER_MS, BornAfter = period.Start, BornBefore = period.End, Window = true, OnlyMarked = true, WholeBeams = true,
+                            Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
+                        });
+
+                        break;
+
                     case BossMechanic.PipeFox:
                         // Tsukasa: every fourth beam of her section (the planner marks which) bounces once off the border of the screen - every slice of it, the first time it touches the border (the slices fired late in
                         // her section too, so the window goes on after it)
                         beams.Add(new TrajectoryOp
                         {
-                            Kind = TrajectoryOpKind.Bounce, Time = period.ShootStart, End = period.End + DanmakusuBalance.TSUKASA_BOUNCE_AFTER_MS, BornBefore = period.End, Window = true, OnlyMarked = true,
+                            Kind = TrajectoryOpKind.Bounce, Time = period.ShootStart, End = period.End + DanmakusuBalance.TSUKASA_BOUNCE_AFTER_MS, BornAfter = period.Start, BornBefore = period.End, Window = true, OnlyMarked = true, WholeBeams = true,
                             Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
                         });
 

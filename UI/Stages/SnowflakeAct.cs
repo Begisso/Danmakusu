@@ -293,12 +293,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>How long the sharp tip at the end of a beam is: a few beam widths, at most a third of what is there of it.</summary>
             private static float tipOf(float half, float near, float far) => Math.Min(half * DanmakusuBalance.MAI_TIP_WIDTHS, (far - near) / 3f);
 
-            /// <summary>How wide beam <paramref name="i"/> is (half width) <paramref name="along"/> px from its root: an arm is twice as thick at the middle, narrowing evenly towards its tip; the rest as thick as a slider (2026-11-14).</summary>
+            /// <summary>
+            /// How wide beam <paramref name="i"/> is (half width) <paramref name="along"/> px from its root: every beam - arm, branch and twig - twice as thick as a slider's at its root and half as thick at its tip,
+            /// narrowing evenly (2026-11-21, "main branches and subbranches are twice thicc at start, but twice less thick at end - gradually"; only the arms narrowed before, from 2 to 0.6, the rest as thick as a slider).
+            /// </summary>
             private float widthAt(int i, float along, float half)
             {
-                if (i >= 6)
-                    return half;
-
                 float u = Math.Clamp(along / Math.Max(shape[i].Length * size, 1f), 0f, 1f);
                 return half * (DanmakusuBalance.MAI_ARM_WIDTH + (DanmakusuBalance.MAI_ARM_TIP_WIDTH - DanmakusuBalance.MAI_ARM_WIDTH) * u);
             }

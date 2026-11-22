@@ -165,8 +165,25 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float BigScale(int bullet)
             => !KeepsSize && BigBase >= 0 && (BigBase + bullet + 1) % BigEvery == 0 ? BigFactor : 1f; // (Utsuho's big balls and the trains keep their size)
 
-        /// <summary>The biggest <see cref="BigScale"/> any bullet of this ring can have.</summary>
-        public float BigScaleMax => !KeepsSize && BigBase >= 0 && Count + BigBase >= BigEvery ? Math.Max(BigFactor, 1f) : 1f;
+        /// <summary>The biggest <see cref="BigScale"/> any bullet of this ring can have (with what the looks of its ops swell it by: <see cref="OpsGrowMax"/>).</summary>
+        public float BigScaleMax => (!KeepsSize && BigBase >= 0 && Count + BigBase >= BigEvery ? Math.Max(BigFactor, 1f) : 1f) * (KeepsSize ? 1f : OpsGrowMax);
+
+        /// <summary>The most that the looks of the ring's ops make its bullets' hitboxes bigger (<see cref="BulletLook.HitScale"/>: Rin's and Aunn's swell); 1 = not at all.</summary>
+        public float OpsGrowMax { get; private set; } = 1f;
+
+        /// <summary>The most that the ring's ops make its bullets faster (<see cref="TrajectoryOp.SpeedFactor"/>: Aunn's moves); 1 = not at all.</summary>
+        public float OpsSpeedMax { get; private set; } = 1f;
+
+        /// <summary>Rin: when (on the ring's own clock) its bullets stop and swell, how long before that the field warns of it, and how big they get (NaN: never).</summary>
+        public double SwellAt { get; private set; } = double.NaN;
+
+        public double SwellWarnMs { get; private set; }
+        public float SwellScale { get; private set; } = 1f;
+
+        /// <summary>Aunn: when (on the ring's own clock) its bullets set off at the player, each time, and how long before each the field warns of it (null: never).</summary>
+        public double[]? GoAt { get; private set; }
+
+        public double GoWarnMs { get; private set; }
 
         /// <summary>No other boss's mechanic changes the size of these: Utsuho's big balls (<see cref="Sharp"/>) and special things like Yukari's trains.</summary>
         public bool KeepsSize => Sharp || Shape == BulletShape.Train;
@@ -903,6 +920,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             if (Shape == BulletShape.Train)
                 return;
 
+            // (Rin's and Aunn's ops go by every ring's own clock: they are made into ops of this ring's own, at its times, among the others)
+            if (Array.Exists(ops, op => op.Kind is TrajectoryOpKind.LaterFreeze or TrajectoryOpKind.StopAndGo))
+                ops = withOwnTimers(ops);
+
             var list = new System.Collections.Generic.List<TrajectoryOp>();
             double frozen = 0;
 
@@ -959,6 +980,34 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             OpsArea = area;
             Lifetime = Math.Max(Lifetime, reach) + Lifetime * 2 + frozen + 2000 + (windowed ? 6000 : 0);
 
+            // (what swells it, and what the field warns of: Rin's swell, Aunn's moves - only those the ring lives to see are kept above)
+            var goes = new System.Collections.Generic.List<double>();
+
+            foreach (var op in list)
+            {
+                OpsGrowMax = Math.Max(OpsGrowMax, Math.Max(op.During?.HitScale ?? 1f, op.After?.HitScale ?? 1f));
+                OpsSpeedMax *= Math.Max(op.SpeedFactor, 1f);
+
+                if (op.Steps is { Length: > 0 } steps)
+                    OpsGrowMax = Math.Max(OpsGrowMax, steps[^1].HitScale);
+
+                if (op.SwellWarn && double.IsNaN(SwellAt))
+                {
+                    SwellAt = op.Time;
+                    SwellWarnMs = op.WarnMs;
+                    SwellScale = op.During?.Scale ?? 1f;
+                }
+
+                if (op.PlayerAim)
+                {
+                    goes.Add(op.Time);
+                    GoWarnMs = op.WarnMs;
+                }
+            }
+
+            if (goes.Count > 0)
+                GoAt = goes.ToArray();
+
             // (a ring that its ops only stop - and slide - flies straight away from its centre again once the last of them is over; one that leaves the top and falls as flowers
             // (Yuyuko) is gone once the flowers have had the time to fall through the screen: see GoneAfterFreezes)
             onlyFreezes = list.TrueForAll(op => (op.Kind == TrajectoryOpKind.Freeze && !op.Window) || op.Kind == TrajectoryOpKind.Fall);
@@ -987,6 +1036,72 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (op.Kind == TrajectoryOpKind.Remove && (Homing || Ricochet ? !(op.OrEverySecondRing && secondRing) : !op.EveryOther))
                     removedAt = Math.Min(removedAt, op.Time);
             }
+        }
+
+        /// <summary>
+        /// The ops with Rin's and Aunn's timers (<see cref="TrajectoryOpKind.LaterFreeze"/>, <see cref="TrajectoryOpKind.StopAndGo"/>) made into this ring's own freezes and turns, at the times its own clock
+        /// gives them, among the other ops in the order of their times (a ring fired outside their stretch of time gets none).
+        /// </summary>
+        private TrajectoryOp[] withOwnTimers(TrajectoryOp[] ops)
+        {
+            var all = new System.Collections.Generic.List<TrajectoryOp>(ops.Length + 8);
+
+            foreach (var op in ops)
+            {
+                if (op.Kind != TrajectoryOpKind.LaterFreeze && op.Kind != TrajectoryOpKind.StopAndGo)
+                {
+                    all.Add(op);
+                    continue;
+                }
+
+                if (Time < op.BornAfter || Time >= op.BornBefore)
+                    continue;
+
+                if (op.Kind == TrajectoryOpKind.LaterFreeze)
+                {
+                    // (Rin: it stops a while after it was fired, swelling, and flies on later, shrinking back)
+                    double at = Time + op.Delay;
+                    all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = at, End = at + op.Span, During = op.During, Steps = op.Steps, Blend = op.Blend, SwellWarn = true, WarnMs = op.WarnMs });
+                    continue;
+                }
+
+                // (Aunn: it stands as it is fired, swelling, then sets off at the player, moves, stands, sets off again... The first stop begins a moment after it is fired: an op that begins as the thing
+                // is fired does not touch it)
+                double go = Time + Math.Max(op.FirstStop, 1);
+                all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = Time + 0.001, End = go, During = op.During, Steps = op.Steps, Blend = op.Blend, After = op.After });
+
+                for (int k = 0; k < 256; k++)
+                {
+                    // (the first move makes it AUNN_MOVE_SPEED times as fast as it was fired, for good)
+                    all.Add(new TrajectoryOp
+                    {
+                        Kind = TrajectoryOpKind.Aim, Time = go, End = go, PlayerAim = true, WarnMs = op.WarnMs, After = op.After, SpeedFactor = k == 0 ? op.SpeedFactor : 1f,
+                    });
+
+                    double stop = go + op.MoveMs;
+
+                    if (stop >= op.GoUntil)
+                        break; // (after her section the last move goes on: it flies off)
+
+                    all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = stop, End = stop + op.StopMs, During = op.After, After = op.After });
+                    go = stop + op.StopMs;
+                }
+            }
+
+            // (in the order of their times; ops at the same time keep the order they had)
+            var order = new int[all.Count];
+
+            for (int i = 0; i < order.Length; i++)
+                order[i] = i;
+
+            Array.Sort(order, (a, b) => all[a].Time != all[b].Time ? all[a].Time.CompareTo(all[b].Time) : a.CompareTo(b));
+
+            var sorted = new TrajectoryOp[all.Count];
+
+            for (int i = 0; i < order.Length; i++)
+                sorted[i] = all[order[i]];
+
+            return sorted;
         }
 
         private bool onlyFreezes;

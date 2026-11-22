@@ -1427,7 +1427,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         : beam.CoreColour.A > 0f ? beam.CoreColour
                         : DanmakusuBalance.IsWhiteBullet(beam.Colour) ? DanmakusuBalance.WHITE_BULLET_CENTRE_COLOUR : Color4.White;
 
-                    drawBeamLayer(renderer, beam, scale, 0f, colour, pixel, pixelCoords, layer == 0 && beam.BorderFadeEnd > beam.BorderFadeStart);
+                    // (the dark edge of a big beam - a spinner's, a boss's - is harmless (a beam hurts within BULLET_HITBOX_SCALE of its width): it is see-through, 2026-11-21)
+                    bool seeThroughEdge = layer == 0 && beam.Glow && !beam.Wood && !beam.Immune;
+
+                    if (seeThroughEdge)
+                        colour.A *= DanmakusuBalance.BIG_BEAM_EDGE_ALPHA;
+
+                    drawBeamLayer(renderer, beam, scale, 0f, colour, pixel, pixelCoords, layer == 0 && beam.BorderFadeEnd > beam.BorderFadeStart, seeThroughEdge ? DanmakusuBalance.BIG_BEAM_EDGE_ALPHA : 1f);
                 }
             }
 
@@ -1445,7 +1451,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>One layer of a beam: its half width at every point is the point's width times <paramref name="scale"/> plus <paramref name="extra"/>.</summary>
-            private void drawBeamLayer(IRenderer renderer, LaserInstance beam, float scale, float extra, Color4 colour, Texture pixel, RectangleF pixelCoords, bool fade = false)
+            private void drawBeamLayer(IRenderer renderer, LaserInstance beam, float scale, float extra, Color4 colour, Texture pixel, RectangleF pixelCoords, bool fade = false, float fadedAlpha = 1f)
             {
                 if (beam.Count <= 0)
                     return;
@@ -1454,6 +1460,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Color4 colourAt(int index)
                 {
                     Color4 c = fade ? borderAt(beam, index) : colour;
+
+                    if (fade)
+                        c.A *= fadedAlpha;
                     float shown = drawFades[beam.Start + index];
 
                     return shown >= 0.999f ? c : new Color4(c.R, c.G, c.B, c.A * shown);

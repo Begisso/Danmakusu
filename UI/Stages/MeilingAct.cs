@@ -11,8 +11,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Hong Meiling: she never pauses. In pulls of sixteen beats she draws in every bullet within five osu! circle radii of her (the ones of other bosses too; the ring that shows how far she reaches is like Nazrin's, in her
         // colours). A pulled bullet flies in to her and is fed into one big ball that grows on her (every second bullet that comes within her reach is left alone: it flies on as it was): the ball's area is the sum of the areas of all that were fed into it, its speed twice the average of their speeds and its colour the
-        // average of their colours. When the pull is over the ball is thrown at the player (it is a plain round bullet from then on: a hit uses it up) and the next pull begins at once; what it draws in is everything but the ball that
-        // was thrown. A thrown ball goes on feeding: every bullet it touches on its way is swallowed, and it grows by its area (and is hit-tested at that size). The ball glows, has bloom and dims the bullets round it, like Mokou's big circle (and is as sharp: the same picture). When its middle reaches a wall it impacts as Mokou's ball does (rings, shake, a flash, her sound)
+        // average of their colours. A fed bullet does not disappear (2026-11-21): it flies on through her the same way at its own speed (harmless while it is drawn in), and is never drawn in or fed again.
+        // When the pull is over the ball is thrown at the player (it is a plain round bullet from then on: a hit uses it up) and the next pull begins at once; what it draws in is everything but the ball that
+        // was thrown. A thrown ball goes on feeding: it grows by the area of every bullet it touches on its way (and is hit-tested at that size), which flies on (it was swallowed before 2026-11-21) and is not fed on again. The ball glows, has bloom and dims the bullets round it, like Mokou's big circle (and is as sharp: the same picture). When its middle reaches a wall it impacts as Mokou's ball does (rings, shake, a flash, her sound)
         // and ricochets; at the next wall it impacts again, stops and fades out. A ball that a hit has used up does not impact.
         // ======================================================================================================================================================
 
@@ -102,6 +103,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 sounded.Clear();
                 seen = 0;
                 spared.Clear();
+                fedOn.Clear();
                 ClearBullets();
             }
 
@@ -114,8 +116,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || t < Start || emitter.Shape == BulletShape.Train)
                     return false;
 
-                if (swallows(f, t, to, emitter, bullet))
-                    return true;
+                // (a thrown ball feeds on what it touches, which flies on: never drawn in either then)
+                if (swallows(f, t, to, emitter, bullet) || fedOn.Contains((emitter, bullet)))
+                    return false;
 
                 if (t >= End)
                     return false;
@@ -155,11 +158,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 direction = distance > 1e-3f ? toMiddle / distance : new Vector2(0f, 1f);
                 int before = Bullets.Count;
 
+                // (it does not disappear in her any more, 2026-11-21: fed into the ball as it gets to her, it flies on through her the same way at its own speed, harmless until then; it is a bullet of
+                // hers from then on, and is never drawn in or fed again)
+                Vector2 onward = direction * stored.Speed;
+
                 AddBullet(new StageBullet
                 {
                     T0 = t,
                     P0 = to,
                     V = direction * speed,
+                    Switch = arrives,
+                    V2 = onward,
                     Radius = radius,
                     Hit = stored.Hit * big,
                     Style = stored.Style,
@@ -167,8 +176,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Tint = stored.Tint,
                     TintAmount = stored.TintAmount,
                     Shade = stored.Shade,
-                    Until = arrives,
-                    Harmless = true,
+                    GhostUntil = arrives,
+                    GhostVisible = 1f,
+                    Untraced = true,
+                    Until = arrives + f.stageLife(onward),
                 });
 
                 if (Bullets.Count == before)
@@ -181,9 +192,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return true;
             }
 
-            /// <summary>Does a ball that is flying touch this bullet? Then it swallows it: it grows by its area, and it is hit-tested at its new size from now on.</summary>
+            /// <summary>What a thrown ball has fed on already: it flies on, and is not fed again (2026-11-21).</summary>
+            private readonly HashSet<(BulletEmitter, int)> fedOn = new HashSet<(BulletEmitter, int)>();
+
+            /// <summary>
+            /// Does a ball that is flying touch this bullet? Then it feeds on it: it grows by its area, and it is hit-tested at its new size from now on. The bullet does not disappear (2026-11-21; it was
+            /// swallowed): it flies on as it was, and is never fed on again. (So this never takes it: false.)
+            /// </summary>
             private bool swallows(BulletField f, double t, Vector2 at, BulletEmitter emitter, int bullet)
             {
+                if (fedOn.Contains((emitter, bullet)))
+                    return false;
+
                 foreach (var ball in throws)
                 {
                     if (t < ball.Time || t >= ball.Landing || consumed(f, ball) || !f.stageBulletAt(Bullets[ball.Index], t, out Vector2 middle))
@@ -202,7 +222,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     body.Radius = Math.Min(MathF.Sqrt(ball.Area), biggest(f));
                     body.Hit = DanmakusuBalance.BigHit(body.Radius);
                     Bullets[ball.Index] = body;
-                    return true;
+                    fedOn.Add((emitter, bullet));
+                    return false;
                 }
 
                 return false;

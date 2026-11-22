@@ -220,10 +220,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var jump in jumps)
                 {
-                    // (she shoots while she flies and while she stays)
-                    double every = beat * DanmakusuBalance.KAGEROU_RING_EVERY_BEATS;
-
-                    for (double t = jump.Start + jump.Rings * every; t <= now && t < jump.StayUntil; t = jump.Start + jump.Rings * every)
+                    // (she shoots while she flies and while she stays: half as often then, see ringTime)
+                    for (double t = ringTime(jump, jump.Rings); t <= now && t < jump.StayUntil; t = ringTime(jump, jump.Rings))
                     {
                         fireRing(f, jump, t);
                         jump.Rings++;
@@ -329,6 +327,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private static Vector2 placeIn(Jump jump, double t)
                 => Vector2.Lerp(jump.From, jump.To, (float)Math.Clamp((t - jump.Start) / Math.Max(jump.Arrive - jump.Start, 1e-3), 0, 1));
 
+            /// <summary>
+            /// When ring number <paramref name="n"/> of <paramref name="jump"/> is fired: every KAGEROU_RING_EVERY_BEATS while she flies, and KAGEROU_STAY_RING_GAP times as far apart while she stays (on the
+            /// same beats; 2026-11-21, "when stay - her basic bullets frequency halved").
+            /// </summary>
+            private double ringTime(Jump jump, int n)
+            {
+                double every = beat * DanmakusuBalance.KAGEROU_RING_EVERY_BEATS;
+                int flying = Math.Max((int)Math.Ceiling((jump.Arrive - jump.Start) / every - 1e-9), 0);
+                return n < flying ? jump.Start + n * every : jump.Start + (flying + (n - flying) * DanmakusuBalance.KAGEROU_STAY_RING_GAP) * every;
+            }
+
             /// <summary>How fast the bullets of a ring she fires at <paramref name="t"/> fly (while she stays, half as fast as while she flies).</summary>
             private float ringSpeed(Jump jump, double t) => stageBulletSpeed(Period) * DanmakusuBalance.KAGEROU_RING_SPEED * (t >= jump.Arrive ? DanmakusuBalance.KAGEROU_STAY_RING_SPEED : 1f);
 
@@ -341,11 +350,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (!wolf || f.failed || jumps.Count == 0)
                     return false;
 
-                double every = beat * DanmakusuBalance.KAGEROU_RING_EVERY_BEATS;
-
-                if (every <= 0)
-                    return false;
-
                 float reach = f.stageBaseRadius(Period) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
 
                 foreach (var jump in jumps)
@@ -353,10 +357,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (jump.StayUntil < from || jump.Start > to)
                         continue;
 
-                    int k = Math.Max((int)Math.Ceiling((from - jump.Start) / every - 1e-9), 0);
-
-                    for (double t = jump.Start + k * every; t <= to && t < jump.StayUntil; t += every)
+                    for (int n = 0; n < 100000; n++)
                     {
+                        double t = ringTime(jump, n);
+
+                        if (t > to || t >= jump.StayUntil)
+                            break;
+
+                        if (t < from)
+                            continue;
+
                         // (as far as the ring has spread by the end of the time)
                         if (Vector2.Distance(placeIn(jump, t), at) <= reach + ringSpeed(jump, t) * (float)Math.Max(to - t, 0))
                             return true;

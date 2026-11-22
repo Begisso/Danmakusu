@@ -9,8 +9,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Kanako Yasaka (2026-11-20): when each of her attacks begins and every eight beats in it she throws five big circles of talismans round her (each KANAKO_CIRCLE_RADII circle radii wide, their middles
-        // evenly round her): the talismans lie end to end all round each circle, every fourth one left out. For two beats the circles turn round her, their talismans going round them; then the circles fly
-        // straight away from her, the talismans still going round each moving circle (the circles themselves are not seen). A circle that has wholly left the screen turns round and flies back the way it came,
+        // evenly round her): the talismans lie end to end all round each circle, every fourth one left out. The circles fly at once (2026-11-21; they turned round her for two beats first)
+        // straight away from her, the talismans still going round each moving circle (the circles themselves are not seen), until eight beats later the circle stops turning and flies on as it is
+        // (2026-11-21). She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
         // Like every act's bullets they are a function of time (StageBullet.Orbit).
         // ======================================================================================================================================================
@@ -129,6 +130,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             HubUntil = spinUntil,
                             HubV = velocity,
                             HubBackAt = outAt,
+                            OrbitUntil = spinUntil + beat * DanmakusuBalance.KANAKO_STOP_TURNING_BEATS, // (8 beats after the circle flies out it stops turning: 2026-11-21)
                             Spin = ringOmega, // (each lies along its circle: end to end with the next)
                             SpinPhase = phase + turn * MathF.PI / 2f,
                             Tint2At = outAt,

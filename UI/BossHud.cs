@@ -75,6 +75,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             mirrorAngle = degrees;
             mirrorCentre = centre;
+
+            if (!viewSet)
+                viewFocus = centre;
+        }
+
+        private Vector2 viewFocus;
+        private float viewZoom = 1f;
+        private bool viewSet;
+
+        /// <summary>Focus Lens (2026-11-21): the field is shown <paramref name="zoom"/> times as big round <paramref name="focus"/> (field coordinates), which is in the middle of the screen.</summary>
+        public void SetView(Vector2 focus, float zoom)
+        {
+            viewFocus = focus;
+            viewZoom = Math.Max(zoom, 1f);
+            viewSet = true;
         }
 
         private readonly Container bar;
@@ -342,11 +357,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return;
             }
 
-            // (the field is turned by mirrorAngle round mirrorCentre: put the HUD where that turn brings it to `top`, turned back by the same angle)
+            // (the field is turned by mirrorAngle round mirrorCentre: put the HUD where that turn brings it to `top`, turned back by the same angle; Focus Lens shows the field viewZoom times as big round
+            // viewFocus: the HUD goes where that brings it to `top`, viewZoom times as small, so it stays where it was on the screen, as big as it was)
             float radians = mirrorAngle * MathF.PI / 180f;
-            Vector2 offset = top - mirrorCentre;
-            Position = mirrorCentre + new Vector2(offset.X * MathF.Cos(radians) + offset.Y * MathF.Sin(radians), -offset.X * MathF.Sin(radians) + offset.Y * MathF.Cos(radians));
+            Vector2 offset = (top - mirrorCentre) / viewZoom;
+            Position = viewFocus + new Vector2(offset.X * MathF.Cos(radians) + offset.Y * MathF.Sin(radians), -offset.X * MathF.Sin(radians) + offset.Y * MathF.Cos(radians));
             Rotation = -mirrorAngle;
+            Scale = new Vector2(1f / viewZoom);
 
             double lastEnd = Math.Max(periods[^1].End, mapEnd);
 

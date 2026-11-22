@@ -387,6 +387,47 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return true;
             }
 
+            /// <summary>Nue's colours, which her UFOs take in turn (the black lifted a little, so the UFO's shape still shows).</summary>
+            private static readonly Color4[] ufo_colours =
+            {
+                new Color4(0.3f, 0.28f, 0.34f, 1f),
+                new Color4(216 / 255f, 58 / 255f, 58 / 255f, 1f),
+                new Color4(63 / 255f, 111 / 255f, 216 / 255f, 1f),
+            };
+
+            /// <summary>The UFOs hurt like a slider body (2026-11-21): an ellipse as wide and as tall as the UFO's picture shows it (nine tenths of it: the picture has a margin), while they are there.</summary>
+            public override bool Hurts(BulletField f, double now)
+            {
+                if (f.failed || alphaOf(now) < 0.5f)
+                    return false;
+
+                float baseWidth = width(f);
+                float room = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                float a = baseWidth * 0.45f + room, b = baseWidth * 132f / 256f * 0.45f + room;
+                Vector2 player = f.characterPosition;
+
+                for (int k = 0; k < Count; k++)
+                {
+                    if (!known[k])
+                        continue;
+
+                    Vector2 d = player - PositionOf(f, k, now);
+
+                    if (d.LengthSquared > a * a)
+                        continue;
+
+                    // (the picture's width lies across the way it faces)
+                    float facing = facingOf(f, k, now);
+                    Vector2 along = new Vector2(MathF.Cos(facing), MathF.Sin(facing)), across = new Vector2(along.Y, -along.X);
+                    float x = Vector2.Dot(d, across) / a, y = Vector2.Dot(d, along) / b;
+
+                    if (x * x + y * y <= 1f)
+                        return true;
+                }
+
+                return false;
+            }
+
             public override void Draw(BulletField f, double t)
             {
                 if (t < Start)
@@ -429,9 +470,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 p = PositionOf(f, k, t);
                     float facing = facingOf(f, k, t);
 
-                    // the UFOs have the colours of the combos (all of them, in turn); the playfield shakes while they pull and while they shoot (see ShakeAt)
-                    Color4 body = f.palette[k % f.palette.Length];
-                    Color4 tint = new Color4(0.45f + 0.55f * body.R, 0.45f + 0.55f * body.G, 0.45f + 0.55f * body.B, 1f);
+                    // the UFOs have her colours in turn - black, red, blue (2026-11-21; they had the colours of the combos); the playfield shakes while they pull and while they shoot (see ShakeAt)
+                    Color4 tint = ufo_colours[k % ufo_colours.Length];
 
                     f.stageFront.Add(StageTexture.Ufo, p, new Vector2(baseWidth, baseWidth * 132f / 256f), facing * 180f / MathF.PI - 90f, alpha, tint);
 

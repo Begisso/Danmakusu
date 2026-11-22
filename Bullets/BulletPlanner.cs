@@ -39,7 +39,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Dream, BossMechanic.Rewind, BossMechanic.ThreeWorlds, BossMechanic.Taiko, BossMechanic.Rebirth, BossMechanic.Winter, BossMechanic.Dowsing, BossMechanic.Death, BossMechanic.Destruction,
             BossMechanic.Darkness, BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Momentum, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Haste, BossMechanic.HalfMoon, BossMechanic.Claws, BossMechanic.Reaping,
-            BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls,
+            BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls, BossMechanic.Patrol, BossMechanic.Starlight,
+            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
         };
 
         /// <summary>
@@ -50,6 +51,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Dolls,
+            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -63,13 +65,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Blades, BossMechanic.Miracle, BossMechanic.Claws, BossMechanic.Anchors,
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Strings, BossMechanic.Familiar, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Haniwa, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
+            BossMechanic.Kasha, BossMechanic.Komainu, BossMechanic.Patrol, BossMechanic.Starlight, BossMechanic.Frog,
+            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
         private static readonly HashSet<BossMechanic> round_spinner_bullets = new HashSet<BossMechanic>
         {
             BossMechanic.Fortune, BossMechanic.Shockwave, BossMechanic.Recording, BossMechanic.Spring, BossMechanic.Rebirth, BossMechanic.Purification, BossMechanic.ButterflyFans, BossMechanic.Death, BossMechanic.Darkness,
-            BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Prism, BossMechanic.Dream, BossMechanic.Haste, BossMechanic.Strings, BossMechanic.Haniwa,
+            BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Prism, BossMechanic.Dream, BossMechanic.Haste, BossMechanic.Strings, BossMechanic.Haniwa, BossMechanic.Kasha, BossMechanic.Patrol, BossMechanic.Frog,
+            BossMechanic.Creation, BossMechanic.Effigy, // (Shinki's wings and Ubame's dolls shoot them again: what her spinner's stars become)
         };
 
         private static readonly HashSet<BossMechanic> knife_spinner_bullets = new HashSet<BossMechanic> { BossMechanic.TimeStop, BossMechanic.FateSpear, BossMechanic.Destruction, BossMechanic.Blades };
@@ -84,6 +89,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Anchors,
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.PipeFox, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
+            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Mirage, BossMechanic.Fossil,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -1479,13 +1485,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // (Junko's: more beams, from the boss, as wide as a slider's beam, and each slice narrows to nothing again once it is as old as the slider is long)
             static double GhostMsOf(double beatMs) => beatMs * 4; // (Junko's slices are see-through and harmless for their first four beats)
 
-            void addLaser(Slider slider, int whistleVolume, bool purified = false, bool dissipates = false)
+            // (fanned: Suwako's - a purified beam whose beams go out in a fan round the way to the player, faster, bouncing once off the border of the screen)
+            void addLaser(Slider slider, int whistleVolume, bool purified = false, bool dissipates = false, bool fanned = false)
             {
                 double duration = slider.EndTime - slider.StartTime;
                 if (duration <= 0)
                     return;
 
-                float speed = beamSpeedAt(slider.StartTime) * DanmakusuBalance.LASER_SPEED_FACTOR;
+                float speed = beamSpeedAt(slider.StartTime) * DanmakusuBalance.LASER_SPEED_FACTOR * (fanned ? DanmakusuBalance.SUWAKO_BEAM_SPEED : 1f);
                 float halfWidth = radius * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(whistleVolume); // Junko's beams are as wide as a slider's own // the whistle's volume scales the width like it does for rings (0.5x..1x)
                 int beams = Math.Max(1, DanmakusuBalance.BeamsPerLaser(difficulty.OverallDifficulty)) * (purified ? DanmakusuBalance.JUNKO_BEAM_FACTOR : 1);
 
@@ -1581,6 +1588,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     CutStretch = dissipates ? 2 : 1, // (Letty: a slice does not narrow, it is gone the moment it turns into bullets, the earliest first)
                     ShrinkDelay = dissipates ? dissipateAfter : purified ? 1e12 : -1,
                     Lifetime = dissipates ? dissipateAfter + (slider.EndTime - slider.StartTime) + DanmakusuBalance.LASER_GROWTH_DISTANCE / speed : purified ? reach / speed : reach / speed,
+                    Fan = fanned ? DanmakusuBalance.SUWAKO_FAN_DEGREES * MathF.PI / 180f : 0f,
+                    FanAimed = fanned,
+                    BouncesOnce = fanned, // (the bounce is an op of hers: BossOps)
                 };
 
                 // osu!catch: the stream's trail lands along the bottom: half of its beams come from where it lands, spread over 150 degrees up, the other half from the top straight above it, down
@@ -1670,7 +1680,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // (`spark`: Marisa's Master Spark - from an osu! circle's radius at her it widens along an outer curve to 4 circle radii over the first 4 circle radii, then opens 5 degrees to each side, almost straight, to the end;
             // it spins at an eighth of a spinner beam's speed, always the same way, instead of turning towards the player, and stays a straight line as it turns; its edges are thin)
             // (across: Benben's parallel beams, -1, 0 or 1 times BENBEN_BEAM_SPACING widest half widths to the side of her)
-            void addRotatingLaser(Vector2 origin, double startTime, double endTime, int comboIndex, bool followsBoss, int beams = DanmakusuBalance.SPINNER_LASER_BEAMS, bool straight = false, bool spark = false, int across = 0)
+            // (thin: as thick as a slider's beam and never widening, but turning as the others do - Benben's, 2026-11-20)
+            void addRotatingLaser(Vector2 origin, double startTime, double endTime, int comboIndex, bool followsBoss, int beams = DanmakusuBalance.SPINNER_LASER_BEAMS, bool straight = false, bool spark = false, int across = 0, bool thin = false, float turnFactor = 1f)
             {
                 double duration = endTime - startTime;
                 if (duration <= 0)
@@ -1678,9 +1689,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 float speed = beamSpeedAt(startTime) * DanmakusuBalance.SPINNER_LASER_SPEED_FACTOR;
                 float halfWidth = radius * DanmakusuBalance.SPINNER_STAR_SCALE * DanmakusuBalance.SpinnerLaserSizeScale(difficulty.OverallDifficulty) * DanmakusuBalance.SPINNER_LASER_WIDTH_FACTOR; // 1x..4x, and 20% wider the radius of a spinner bullet, by OD
+                bool flat = straight || thin;
 
-                // (Reisen's short straight beams are as thick as the beam of a slider, and keep that thickness: they do not widen)
-                if (straight)
+                // (Reisen's short straight beams and Benben's beams are as thick as the beam of a slider, and keep that thickness: they do not widen)
+                if (flat)
                     halfWidth = radius * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
 
                 float startHalfWidth = DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize); // a beam starts as wide as an osu! hit circle
@@ -1689,7 +1701,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 foreach (var corner in corners)
                     farthest = Math.Max(farthest, Vector2.Distance(origin, corner));
 
-                float widest = Math.Max(followsBoss && !straight ? halfWidth * DanmakusuBalance.LASER_PEAK_FACTOR * DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : halfWidth, straight ? halfWidth : startHalfWidth);
+                float widest = Math.Max(followsBoss && !flat ? halfWidth * DanmakusuBalance.LASER_PEAK_FACTOR * DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : halfWidth, flat ? halfWidth : startHalfWidth);
 
                 laserList.Add(new LaserEmitter
                 {
@@ -1707,13 +1719,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     BeamCount = beams,
                     Directions = new Vector2[beams],
                     Rotates = true,
-                    AngularSpeed = straight ? 0f : DanmakusuBalance.SpinnerLaserAngularSpeed(difficulty.OverallDifficulty),
-                    Grows = !straight,
-                    StartHalfWidth = straight ? halfWidth : startHalfWidth,
+                    AngularSpeed = straight ? 0f : DanmakusuBalance.SpinnerLaserAngularSpeed(difficulty.OverallDifficulty) * turnFactor, // (turnFactor: Benben's turn twice as fast, 2026-11-22)
+                    Grows = !flat,
+                    StartHalfWidth = flat ? halfWidth : startHalfWidth,
                     // the beams of the bosses (kiai and break) widen 50% faster at first, ever more slowly, and end up 20% wider than the spinner's
                     GrowthPower = followsBoss ? DanmakusuBalance.BOSS_LASER_GROWTH_POWER : 2f,
-                    PeakScale = followsBoss && !straight ? DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : 1f,
-                    Lifetime = straight ? (farthest + halfWidth) / speed : (farthest + Math.Max(halfWidth * DanmakusuBalance.LASER_PEAK_FACTOR * (followsBoss ? DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : 1f), startHalfWidth)) / speed,
+                    PeakScale = followsBoss && !flat ? DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : 1f,
+                    Lifetime = flat ? (farthest + halfWidth) / speed : (farthest + Math.Max(halfWidth * DanmakusuBalance.LASER_PEAK_FACTOR * (followsBoss ? DanmakusuBalance.BOSS_LASER_WIDTH_FACTOR : 1f), startHalfWidth)) / speed,
                 });
 
                 if (!spark)
@@ -2385,6 +2397,33 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
+            // Watari Nina (2026-11-22): every two beats a fan of three balls of two osu! circle radii each (as sharp as Tsukasa's, hurting like a slider body as hers do), 120 degrees wide, centred on the player
+            void addNinaBalls(Vector2 origin, double startTime, double endTime)
+            {
+                double beatLength = Math.Max(DanmakusuBalance.BossBeat(beatmap.ControlPointInfo.TimingPointAt(startTime).BeatLength), 1);
+                double step = beatLength * DanmakusuBalance.NINA_BALL_EVERY_BEATS;
+                float ballRadius = DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize) * DanmakusuBalance.NINA_BALL_CIRCLES;
+                int count = DanmakusuBalance.NINA_BALLS;
+                float spread = DanmakusuBalance.NINA_FAN_DEGREES * MathF.PI / 180f;
+                float between = count > 1 ? spread / (count - 1) : 0f;
+
+                for (double t = startTime; t < endTime; t += step)
+                {
+                    // (the field turns the fan so that its first ball points at the player, and then back by the offset: the fan is centred on the player)
+                    var fan = new Vector2[count];
+
+                    for (int i = 0; i < count; i++)
+                        fan[i] = new Vector2(MathF.Cos(i * between), MathF.Sin(i * between));
+
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, ballRadius, BulletShape.Circle, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: -spread / 2f);
+                    ring.KeepCount = true; // (three with another boss on the screen too)
+                    ring.Sharp = true;
+                    ring.HurtsLikeSlider = true;
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
             // Kaguya: every two beats a ring of twenty bullets followed by three more, half a beat apart, each turned a little further than the one before, so that they spin (that they turn as they fly is seen to at
             // the end of Plan, with everything else that is fired in her sections)
             void addKaguyaRings(Vector2 origin, double startTime, double endTime)
@@ -2549,8 +2588,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     BossMechanic.Stacking => BulletShape.Ellipse, // Eika's ellipses, in rings
                     BossMechanic.Nuclear => BulletShape.Circle, // Utsuho shoots basic bullets (see planMechanics)
                     BossMechanic.Death => BulletShape.Circle, // Zanmu too (in a spinner the stars of the spinner become basic bullets, see below)
-                    // Junko: her sliders' beams are her attack; where there are none she throws slices of beam instead of stars
-                    BossMechanic.Purification => beatmap.HitObjects.OfType<Slider>().Any(s => s.StartTime >= attackStart && s.StartTime < end) ? BulletShape.Circle : BulletShape.Slice,
+                    // Junko: her sliders' beams are her attack; where there are none she throws slices of beam instead of stars (Suwako too)
+                    BossMechanic.Purification or BossMechanic.Frog => beatmap.HitObjects.OfType<Slider>().Any(s => s.StartTime >= attackStart && s.StartTime < end) ? BulletShape.Circle : BulletShape.Slice,
+                    BossMechanic.Kasha => BulletShape.Circle, // Rin's round bullets
+                    BossMechanic.Patrol => BulletShape.Circle, // Momiji's too
 
                     _ => BulletShape.SoftStar,
                 };
@@ -2581,6 +2622,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Tsukasa's spinner: her rings of big balls in place of the spinner's stars
                     addFoxBalls(bossPlanOrigin, attackStart, end);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Mirage)
+                {
+                    // Nina's spinner: her fans of big balls in place of the spinner's stars
+                    addNinaBalls(bossPlanOrigin, attackStart, end);
+                }
                 else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
                 {
                     // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
@@ -2599,6 +2645,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.PATCHOULI_SQUARE_BULLETS, DanmakusuBalance.PATCHOULI_SQUARE_EVERY_BEATS);
                     else if (boss.Mechanic == BossMechanic.PipeFox)
                         addFoxBalls(bossPlanOrigin, attackStart, end); // (Tsukasa's rings of big balls)
+                    else if (boss.Mechanic == BossMechanic.Mirage)
+                        addNinaBalls(bossPlanOrigin, attackStart, end); // (Nina's fans of big balls)
                     else if (boss.Mechanic == BossMechanic.Haniwa)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.KEIKI_SQUARE_BULLETS, DanmakusuBalance.KEIKI_SQUARE_EVERY_BEATS); // (Keiki's very dense squares)
                     else if (boss.Mechanic == BossMechanic.Momentum)
@@ -2693,7 +2741,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         bossCountFactor = 1f;
                     }
 
-                    double burst = bossBeat * DanmakusuBalance.BOSS_LASER_BURST_BEATS * (boss.Mechanic == BossMechanic.ThreeWorlds ? DanmakusuBalance.HECATIA_PHASE_FACTOR : 1.0); // (Hecatia's attacks last twice as long)
+                    // (Hecatia's attacks last twice as long; Merlin's too, since 2026-11-21)
+                    double burst = bossBeat * DanmakusuBalance.BOSS_LASER_BURST_BEATS * (boss.Mechanic == BossMechanic.ThreeWorlds ? DanmakusuBalance.HECATIA_PHASE_FACTOR : boss.Mechanic == BossMechanic.Trumpet ? DanmakusuBalance.MERLIN_ATTACK_FACTOR : 1.0);
 
                     if (boss.Mechanic == BossMechanic.Lunatic)
                         burst = bossBeat * DanmakusuBalance.REISEN_ATTACK_BEATS; // (Reisen's attacks and pauses are four beats each)
@@ -2765,11 +2814,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         }
                         else if (boss.Mechanic == BossMechanic.Strings)
                         {
-                            // Benben: three parallel beams aimed at the player, turning towards them as the placeholder's did (none in a spinner: a boss with a mechanic of her own has no beams there)
+                            // Benben: three parallel beams aimed at the player, turning towards them as the placeholder's did, as thick as a slider's beam (2026-11-20: they were the placeholder's big beams)
+                            // (none in a spinner: a boss with a mechanic of her own has no beams there)
+                            // (five of them since 2026-11-21: they were three)
                             if (kind != BossKind.Spinner)
                             {
-                                for (int side = -1; side <= 1; side++)
-                                    addRotatingLaser(bossPlanOrigin, t, Math.Min(t + length, end), 0, true, 1, across: side);
+                                int half = DanmakusuBalance.BENBEN_BEAMS / 2;
+
+                                for (int side = -half; side <= half; side++)
+                                    addRotatingLaser(bossPlanOrigin, t, Math.Min(t + length, end), 0, true, 1, across: side, thin: true, turnFactor: DanmakusuBalance.BENBEN_TURN_FACTOR);
                             }
                         }
                         else
@@ -2894,6 +2947,56 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                             emitters.RemoveAll(ring => !ring.FollowsBoss && !ring.OwnShot && !ring.Derived && ring.Derive == DeriveKind.None && inAttack(ring.Time));
                             laserList.RemoveAll(laser => !laser.FollowsBoss && inAttack(laser.StartTime));
+                            break;
+                        }
+
+                        // Shinki (2026-11-22): every beam of her section (not the other boss's own, nor Marisa's) is fired again from one of her wings, the six in turn - straight, beam 0 at the player as it starts
+                        // (her act puts where it starts: LaserEmitter.FromSpot). After the others, so that what they made of the beams is fired from her wings too
+                        case BossMechanic.Creation when pass == 1:
+                        {
+                            float across = (OsuPlayfield.BASE_SIZE + new Vector2(m * 2, m * 2)).Length;
+                            int wing = 0;
+
+                            for (int k = 0; k < laserList.Count; k++)
+                            {
+                                var beam = laserList[k];
+
+                                if (beam.StartTime < period.ShootStart - 1 || beam.StartTime >= period.End || beam.FromSpot >= 0 || beam.Immune || (beam.FollowsBoss && beam.BossRank != period.Rank))
+                                    continue;
+
+                                laserList[k] = beam.FromSpotStraight(wing++ % DanmakusuBalance.SHINKI_WINGS, period.Rank, (across + beam.MaxHalfWidth * 2f) / Math.Max(beam.Speed, 1e-3f));
+                            }
+
+                            break;
+                        }
+
+                        // Ariya (2026-11-22): what the circles and sliders (and Doremy's and Sagume's copies of them) would shoot in one of her stretches is held until it ends: then all of it is shot at once, beams too
+                        // (after the others, so that what they made of the map's rings is held as well; what a boss shoots, and what comes out of other bullets as the game goes, is not held)
+                        case BossMechanic.Fossil when pass == 1:
+                        {
+                            foreach (var (start, end) in BossOps.StoneStretches(period))
+                            {
+                                for (int k = 0; k < emitters.Count; k++)
+                                {
+                                    var ring = emitters[k];
+
+                                    if (ring.FollowsBoss || ring.OwnShot || ring.Derived || ring.Derive != DeriveKind.None || ring.Time < start || ring.Time >= end)
+                                        continue;
+
+                                    emitters[k] = ring.Delayed(end - ring.Time);
+                                }
+
+                                for (int k = 0; k < laserList.Count; k++)
+                                {
+                                    var beam = laserList[k];
+
+                                    if (beam.FollowsBoss || beam.SpinnerLike || beam.Immune || beam.StartTime < start || beam.StartTime >= end)
+                                        continue;
+
+                                    laserList[k] = beam.Later(end - beam.StartTime);
+                                }
+                            }
+
                             break;
                         }
 
@@ -3299,8 +3402,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         }
 
                         // Junko: every 8 beats of her section she counts every fourth bullet that appeared in them (anyone's, but not her own rings of this kind; counted on over the windows) and shoots them all out again
-                        // as one ring from where she is, at the average speed of what she counted
+                        // as one ring from where she is, at the average speed of what she counted (Suwako: in five fans, see below)
                         case BossMechanic.Purification when pass == 1:
+                        case BossMechanic.Frog when pass == 1:
                         {
                             double window = Math.Max(period.BeatLength, 1) * DanmakusuBalance.JUNKO_RECORD_BEATS;
                             var reshots = new List<BulletEmitter>();
@@ -3333,6 +3437,45 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 speedSum *= (double)count / all;
 
                                 float speed = (float)(speedSum / count);
+
+                                // Suwako (2026-11-21): the bullets are shared out evenly among SUWAKO_ARCS fans of SUWAKO_FAN_DEGREES, one after the other, each round the way to the player as it is fired
+                                if (period.Boss.Mechanic == BossMechanic.Frog)
+                                {
+                                    float fan = DanmakusuBalance.SUWAKO_FAN_DEGREES * MathF.PI / 180f;
+                                    int arcs = DanmakusuBalance.SUWAKO_ARCS;
+
+                                    for (int arc = 0; arc < arcs; arc++)
+                                    {
+                                        int n = count / arcs + (arc < count % arcs ? 1 : 0);
+
+                                        if (n == 0)
+                                            continue;
+
+                                        double at = to + arc * Math.Max(period.BeatLength, 1) * DanmakusuBalance.SUWAKO_ARC_EVERY_BEATS;
+
+                                        for (int first = 0; first < n; first += DanmakusuBalance.MAX_RING_BULLETS)
+                                        {
+                                            int m = Math.Min(DanmakusuBalance.MAX_RING_BULLETS, n - first);
+                                            var arcDirections = new Vector2[m];
+
+                                            for (int b = 0; b < m; b++)
+                                            {
+                                                float angle = fan * ((first + b + 0.5f) / n - 0.5f);
+                                                arcDirections[b] = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                                            }
+
+                                            // (aimed so that the middle of the fan points at the player: see aimRing)
+                                            var arcShot = createEmitter(at, bossPlanOrigin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speed, arcDirections, 0, radius, BulletShape.Circle, aimAtPlayer: true, followsBoss: true, straight: true,
+                                                aimOffset: MathF.Atan2(arcDirections[0].Y, arcDirections[0].X));
+                                            arcShot.OwnShot = true;
+                                            arcShot.Reshot = true;
+                                            reshots.Add(arcShot);
+                                        }
+                                    }
+
+                                    continue;
+                                }
+
                                 var directions = RingLayout.Create(RingShape.Circle, count, (float)(reshots.Count * golden_angle % MathF.Tau), out _);
 
                                 // (a ring holds at most 64 bullets: a bigger one is several rings, each a run of the directions)
@@ -4246,9 +4389,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 // Whatever a slider would have shot itself (a whistled one) is replaced.
                 // Letty on the screen too: the beams of a boss dissipate into bullets (hers and Junko's)
                 bool lettyIsHere = besideHer(i, slot, rank, BossMechanic.Winter);
-                bool junkoIsHere = besideHer(i, slot, rank, BossMechanic.Purification);
+                bool junkoIsHere = besideHer(i, slot, rank, BossMechanic.Purification) || besideHer(i, slot, rank, BossMechanic.Frog);
 
-                if (bossInfos[slot].Mechanic == BossMechanic.Purification)
+                // (Suwako's are Junko's, in a fan round the way to the player, faster, bouncing once off the border of the screen: 2026-11-21)
+                if (bossInfos[slot].Mechanic is BossMechanic.Purification or BossMechanic.Frog)
                 {
                     foreach (var slider in beatmap.HitObjects.OfType<Slider>())
                     {
@@ -4256,7 +4400,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             continue;
 
                         laserList.RemoveAll(laser => !laser.SpinnerLike && Math.Abs(laser.StartTime - slider.StartTime) < 0.5 && Math.Abs(laser.EndTime - slider.EndTime) < 0.5);
-                        addLaser(slider, 100, true, lettyIsHere);
+                        addLaser(slider, 100, true, lettyIsHere, bossInfos[slot].Mechanic == BossMechanic.Frog);
                     }
                 }
 

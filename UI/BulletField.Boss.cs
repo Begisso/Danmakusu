@@ -454,8 +454,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (hasScreenBounds)
                     bossHud.SetBounds(screenMin, screenMax);
 
-                // (Seija turns the screen round: the HUD and the boss's picture stay upright)
+                // (Seija turns the screen round: the HUD and the boss's picture stay upright; Focus Lens zooms it on the character: the HUD stays where it is on the screen, as big as it is)
                 bossHud.SetMirror(mirrorDegrees, MirrorCentre);
+                bossHud.SetView(FocusZoom > 0f ? FocusPoint : MirrorCentre, Math.Max(FocusZoom, 1f));
                 bossHud.UpdateState(now);
             }
 

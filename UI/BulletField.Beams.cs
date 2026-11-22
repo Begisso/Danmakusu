@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -118,7 +118,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 // after death everything falls, so beams that were flying away might come back: nothing is skipped then
                 if ((laser.Finished && !failed) || drawTime > laser.EndTime + laser.Lifetime)
+                {
+                    if (EarlyGoneProbe != null && laser.BouncesOnce && !laser.Finished && drawTime - (laser.EndTime + laser.Lifetime) < 20)
+                        EarlyGoneProbe($"lifetime over at {drawTime:F0}: laser {laser.StartTime:F0}-{laser.EndTime:F0}, lifetime {laser.Lifetime:F0}, most {laser.MostLifetime:F0}");
+
                     continue;
+                }
 
                 // spinner and boss beams are drawn in the colour of the map's background
                 var colour = laser.SpinnerLike && backgroundColour is Color4 background ? background : palette[laserStyle(laser)];
@@ -139,6 +144,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!failed && laser.BeamFinished[beam])
                         continue;
 
+                    // (a beam that bounced once and has left the screen: see LaserEmitter.BeamGoneAt)
+                    if (!failed && laser.BeamGoneAt != null && drawTime > laser.BeamGoneAt[beam])
+                    {
+                        if (EarlyGoneProbe != null)
+                        {
+                            int seen = laser.GetPoints(drawTime, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer);
+
+                            for (int q = 0; q < seen; q++)
+                            {
+                                if (laserBuffer[q].X > screenMin.X && laserBuffer[q].X < screenMax.X && laserBuffer[q].Y > screenMin.Y && laserBuffer[q].Y < screenMax.Y)
+                                {
+                                    EarlyGoneProbe($"gone early at {drawTime:F0}: laser {laser.StartTime:F0}-{laser.EndTime:F0} beam {beam}, point {q}/{seen} at {laserBuffer[q]}, gone at {laser.BeamGoneAt[beam]:F0}");
+                                    break;
+                                }
+                            }
+                        }
+
+                        laser.MarkFinished(beam);
+                        continue;
+                    }
+
                     int n = failed ? laser.GetPoints(drawTime, laserBuffer, beam, laserWidthBuffer, laserDistanceBuffer, laserLookBuffer) : beamPoints(i, beam, drawTime, false);
 
                     if (ProfileTicks != null)
@@ -152,6 +178,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (checkFinished && (freezerDone || !anyStopped(n)) && (laser.Rotates ? rotatingBeamGone(laser, drawTime) : !beamCanReachScreen(laserBuffer, n, laser.Directions[beam], margin)))
                     {
+                        if (EarlyGoneProbe != null && laser.BouncesOnce)
+                            EarlyGoneProbe($"finished (cannot reach) at {drawTime:F0}: laser {laser.StartTime:F0}-{laser.EndTime:F0} beam {beam}, {n} points, first {laserBuffer[0]}, last {laserBuffer[n - 1]}");
+
                         laser.MarkFinished(beam);
                         continue;
                     }
@@ -492,6 +521,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The last number given to beams that are drawn as one piece (<see cref="LaserInstance.Piece"/>; a new one for every piece).</summary>
         private int beamPieces;
 
+        /// <summary>(the bench, "long": told of every piece of an act's or a tail's beam that crosses most of the screen - its ends and who drew it)</summary>
+        public static Action<Vector2, Vector2, string>? PlainBeamProbe;
+
+        /// <summary>(Tools/SectionCheck, temporary) Told of a beam that its gone time ended while a point of it was still on the screen.</summary>
+        public static Action<string>? EarlyGoneProbe;
+
         /// <summary>A beam through <paramref name="points"/>, <paramref name="halfWidth"/> wide everywhere (or <paramref name="widths"/> at each point, at most that), that glows like a boss's beam (the beams behind Sekibanki's heads).</summary>
         private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null)
         {
@@ -499,6 +534,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (length < 2)
                 return;
+
+            // (the bench's "long" probe: a piece of a beam an act or a tail draws that crosses most of the screen, and who drew it)
+            if (PlainBeamProbe != null)
+            {
+                for (int i = 0; i + 1 < length; i++)
+                {
+                    if (Math.Abs(points[i].X - points[i + 1].X) > 852 * 0.6f || Math.Abs(points[i].Y - points[i + 1].Y) > 480 * 0.6f)
+                    {
+                        PlainBeamProbe(points[i], points[i + 1], new System.Diagnostics.StackFrame(1).GetMethod()?.DeclaringType?.Name ?? "?");
+                        break;
+                    }
+                }
+            }
 
             if (pointTotal + length > laserPointBuffer.Length)
             {
