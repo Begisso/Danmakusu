@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
@@ -24,6 +24,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         public Vector2 A, B, C, D;
         public Color4 Near, Far;
+
+        /// <summary>
+        /// The piece shows the lava picture (Suika's cracks, 2026-11-22: <see cref="StageLayer.BakeLava"/>, which repeats along its width without a seam) instead of a flat colour: <see cref="Uv"/> is the part of the picture
+        /// it shows (in shares of the picture: x along the crack, y across it; <see cref="A"/> - <see cref="B"/> along its top), in <see cref="Near"/>.
+        /// </summary>
+        public bool Lava;
+
+        public RectangleF Uv;
     }
 
     /// <summary>A picture drawn between the beams and the bullets (Tojiko's clouds: over her lightning and her rain, under every other bullet).</summary>
@@ -221,7 +229,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private int sheetBase; // the rows of the palette; the special colours (TINT_) are the rows after them
         private Texture? knifeTexture, knifeRedTexture, knifeBlueTexture, knifeYellowTexture, trainTexture, snowflakeTexture, haloTexture; // pictures that are drawn as they are (Resources/Textures); null if missing
         private Texture? smileTexture, skullTexture, featherTexture;
-        private Texture? cloudTexture, flashTexture;
+        private Texture? cloudTexture, flashTexture, lavaTexture;
         private CloudSprite[] clouds = new CloudSprite[64];
         private int cloudCount;
         private MeshQuad[] meshes = new MeshQuad[64];
@@ -307,7 +315,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             skullTexture = BossCharacter.LoadResource(renderer, "Textures.skull_decal.png");
             talismanBack = BossCharacter.LoadResource(renderer, "Textures.talisman_back.png");
             talismanLines = BossCharacter.LoadResource(renderer, "Textures.talisman_lines.png");
-            cloudTexture = StageLayer.BakeCloud(renderer);
+            cloudTexture = StageLayer.BakeCloud(renderer); lavaTexture = StageLayer.BakeLava(renderer); // (Suika's cracks)
             flashTexture = StageLayer.BakeGlow(renderer);
 
             // (no sheet of bullets yet: the field has it drawn for its palette as it loads - a stand-in drawn here first cost half a second for nothing, 2026-11-15)
@@ -744,7 +752,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private float[] drawDistances = new float[1024];
             private float[] drawFades = new float[1024];
             private float drawBrightness = 1f;
-            private Texture? cloudTexture, flashTexture;
+            private Texture? cloudTexture, flashTexture, lavaTexture;
             private CloudSprite[] clouds = new CloudSprite[64];
             private int cloudCount;
             private MeshQuad[] meshes = new MeshQuad[64];
@@ -800,7 +808,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 drawBrightness = Source.brightness;
-                cloudTexture = Source.cloudTexture;
+                cloudTexture = Source.cloudTexture; lavaTexture = Source.lavaTexture;
                 flashTexture = Source.flashTexture;
                 cloudCount = Source.cloudCount;
 
@@ -908,6 +916,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var piece = meshes[i];
                     var corners = new Quad(Vector2Extensions.Transform(piece.A, DrawInfo.Matrix), Vector2Extensions.Transform(piece.B, DrawInfo.Matrix), Vector2Extensions.Transform(piece.C, DrawInfo.Matrix),
                         Vector2Extensions.Transform(piece.D, DrawInfo.Matrix));
+
+                    // (a piece of lava: its part of the lava picture)
+                    if (piece.Lava && lavaTexture != null)
+                    {
+                        var uv = new RectangleF(piece.Uv.X * lavaTexture.DisplayWidth, piece.Uv.Y * lavaTexture.DisplayHeight, piece.Uv.Width * lavaTexture.DisplayWidth, piece.Uv.Height * lavaTexture.DisplayHeight);
+                        renderer.DrawQuad(lavaTexture, corners, ColourInfo.GradientVertical(piece.Near, piece.Far), textureCoords: uv);
+                        continue;
+                    }
 
                     renderer.DrawQuad(pixel, corners, ColourInfo.GradientVertical(piece.Near, piece.Far), textureCoords: pixelCoords);
                 }

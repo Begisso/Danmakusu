@@ -10,8 +10,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Mononobe no Futo: everything fired in her section loses speed the nearer it gets to the wall ahead of it, down to 0.3 of its speed at the wall (BulletEmitter.SlowsToWall). When a pause starts she throws a boat at the
-        // player: the user's picture of a wooden ship seen from above, twenty circle radii long and as wide as the picture is for that. It comes out of the wall nearest her, from behind her (from just out of the screen
-        // straight behind that wall from where she is), and flies straight at where the player is then, bow first. It hurts like a slider body where the picture is. Nothing stays in it: every bullet whose body is in
+        // player: the user's picture of a wooden ship seen from above, twice FUTO_BOAT_CIRCLES circle radii long (ten since 2026-11-22; twenty before, so it is out of the wall twice as soon) and as wide
+        // as the picture is for that. It comes out of the wall nearest her, from behind her (from just out of the screen straight behind that wall from where she is), and flies straight at where the player
+        // is then, bow first; two more fly with it, the same way, one to each side of it (FUTO_FOLLOW_ASIDE of its width apart) and FUTO_FOLLOW_BEHIND of its length behind (2026-11-22).
+        // It hurts like a slider body where the picture is. Nothing stays in it: every bullet whose body is in
         // the hull (its outline, read from the picture) slides out to the nearest edge, fast (twice the boat's and its own speed together) but smoothly, a little every step; the first time the boat has it, it is turned
         // to fly straight out of the boat from there, as fast, and after that it keeps its way (once per bullet).
         // ======================================================================================================================================================
@@ -142,7 +144,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed)
                     return;
 
-                while (boats.Count < throws.Count && throws[boats.Count] <= now)
+                // (three boats a throw: boats.Count / 3 is the throw)
+                while (boats.Count / 3 < throws.Count && throws[boats.Count / 3] <= now)
                 {
                     // (it comes out of the wall nearest her, from behind her: from just out of the screen straight behind that wall from where she is)
                     Vector2 her = f.bossVisualOf(Period);
@@ -158,12 +161,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float speed = stageBulletSpeed(Period) * DanmakusuBalance.FUTO_BOAT_SPEED;
 
                     // (it is looked at until all of it has left the screen, however long it is)
-                    double until = throws[boats.Count] + (Vector2.Distance(f.stageMin, f.stageMax) + 3f * halfLength(f)) / Math.Max(speed, 1e-4f);
+                    double time = throws[boats.Count / 3];
+                    double until = time + (Vector2.Distance(f.stageMin, f.stageMax) + 3f * halfLength(f) + followBehind(f)) / Math.Max(speed, 1e-4f);
+                    Vector2 side = new Vector2(-way.Y, way.X);
 
-                    boats.Add(new Boat { Time = throws[boats.Count], Until = until, From = from, Velocity = way * speed });
+                    // (two more follow it, one to its left and one to its right, a little behind: 2026-11-22)
+                    boats.Add(new Boat { Time = time, Until = until, From = from, Velocity = way * speed });
+                    boats.Add(new Boat { Time = time, Until = until, From = from + side * followAside(f) - way * followBehind(f), Velocity = way * speed });
+                    boats.Add(new Boat { Time = time, Until = until, From = from - side * followAside(f) - way * followBehind(f), Velocity = way * speed });
                     f.playStageSound("mokou_wall_hit");
                 }
             }
+
+            /// <summary>How far the two that follow the first boat are to its side, and behind it.</summary>
+            private static float followAside(BulletField f) => halfWidth(f) * 2f * DanmakusuBalance.FUTO_FOLLOW_ASIDE;
+
+            private static float followBehind(BulletField f) => halfLength(f) * 2f * DanmakusuBalance.FUTO_FOLLOW_BEHIND;
 
             public override bool Pushes(BulletField f, double t, Vector2 from, Vector2 to, BulletEmitter emitter, int bullet, out Vector2 position, out Vector2 direction, out float speed)
             {

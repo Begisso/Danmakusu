@@ -204,7 +204,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The style (palette slot) of the background colour, behind the combo colours; -1 = none.</summary>
         private int backgroundStyle = -1;
 
-        private SkinnableSound comboBreakSound = null!;
+        /// <summary>The sound of being hit: Danmakusu's own (2026-11-22: the miss sound of "Touhou Last Boss Rush!!", the user's choice; it was the skin's combo break, which osu! no longer plays in Danmakusu - see DanmakusuSkinTransformer).</summary>
+        private Sample? hitSound;
 
         /// <summary>Raised (with the position in playfield coordinates) whenever the player takes damage.</summary>
         public event Action<Vector2>? PlayerHit;
@@ -831,6 +832,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 masterSparkEnd = sampleStore.Get("master_spark_end");
                 powerUp = sampleStore.Get("power_up");
                 explosionSound = sampleStore.Get("boss_explosion");
+                hitSound = sampleStore.Get("danmakusu_hit");
                 mirrorFlipSound = sampleStore.Get("seija_flip");
 
                 foreach (string name in cue_names)
@@ -897,13 +899,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
                 stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo, StageTexture.PhotoFrame) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
                 character,
-                comboBreakSound = new SkinnableSound(new SampleInfo("Gameplay/combobreak")),
-            };
+           };
 
             // Ichirin's cloud (the hands and the head) is above her magic circle and under her: the circle is drawn below the layer of the cloud instead of in her own drawable
             if (Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Cloud))
@@ -1297,9 +1298,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (now >= secondStart && average >= DanmakusuBalance.SLOW_SECOND_LOG_MS)
                 {
                     var worst = Enumerable.Range(0, secondTicks.Length).OrderByDescending(i => secondTicks[i]).Take(4).Where(i => secondTicks[i] > 0).Select(i => $"{PROFILE_STEPS[i]} {secondTicks[i] * 1000.0 / Stopwatch.Frequency / secondFrames:F1}");
-                    Logger.Log($"Danmakusu: slow second at {now:F0} ms: {average:F1} ms a frame over {secondFrames} frames ({string.Join(", ", worst)}); rings {activeCount}");
+
+                    // (and which bosses' acts cost the most of it - their updates, what they hurt with: 2026-11-22, a log could not say which of a hundred bosses it was)
+                    var acts = actSecondTicks.OrderByDescending(pair => pair.Value).Take(3).Where(pair => pair.Value * 1000.0 / Stopwatch.Frequency / secondFrames >= 0.1)
+                                             .Select(pair => $"{pair.Key.Period?.Boss?.Id ?? "?"} {pair.Key.GetType().Name} {pair.Value * 1000.0 / Stopwatch.Frequency / secondFrames:F1}");
+                    string actText = string.Join(", ", acts);
+
+                    Logger.Log($"Danmakusu: slow second at {now:F0} ms: {average:F1} ms a frame over {secondFrames} frames ({string.Join(", ", worst)}); rings {activeCount}{(actText.Length > 0 ? $"; acts {actText}" : "")}");
                 }
 
+                actSecondTicks.Clear();
                 Array.Clear(secondTicks);
                 secondFrames = 0;
                 secondStart = now;
@@ -1371,6 +1379,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             profile(0);
             bool sweep = true;
 
+            // (Hatate's photo: for a while the character follows where the mouse was - and what the keys did - a while before; it jumps there and back without a path check)
+            Vector2 keys = keyboardDirection;
+            cursor = delayedInput(now, cursor, ref keys, out bool inputJumped);
+
+            if (inputJumped)
+            {
+                sweep = false;
+                previousCharacterPosition = cursor;
+            }
+
+            cursorPosition = cursor;
+
             if (now < forcedFreezeUntil && now >= forcedFreezeFrom)
             {
                 // a trap (Enoko's) holds the character: it stays where it is, whatever the cursor or the keys do; when it is let go it is put on the cursor again (no path check). Yamame's web holds it
@@ -1418,11 +1438,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         sweep = false; // (a teleport: no path check)
                     }
                 }
-                else if (keyboardDirection.LengthSquared > 0f)
+                else if (keys.LengthSquared > 0f)
                 {
                     float speed = DanmakusuBalance.KEYBOARD_SPEED * (float)Controls.KeyboardSpeed * (shiftHeld ? DanmakusuBalance.KEYBOARD_SLOW : 1f); // (the slider in the boss menu)
                     Vector2 low = stageMin, high = stageMax;
-                    characterPosition = Vector2.Clamp(characterPosition + Vector2.Normalize(keyboardDirection) * (speed * (float)dt), low, high);
+                    characterPosition = Vector2.Clamp(characterPosition + Vector2.Normalize(keys) * (speed * (float)dt), low, high);
                 }
 
                 spacePressedPending = false;
@@ -1569,6 +1589,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 absorbIntoStage(now);
                 profile(7);
                 lateStage(now);
+                clearAroundOnMirror(now); // (Sakuya's mirroring clears round the player)
                 profile(8);
 
                 // (the frame in which Sakuya swaps everything hurts nowhere: what is mirrored must not hit the player on the way)
@@ -1712,6 +1733,92 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         public float ViewScale { get; set; } = 1f;
 
+        /// <summary>(for the slow-second lines of the log) What every act has cost this second: its update, its late step and its hurting (Stopwatch ticks).</summary>
+        private readonly Dictionary<StageAct, long> actSecondTicks = new Dictionary<StageAct, long>();
+
+        private void actTime(StageAct act, long since)
+        {
+            long spent = Stopwatch.GetTimestamp() - since;
+            actSecondTicks[act] = actSecondTicks.TryGetValue(act, out long before) ? before + spent : spent;
+        }
+
+        // ---- Hatate's photo: the character follows the mouse (and the keys) late ----
+
+        private readonly List<(double Time, Vector2 Cursor, Vector2 Keys)> inputHistory = new List<(double, Vector2, Vector2)>();
+        private double inputDelayFrom = double.PositiveInfinity, inputDelayUntil = double.NegativeInfinity, inputDelayMs;
+        private bool inputDelayed;
+
+        /// <summary>From <paramref name="from"/>, for <paramref name="length"/> ms, the character follows where the mouse was (and what the keys did) <paramref name="delay"/> ms before (Hatate's photo, 2026-11-22).</summary>
+        private void delayInput(double from, double delay, double length)
+        {
+            inputDelayFrom = from;
+            inputDelayUntil = from + length;
+            inputDelayMs = delay;
+        }
+
+        /// <summary>Time went back to <paramref name="time"/>: a delay that began after it has not begun.</summary>
+        private void forgetInputDelayAfter(double time)
+        {
+            if (inputDelayFrom > time)
+            {
+                inputDelayFrom = double.PositiveInfinity;
+                inputDelayUntil = double.NegativeInfinity;
+            }
+        }
+
+        /// <summary>
+        /// Keeps where the mouse is (and what the keys do) at <paramref name="now"/>, and hands back where the character follows it to: the same, or while the delay is on what it was the delay before.
+        /// <paramref name="jumped"/>: the delay began or ended this frame (the character jumps).
+        /// </summary>
+        private Vector2 delayedInput(double now, Vector2 cursor, ref Vector2 keys, out bool jumped)
+        {
+            // (time went back: what was kept after it never happened)
+            while (inputHistory.Count > 0 && inputHistory[^1].Time > now)
+                inputHistory.RemoveAt(inputHistory.Count - 1);
+
+            inputHistory.Add((now, cursor, keys));
+
+            // (only the last half minute is kept)
+            if (inputHistory.Count > 4096 || (inputHistory.Count > 64 && inputHistory[0].Time < now - 30000))
+                inputHistory.RemoveRange(0, inputHistory.Count / 2);
+
+            bool on = now >= inputDelayFrom && now < inputDelayUntil && !autoPilot;
+            jumped = on != inputDelayed;
+            inputDelayed = on;
+
+            if (!on)
+                return cursor;
+
+            double then = now - inputDelayMs;
+            int low = 0, high = inputHistory.Count - 1;
+
+            // (the last kept moment not after then)
+            while (low < high)
+            {
+                int middle = (low + high + 1) / 2;
+
+                if (inputHistory[middle].Time <= then)
+                    low = middle;
+                else
+                    high = middle - 1;
+            }
+
+            var before = inputHistory[low];
+            keys = before.Keys;
+
+            if (low + 1 < inputHistory.Count && before.Time < then)
+            {
+                var after = inputHistory[low + 1];
+                float u = (float)Math.Clamp((then - before.Time) / Math.Max(after.Time - before.Time, 1e-3), 0, 1);
+                return Vector2.Lerp(before.Cursor, after.Cursor, u);
+            }
+
+            return before.Cursor;
+        }
+
+        /// <summary>How many bullets were drawn in the last frame (their places are in instanceBuffer): what Aya looks at when she chooses her way.</summary>
+        private int drawnInstances;
+
         /// <summary>A point of this field as the moved playfield shows it -> the point shown at that place without Focus Lens.</summary>
         private Vector2 unview(Vector2 local)
         {
@@ -1851,7 +1958,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // the boss's rings come out of the boss (Utsuho's big balls out of where she is drawn: they are too big to come from just behind her)
             if (emitter.FollowsBoss)
             {
-                emitter.Origin = emitter.Sharp ? bossVisualOf(emitter.BossRank) : stageShotOrigin(emitter.Time, emitter.BossRank);
+                emitter.Origin = emitter.FromCentre ? (stageMin + stageMax) / 2 : emitter.Sharp ? bossVisualOf(emitter.BossRank) : stageShotOrigin(emitter.Time, emitter.BossRank);
                 emitter.SpawnRadius = Math.Max(emitter.SpawnRadius, stageShotRadius(emitter.Time, emitter.BossRank));
             }
 
@@ -3005,11 +3112,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             Array.Resize(ref instanceBuffer, instanceBuffer.Length * 2);
 
                         var ghost = instanceBuffer[count - 1];
-                        ghost.Position = sakuyaCentre * 2f - position;
-                        ghost.Overlay = BulletRenderer.TINT_GREEN;
-                        ghost.OverlayAmount = 1f;
-                        ghost.Decal = BulletDecal.None;
-                        ghost.Fade = 1f - DanmakusuBalance.SAKUYA_PREVIEW_VISIBLE * sakuyaAlpha;
+                        sakuyaGhost(ref ghost, sakuyaCentre * 2f - position, sakuyaAlpha);
                         instanceBuffer[count++] = ghost;
                     }
                 }
@@ -3111,6 +3214,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             ProfileInstances += count;
+            drawnInstances = count;
             renderer.SetInstances(instanceBuffer, count);
             profile(17);
             drawStage(drawTime);

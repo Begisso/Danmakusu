@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using osu.Framework.Audio.Sample;
 using osu.Framework.Bindables;
+using osu.Game.Audio;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Objects;
 using osu.Game.Skinning;
@@ -131,6 +133,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             }
 
             return base.GetConfig<TLookup, TValue>(lookup);
+        }
+
+        /// <summary>
+        /// osu!'s combo break is silent in Danmakusu (2026-11-22, the user: "Danmakusu getting hit sound is this too, no more taking from skin"): being hit plays Danmakusu's own sound instead (BulletField),
+        /// whatever the skin or the map has.
+        /// </summary>
+        public override ISample? GetSample(ISampleInfo sampleInfo)
+        {
+            foreach (string name in sampleInfo.LookupNames)
+            {
+                if (name.EndsWith("combobreak", StringComparison.OrdinalIgnoreCase))
+                    return null;
+            }
+
+            return base.GetSample(sampleInfo);
         }
     }
 }

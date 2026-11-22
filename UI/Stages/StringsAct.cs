@@ -227,6 +227,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 note.PulseHigh = DanmakusuBalance.BENBEN_NOTE_PULSE_HIGH;
                 note.Until = t + f.stageLife(note.V) * 1.5; // (it turns once: longer on its way)
 
+                // (brighter: lightened towards white, and glowing - 2026-11-22)
+                note.Tint = BulletRenderer.TINT_WHITE;
+                note.TintAmount = DanmakusuBalance.BENBEN_NOTE_LIGHTER;
+                note.Shade = 0f;
+                note.Bloom = DanmakusuBalance.BENBEN_NOTE_BLOOM;
+
                 int index = Bullets.Count;
                 AddBullet(note);
 

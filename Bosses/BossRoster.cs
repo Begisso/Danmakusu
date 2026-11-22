@@ -30,7 +30,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(0, "alice_margatroid", "Alice Margatroid", 1, BossMechanic.Dolls, (74, 143, 216, 0.2f), (232, 207, 116, 0.3f), (63, 100, 188, 0.3f), (240, 238, 234, 0.2f)),
             make(1, "ariya_iwanaga", "Ariya Iwanaga", 2, BossMechanic.Fossil, (216, 40, 40, 0.2f), (130, 90, 60, 0.3f), (244, 240, 240, 0.3f), (40, 58, 80, 0.2f)), // (Touhou 20, 2026-11-22; her mechanic the same day)
             make(2, "aunn_komano", "Aunn Komano", 2, BossMechanic.Komainu, (63, 165, 138, 0.2f), (143, 211, 181, 0.3f), (240, 230, 226, 0.3f), (208, 72, 72, 0.2f)),
-            make(3, "aya_shameimaru", "Aya Shameimaru", 3, BossMechanic.None, (192, 58, 58, 0.2f), (42, 26, 26, 0.3f), (244, 232, 228, 0.3f), (214, 58, 54, 0.2f)),
+            make(3, "aya_shameimaru", "Aya Shameimaru", 3, BossMechanic.Wind, (192, 58, 58, 0.2f), (42, 26, 26, 0.3f), (244, 232, 228, 0.3f), (214, 58, 54, 0.2f)),
             make(4, "benben_tsukumo", "Benben Tsukumo", 4, BossMechanic.Strings, (200, 74, 106, 0.2f), (154, 127, 200, 0.3f), (240, 168, 96, 0.3f), (184, 71, 46, 0.2f)),
             make(5, "biten_son", "Biten Son", 5, BossMechanic.None, (138, 90, 46, 0.2f), (138, 90, 50, 0.3f), (79, 168, 232, 0.3f), (94, 158, 94, 0.2f)),
             make(6, "byakuren_hijiri", "Byakuren Hijiri", 1, BossMechanic.Scrolls, (74, 58, 58, 0.2f), (90, 58, 110, 0.3f), (233, 169, 138, 0.3f), (74, 58, 80, 0.2f)),
@@ -54,7 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(24, "fujiwara_no_mokou", "Fujiwara no Mokou", 3, BossMechanic.Rebirth, (216, 58, 58, 0.2f), (237, 228, 224, 0.3f), (200, 56, 58, 0.3f), (106, 42, 42, 0.2f)),
             make(25, "gengetsu", "Gengetsu", 4, BossMechanic.Haste, (224, 160, 48, 0.2f), (240, 200, 96, 0.3f), (248, 216, 224, 0.3f), (216, 58, 72, 0.2f)),
             make(26, "hata_no_kokoro", "Hata no Kokoro", 5, BossMechanic.Masks, (216, 64, 96, 0.2f), (240, 176, 208, 0.3f), (58, 154, 138, 0.3f), (232, 120, 74, 0.2f)),
-            make(27, "hatate_himekaidou", "Hatate Himekaidou", 1, BossMechanic.None, (184, 122, 58, 0.2f), (122, 80, 48, 0.3f), (138, 58, 168, 0.3f), (216, 74, 160, 0.2f)),
+            make(27, "hatate_himekaidou", "Hatate Himekaidou", 1, BossMechanic.Spoiler, (184, 122, 58, 0.2f), (122, 80, 48, 0.3f), (138, 58, 168, 0.3f), (216, 74, 160, 0.2f)),
             make(28, "hecatia_lapislazuli", "Hecatia Lapislazuli", 2, BossMechanic.ThreeWorlds, (216, 58, 58, 0.2f), (216, 56, 74, 0.3f), (42, 42, 48, 0.3f), (240, 216, 96, 0.2f)),
             make(29, "hina_kagiyama", "Hina Kagiyama", 3, BossMechanic.None, (58, 176, 144, 0.2f), (58, 192, 144, 0.3f), (216, 48, 90, 0.3f), (176, 40, 72, 0.2f)),
             make(30, "hisami_yomotsu", "Hisami Yomotsu", 4, BossMechanic.Recording, (154, 58, 184, 0.2f), (90, 58, 160, 0.3f), (58, 42, 90, 0.3f), (63, 138, 74, 0.2f)),

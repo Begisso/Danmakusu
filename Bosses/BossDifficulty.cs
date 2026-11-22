@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osuTK.Graphics;
 
@@ -106,9 +106,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Snowflake] = 4, // Mai
             [BossMechanic.Strings] = 4, // Benben
             [BossMechanic.Familiar] = 3, // Ellen
-            [BossMechanic.Jiangshi] = 3, // Yoshika
+            [BossMechanic.Jiangshi] = 4, // Yoshika (3 until 2026-11-22: her talismans twice as big, coming back round two loops)
             [BossMechanic.FallenAngel] = 4, // Matenshi (3 until 2026-11-14: her wings hurt, beams twice as often and two at a time)
-            [BossMechanic.Koto] = 4, // Yatsuhashi
+            [BossMechanic.Koto] = 5, // Yatsuhashi (4 until 2026-11-22: her beams twice as thick)
             [BossMechanic.Haniwa] = 4, // Keiki
             [BossMechanic.PipeFox] = 3, // Tsukasa
             [BossMechanic.Poltergeist] = 3, // Kana Anaberal
@@ -119,14 +119,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Dolls] = 4, // Alice Margatroid (twelve fumos shooting streams with beams beside them, at you and to either side of you, no pauses)
             [BossMechanic.Trumpet] = 2, // Merlin Prismriver (the objects send out thick rings instead of bullets; standing on them clears the screen round them; 3 until 2026-11-22: nothing hurts round them and on their follow points)
             [BossMechanic.Kasha] = 3, // Rin Kaenbyou (what she fires stops and swells to twice its size sixteen beats later, with a flashing warning)
-            [BossMechanic.Komainu] = 4, // Aunn Komano (curving, looping beams; every bullet swells and sets off at you again and again)
+            [BossMechanic.Komainu] = 4, // Aunn Komano (curving beams with small loops, fast; every bullet sets off at you again and again - it no longer swells, 2026-11-22)
             [BossMechanic.Patrol] = 4, // Momiji Inubashiri (what leaves the top and the bottom piles up and crashes in the middle, flying off with beams behind it; no pauses)
-            [BossMechanic.Starlight] = 3, // Star Sapphire (a turning, tumbling sphere of stars as big as the screen, growing and pulled back, one after another; no pauses)
+            [BossMechanic.Starlight] = 3, // Star Sapphire (a turning sphere of stars spinning round her (it tumbled until 2026-11-22) as big as the screen, growing and pulled back, one after another; no pauses)
             [BossMechanic.Frog] = 5, // Suwako Moriya (Junko's beams in a fan, faster, bouncing once; her reshots in five fans)
+            [BossMechanic.Wind] = 5, // Aya Shameimaru (2026-11-22: dashes edge to edge through the bullets, leaving beams; what she passes comes apart into feathers flying out sideways, twice as fast; homing maple fans. 4 until she dashed twice as fast on the half beats and fanned out twice as many leaves twice as often, the same day)
+            [BossMechanic.Spoiler] = 3, // Hatate Himekaidou (2026-11-22: a photo every eight beats turns every bullet one way, half as fast; caught in the frame, the character lags behind the mouse for two beats)
             [BossMechanic.Creation] = 4, // Shinki (2026-11-22: everything fired comes out of her six wings as turning streams; the lasers from her wings, straight)
-            [BossMechanic.Mirage] = 4, // Watari Nina (2026-11-22: a huge golden beam at you every 16 beats; what leaves the screen comes back out of it; fans of big balls)
+            [BossMechanic.Mirage] = 4, // Watari Nina (2026-11-22: a huge golden beam at you every 16 beats; what leaves the screen comes back in, flying at it; fans of big balls)
             [BossMechanic.Effigy] = 4, // Ubame Chirizuka (2026-11-22: fans of dolls that hurt and shoot what they touch at you again, bigger; those bounce off each other)
-            [BossMechanic.Fossil] = 4, // Ariya Iwanaga (2026-11-22: everything stops every 16 beats, the circles and sliders hold their shots and fire them all at once; a grid of bouncing ellipses)
+            [BossMechanic.Fossil] = 4, // Ariya Iwanaga (2026-11-22: everything stops every 16 beats, the circles and sliders hold their shots and fire them all at once; a grid of bouncing ellipses that never stops)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

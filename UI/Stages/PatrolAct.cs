@@ -14,6 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // MOMIJI_SETTLE_BEATS; it takes a place up to MOMIJI_LAYER_COST places aside before it lies on top of the others, so the pile stays even. When the time is up the top pile moves down and the bottom one
         // up, over MOMIJI_CLOSE_BEATS, until their innermost rows meet in the middle - the crash - and every bullet of them flies off, away from the middle of the screen, drawing a narrow beam behind it,
         // MOMIJI_TRACE_BEATS long, which hurts like a slider body. For MOMIJI_REST_BEATS after the crash nothing is caught; then again.
+        // Over the last MOMIJI_WARN_BEATS before the piles move, red flashes along the top and the bottom of the screen warn of it; Mokou's wall hit is heard as they start, Yuyuko's petals as they crash
+        // (2026-11-22).
         // What it caught is laid out as it is caught; where the piles go is worked out when the time to catch is up (each bullet a stage bullet of legs: a closed form of time).
         // ======================================================================================================================================================
 
@@ -49,25 +51,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private const int most_layers = 8;
 
-            public PatrolAct(BossPeriod period)
+            /// <summary>Her piles: when each begins to catch, when it starts to move and when the two crash (the cues play their sounds: BulletField.Cues).</summary>
+            public static List<(double From, double To, double Crash)> Schedule(BossPeriod period)
             {
-                Period = period;
-                beat = Math.Max(period.BeatLength, 1);
-
+                double beat = Math.Max(period.BeatLength, 1);
                 double pile = beat * DanmakusuBalance.MOMIJI_PILE_BEATS, close = beat * DanmakusuBalance.MOMIJI_CLOSE_BEATS;
                 double every = pile + close + beat * DanmakusuBalance.MOMIJI_REST_BEATS;
-                var list = new List<Pile>();
+                var list = new List<(double, double, double)>();
 
                 // (a pile is gathered only if it can crash in her section)
                 for (double s = period.ShootStart; s + pile + close <= period.End + 1 && list.Count < 10000; s += every)
-                    list.Add(new Pile { From = s, To = s + pile, Crash = s + pile + close });
+                    list.Add((s, s + pile, s + pile + close));
 
                 // (a section too short for one: one as long as it is, two thirds gathering and a third closing)
                 if (list.Count == 0 && period.End > period.ShootStart + beat)
                 {
                     double span = period.End - period.ShootStart;
-                    list.Add(new Pile { From = period.ShootStart, To = period.ShootStart + span * 2 / 3, Crash = period.End });
+                    list.Add((period.ShootStart, period.ShootStart + span * 2 / 3, period.End));
                 }
+
+                return list;
+            }
+
+            public PatrolAct(BossPeriod period)
+            {
+                Period = period;
+                beat = Math.Max(period.BeatLength, 1);
+
+                var list = new List<Pile>();
+
+                foreach (var (from, to, crash) in Schedule(period))
+                    list.Add(new Pile { From = from, To = to, Crash = crash });
 
                 piles = list.ToArray();
                 Start = period.ShootStart;
@@ -327,6 +341,39 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (its end has left the screen: all of it has)
                 float margin = traceWidth(f) * 2f;
                 return tail.X >= f.screenMin.X - margin && tail.X <= f.screenMax.X + margin && tail.Y >= f.screenMin.Y - margin && tail.Y <= f.screenMax.Y + margin;
+            }
+
+            /// <summary>
+            /// Over the last MOMIJI_WARN_BEATS before her piles move, the top and the bottom of the screen flash red, twice (2026-11-22: a warning that they are coming); Mokou's impact sounds as they move
+            /// (a cue).
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed)
+                    return;
+
+                double warn = beat * DanmakusuBalance.MOMIJI_WARN_BEATS;
+
+                foreach (var pile in piles)
+                {
+                    if (t < pile.To - warn || t >= pile.To)
+                        continue;
+
+                    float u = (float)((t - (pile.To - warn)) / warn);
+                    float flash = MathF.Pow(MathF.Sin(u * MathF.PI * 2f), 2f) * (0.5f + 0.5f * u);
+                    var red = new Color4(1f, 0.12f, 0.08f, 1f);
+                    float width = f.stageMax.X - f.stageMin.X;
+                    int count = Math.Max((int)(width / 120f), 3);
+
+                    // (a row of red light along each edge)
+                    for (int i = 0; i <= count; i++)
+                    {
+                        float x = f.stageMin.X + width * i / count;
+
+                        foreach (float y in new[] { f.stageMin.Y, f.stageMax.Y })
+                            f.stageTop.Add(StageTexture.Glow, new Vector2(x, y), new Vector2(width / count * 2.6f), 0f, flash * DanmakusuBalance.MOMIJI_WARN_ALPHA, red, true);
+                    }
+                }
             }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)

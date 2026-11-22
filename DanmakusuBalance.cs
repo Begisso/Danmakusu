@@ -410,8 +410,13 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const float FUTO_SPEED_AT_WALL = 0.3f;
 
-        public const float FUTO_BOAT_CIRCLES = 10f; // (half its length: twice the 5 it was)
+        public const float FUTO_BOAT_CIRCLES = 5f; // (half its length: twice the 5 it was; 10 until 2026-11-22: half as big again)
         public const float FUTO_BOAT_SPEED = 1.5f;
+
+        /// <summary>Two more boats follow each (2026-11-22), one to either side of it, this many boat widths aside and this many boat lengths behind (from its middle to theirs).</summary>
+        public const float FUTO_FOLLOW_ASIDE = 1.3f;
+
+        public const float FUTO_FOLLOW_BEHIND = 0.6f;
         public const float FUTO_PUSH_SPEED = 2f;
 
         /// <summary>
@@ -788,7 +793,19 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Suika's big crack (2026-11-14): a branch every this many circle radii along it or so, to one side and then the other, each about this many circle radii long (the longer ones with a twig); when it
         /// explodes, the impact frame turns it and a band round it this many of its half widths wide inside out, in flashes this many ms long (and gaps as long), for this many ms.
         /// </summary>
-        public const float SUIKA_BRANCH_EVERY_CIRCLES = 2.5f;
+        public const float SUIKA_BRANCH_EVERY_CIRCLES = 1.6f; // (2.5 until 2026-11-22: more branches, the cracks "more aggressive")
+
+        /// <summary>
+        /// Her cracks are jagged as cracks in the ground (2026-11-22): the big one this share of its length to either side of its line, a corner every SUIKA_JAG_EVERY of it; the stomp's cracks this share of the
+        /// stomp's reach, a corner every SUIKA_THIN_JAG_EVERY of them, each with this many branches. The impact frame's stars come round the big one over its last SUIKA_STARS_BEFORE_BEATS before it explodes.
+        /// </summary>
+        public const float SUIKA_JAG = 0.022f;
+
+        public const float SUIKA_JAG_EVERY = 0.035f;
+        public const float SUIKA_THIN_JAG = 0.05f;
+        public const float SUIKA_THIN_JAG_EVERY = 0.12f;
+        public const int SUIKA_THIN_BRANCHES = 2;
+        public const double SUIKA_STARS_BEFORE_BEATS = 2;
 
         public const float SUIKA_BRANCH_CIRCLES = 3f;
         public const float SUIKA_IMPACT_MARGIN = 3.2f; // (1.6 until 2026-11-21: "double the impact frames radius")
@@ -873,8 +890,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int SHOU_FROM_CROSS_EVERY = 4;
         public const double SHOU_RING_EVERY_BEATS = 4;
         public const int SHOU_RING_BEAMS = 16;
-        public const float SHOU_WAVE_CIRCLES = 0.25f; // (1 until 2026-11-14: half the swing; 0.5 until 2026-11-21, halved again)
-        public const double SHOU_WAVE_BEATS = 8; // (2 until 2026-11-14: half as often near her - faster further out, SHOU_WAVE_FASTEST; 4 until 2026-11-21, half as often again)
+        public const float SHOU_WAVE_CIRCLES = 0.5f; // (1 until 2026-11-14: half the swing; 0.5 until 2026-11-21, halved again; 0.25 until 2026-11-22: "amplitude doubled")
+        public const double SHOU_WAVE_BEATS = 16; // (2 until 2026-11-14: half as often near her - faster further out, SHOU_WAVE_FASTEST; 4 until 2026-11-21, half as often again; 8 until 2026-11-22: "wave frequency halved")
         public const double SHOU_WAVE_TAIL_BEATS = 3; // (1.5 until 2026-11-21: twice as long)
 
         /// <summary>Shou's cross: a see-through preview of it (this visible) for this many beats before it grows out (2026-11-21).</summary>
@@ -904,7 +921,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Megumu: every this many beats this many endless beams from her, see-through (this visible) for this many beats and solid for this many, each set turned this many degrees from the last, the other way every this
         /// many beats; this many plain bullet radii wide on each side. Every this many beats every bullet on the screen turns into a star and ricochets once.
         /// </summary>
-        public const double MEGUMU_BEAM_EVERY_BEATS = 0.5;
+        public const double MEGUMU_BEAM_EVERY_BEATS = 0.25; // (0.5 until 2026-11-22: twice as often)
 
         public const int MEGUMU_BEAMS = 5;
         public const float MEGUMU_PREVIEW_ALPHA = 0.18f;
@@ -1021,9 +1038,14 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const float MAI_TWIG_STEP = 0.05f;
         public const float MAI_THINNING = 2.5f;
-        public const float MAI_BRANCH_LONGEST = 0.34f;
+        public const float MAI_BRANCH_LONGEST = 0.17f; // (0.34 until 2026-11-22: "halve subbranches size" - their twigs with them)
         public const float MAI_ARM_WIDTH = 2f; // (since 2026-11-21 every beam of the snowflake, not only the arms: this many slider widths at its root, MAI_ARM_TIP_WIDTH at its tip)
         public const float MAI_ARM_TIP_WIDTH = 0.5f; // (0.6 until 2026-11-21: "twice less thick at end")
+
+        /// <summary>The six arms (the main branches) only: this many slider widths at their root and this many at their tip, evenly between (2026-11-22: twice and half what the rest have).</summary>
+        public const float MAI_MAIN_ROOT_WIDTH = 4f;
+
+        public const float MAI_MAIN_TIP_WIDTH = 0.25f;
         public const double MAI_PREVIEW_BEATS = 2;
         public const float MAI_PREVIEW_ALPHA = 0.25f;
 
@@ -1179,7 +1201,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Aunn Komano (2026-11-21): every bullet fired in her section swells to this many times its size (drawn and hit) over this many beats, standing, as it is fired; then sets off at the player, moves this
         /// many beats on that way, stands this many, and again, until her section is over. An arrow beside every bullet, this many times its radius, warns of each move this many beats before.
         /// </summary>
-        public const float AUNN_SWELL = 2f;
+        public const float AUNN_SWELL = 1f; // (2 until 2026-11-22: "remove bullet size multipliers")
 
         public const double AUNN_SWELL_BEATS = 1;
         public const double AUNN_MOVE_BEATS = 4;
@@ -1201,9 +1223,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double AUNN_EVERY_BEATS = 4;
         public const float AUNN_BEAM_WIDTH = 1f;
         public const float AUNN_BEAM_LENGTH_CIRCLES = 16f;
-        public const float AUNN_BEAM_SPEED = 2f;
+        public const float AUNN_BEAM_SPEED = 4f; // (2 until 2026-11-22: "spin speed doubled")
         public const float AUNN_CURL_CIRCLES = 6f;
-        public const float AUNN_LOOP_CIRCLES = 2.5f;
+        public const float AUNN_LOOP_CIRCLES = 1.25f; // (2.5 until 2026-11-22: "radius halved")
 
         /// <summary>
         /// Momiji Inubashiri (2026-11-21): for this many beats every bullet that crosses the top or the bottom of the screen is caught there and laid into a pile along it, next to the others, this share of a
@@ -1212,6 +1234,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// behind it (this share of a slider's beam wide, this many beats long, which hurts). For this many beats after nothing is caught; then again.
         /// </summary>
         public const double MOMIJI_PILE_BEATS = 8;
+
+        /// <summary>The top and the bottom flash red over this many beats before her piles move, this strong at most (2026-11-22).</summary>
+        public const double MOMIJI_WARN_BEATS = 1;
+
+        public const float MOMIJI_WARN_ALPHA = 0.55f;
 
         public const float MOMIJI_SPACING = 0.9f;
         public const double MOMIJI_SETTLE_BEATS = 0.5;
@@ -1234,7 +1261,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SAPPHIRE_STEP_DEGREES = 15f;
         public const float SAPPHIRE_TILT_DEGREES = 15f;
         public const double SAPPHIRE_TURN_BEATS = 128; // (16 until 2026-11-21: "sphere spin speed quadruple slower"; 64 until 2026-11-22: "halve spin speed more")
-        public const double SAPPHIRE_TUMBLE_BEATS = 128; // (and it tumbles about a line through its equator, once in this many beats: 2026-11-22)
+        public const double SAPPHIRE_SPIN_BEATS = 128; // (and it spins round her in the plane of the screen, once in this many beats - 2026-11-22; that day it tumbled about its equator so first, taken back)
         public const double SAPPHIRE_GROW_BEATS = 8;
         public const float SAPPHIRE_MARGIN = 1.5f;
         public const double SAPPHIRE_HOLD_BEATS = 8;
@@ -1283,6 +1310,45 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double SHINKI_STREAM_GAP_BEATS = 1.0 / 16;
 
         /// <summary>
+        /// Aya Shameimaru (2026-11-22): no pauses. She dashes along a straight line to the edge of the screen at AYA_DASH_SPEED times Mokou's jump speed, the line through the most bullets from where she is;
+        /// a see-through beam shows it from when she chooses it (as soon as she has got to the edge) until she goes, on the next beat at least AYA_PREVIEW_LEAST_BEATS later. Behind her a beam as thick as
+        /// a slider's stays AYA_TRACE_BEATS (hurting like a slider body, fading over its last AYA_TRACE_FADE_BEATS). What she passes (AYA_SLASH_CIRCLES circle radii to either side of her way) flies straight
+        /// out to the side of her way, AYA_SLASH_SPEED times as fast. She shoots fans of AYA_FAN_BULLETS arrowheads that pull towards the player (as Chen's), AYA_FAN_DEGREES wide, every AYA_FAN_EVERY_BEATS.
+        /// </summary>
+        public const float AYA_DASH_SPEED = 8f; // (4 until 2026-11-22, the same day: twice as fast)
+
+        /// <summary>Her dashes start on a grid of this many beats (1 until 2026-11-22, the same day).</summary>
+        public const double AYA_DASH_EVERY_BEATS = 0.5;
+
+        public const double AYA_PREVIEW_LEAST_BEATS = 0.25; // (0.5 until 2026-11-22, the same day, with her dashes every beat)
+        public const double AYA_TRACE_BEATS = 8;
+        public const double AYA_TRACE_FADE_BEATS = 0.5;
+        public const float AYA_SLASH_CIRCLES = 1.5f;
+        public const float AYA_SLASH_SPEED = 2f;
+        public const int AYA_DIRECTIONS = 72; // (the ways she looks at when she chooses a line)
+        public const int AYA_FAN_BULLETS = 10; // (5 until 2026-11-22, the same day)
+        public const float AYA_FAN_DEGREES = 60f;
+        public const double AYA_FAN_EVERY_BEATS = 1; // (2 until 2026-11-22, the same day)
+
+        /// <summary>
+        /// Hatate Himekaidou (2026-11-22): no pauses. Every HATATE_EVERY_BEATS she throws a photo frame at where the player is (harmless), HATATE_FRAME_START circle diameters tall as it leaves her and
+        /// HATATE_FRAME_END as it gets there, HATATE_FLY_BEATS later, HATATE_FRAME_ASPECT as wide as tall. Then she takes the picture: everything flying turns to fly the way from the frame to the player,
+        /// HATATE_SLOW times as fast; a player in the frame is hit once and for HATATE_DELAY_BEATS the character follows where the mouse was HATATE_DELAY_BEATS before.
+        /// </summary>
+        public const double HATATE_EVERY_BEATS = 8;
+
+        public const double HATATE_FLY_BEATS = 2;
+        public const float HATATE_FRAME_START = 8f; // (4 until 2026-11-22, the same day: twice as big)
+        public const float HATATE_FRAME_END = 4f; // (2 until 2026-11-22, the same day)
+        public const float HATATE_FRAME_ASPECT = 1.5f;
+        public const float HATATE_SLOW = 0.5f;
+        public const double HATATE_DELAY_BEATS = 4;
+
+        /// <summary>How long the character follows the mouse late (beats; 4 until 2026-11-22, the same day: halved).</summary>
+        public const double HATATE_DELAY_LENGTH_BEATS = 2;
+        public const float HATATE_FRAME_ALPHA = 0.9f;
+
+        /// <summary>
         /// Watari Nina (2026-11-22): every this many beats a golden beam as Matenshi's, twice as thick, along the line from her to the player (taken when its preview comes): a see-through preview for
         /// NINA_PREVIEW_BEATS, then it widens from its middle line over NINA_GROW_BEATS and hurts for NINA_LIVE_BEATS, fading over NINA_FADE_BEATS. While it hurts every bullet that leaves the screen comes
         /// back out of its side, flying straight away from it. She shoots NINA_BALLS balls of NINA_BALL_CIRCLES circle radii in a fan NINA_FAN_DEGREES wide at the player every NINA_BALL_EVERY_BEATS.
@@ -1308,8 +1374,8 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const int UBAME_DOLLS = 10;
         public const float UBAME_FAN_DEGREES = 150f;
-        public const float UBAME_DOLL_SPEED = 0.6f;
-        public const float UBAME_DOLL_CIRCLES = 2.4f;
+        public const float UBAME_DOLL_SPEED = 1.2f; // (0.6 until 2026-11-22, the same day: twice as fast)
+        public const float UBAME_DOLL_CIRCLES = 1.2f; // (2.4 until 2026-11-22, the same day: half as big)
         public const float UBAME_DOLL_HIT = 0.32f;
         public const float UBAME_RESHOT_SIZE = 1.5f;
         public const double UBAME_COME_OUT_BEATS = 0.5;
@@ -1348,6 +1414,12 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int BENBEN_BEAMS = 5;
         public const float BENBEN_TURN_FACTOR = 2f; // (her own beams turn towards the player this many times as fast as a spinner's: 2026-11-22, they turned as fast)
         public const float BENBEN_NOTE_SIZE = 2f;
+
+        /// <summary>Her notes are this much lightened towards white and glow this much (2026-11-22: "notes are brighter"); Byakuren's beam sound comes every this many beats while her beams fire.</summary>
+        public const float BENBEN_NOTE_LIGHTER = 0.35f;
+
+        public const float BENBEN_NOTE_BLOOM = 0.8f;
+        public const double BENBEN_STRIKE_EVERY_BEATS = 8;
         public const float BENBEN_NOTE_PULSE_LOW = 0.5f;
         public const float BENBEN_NOTE_PULSE_HIGH = 2f;
         public const double BENBEN_NOTE_PULSE_BEATS = 2;
@@ -1865,6 +1937,17 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float YOSHIKA_RETURN_SPEED_DIVISOR = 1f;
         public const double YOSHIKA_ECHO_BEATS = 8;
 
+        /// <summary>
+        /// Her returning talismans (2026-11-22) are this many times as big, and run along a curve as Aunn's beams do: bending ever more over this many circle radii, then once round a loop this many circle
+        /// radii wide (its radius), once round a smaller one, then straight on this far, where they fade.
+        /// </summary>
+        public const float YOSHIKA_TALISMAN_SIZE = 2f;
+
+        public const float YOSHIKA_CURL_CIRCLES = 3f;
+        public const float YOSHIKA_LOOP_BIG = 1.5f;
+        public const float YOSHIKA_LOOP_SMALL = 0.8f;
+        public const float YOSHIKA_STRAIGHT_CIRCLES = 2f;
+
         /// <summary>Yoshika's returning talisman (the head) lives this many beats, leaving its echoes only so far (2026-11-14: 16 as Seiga's, then 8, then 2, then 1).</summary>
         public const double YOSHIKA_HEAD_BEATS = 1;
         public const double YOSHIKA_ECHO_FADE_MS = 250;
@@ -1912,7 +1995,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MATENSHI_BEAM_PREVIEW_BEATS = 4;
         public const double MATENSHI_BEAM_LIVE_BEATS = 4;
         public const double MATENSHI_BEAM_GROW_BEATS = 0.25;
-        public const float MATENSHI_PREVIEW_ALPHA = 0.18f;
+        public const float MATENSHI_PREVIEW_ALPHA = 0.09f; // (0.18 until 2026-11-22: "transparency doubled")
+
+        /// <summary>How see-through Nina's and Aya's previews are (Matenshi's were, until hers were made fainter).</summary>
+        public const float BEAM_PREVIEW_ALPHA = 0.18f;
 
         /// <summary>
         /// Yatsuhashi (2026-11-14): the map converted to osu!mania with this many keys, one lane each across the field (the whole screen); every note's beam is this many times as thick as a normal beam, falls from the top of the
@@ -1921,7 +2007,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const int YATSUHASHI_COLUMNS = 18;
 
-        public const float YATSUHASHI_BEAM_WIDTH = 4f; // (2 until 2026-11-14: "double the thickness")
+        public const float YATSUHASHI_BEAM_WIDTH = 8f; // (2 until 2026-11-14: "double the thickness"; 4 until 2026-11-22, twice as thick again)
         public const double YATSUHASHI_FALL_BEATS = 4; // (2 until 2026-11-14: "halve the falling speed")
 
         /// <summary>
@@ -2109,6 +2195,9 @@ namespace osu.Game.Rulesets.Danmakusu
 
         /// <summary>Sakuya: a green copy shows only where the mirroring puts a thing within this many osu! circle radii of the player (the rest would only cost).</summary>
         public const float SAKUYA_PREVIEW_CIRCLES = 4f;
+
+        /// <summary>Her mirroring takes away, once, what it puts within this many circle radii of the player (one circle's diameter; 2026-11-22), and her preview leaves it out.</summary>
+        public const float SAKUYA_CLEAR_CIRCLES = 2f;
 
         /// <summary>
         /// Sakuya: the sideways blur of her time stop (four faint copies of everything) is drawn only within this many osu! circle radii of the player, where the player is in every frame, and fades out over the last

@@ -621,13 +621,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (!countsAsMiss || scoreProcessor is not DanmakusuScoreProcessor danmakusuScore)
                 return;
 
-            // at most one miss sound per cooldown. Misses that osu! itself voices (combo >= 20) also start the cooldown.
+            // at most one miss sound per cooldown: Danmakusu's own, whatever the combo was (osu!'s combo break, which voiced the misses of a combo of 20 or more, is silent in Danmakusu: 2026-11-22)
             if (now - lastMissSoundTime >= DanmakusuBalance.MISS_SOUND_COOLDOWN_MS || now < lastMissSoundTime)
             {
                 lastMissSoundTime = now;
-
-                if (danmakusuScore.Combo.Value < built_in_combo_break_threshold)
-                    comboBreakSound.Play();
+                hitSound?.Play();
             }
 
             danmakusuScore.AddMiss();

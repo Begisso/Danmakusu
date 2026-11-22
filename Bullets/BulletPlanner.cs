@@ -40,7 +40,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Dream, BossMechanic.Rewind, BossMechanic.ThreeWorlds, BossMechanic.Taiko, BossMechanic.Rebirth, BossMechanic.Winter, BossMechanic.Dowsing, BossMechanic.Death, BossMechanic.Destruction,
             BossMechanic.Darkness, BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Momentum, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Haste, BossMechanic.HalfMoon, BossMechanic.Claws, BossMechanic.Reaping,
             BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls, BossMechanic.Patrol, BossMechanic.Starlight,
-            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
+            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
         };
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Dolls,
-            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
+            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -66,7 +66,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Strings, BossMechanic.Familiar, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Haniwa, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
             BossMechanic.Kasha, BossMechanic.Komainu, BossMechanic.Patrol, BossMechanic.Starlight, BossMechanic.Frog,
-            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil,
+            BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -89,7 +89,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Anchors,
             BossMechanic.Orbs, BossMechanic.Fissure, BossMechanic.Scorch, BossMechanic.Recall, BossMechanic.Pagoda, BossMechanic.Galaxy, BossMechanic.Poltergeist, BossMechanic.Metamorphosis,
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.PipeFox, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
-            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Mirage, BossMechanic.Fossil,
+            BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Mirage, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -1681,7 +1681,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // it spins at an eighth of a spinner beam's speed, always the same way, instead of turning towards the player, and stays a straight line as it turns; its edges are thin)
             // (across: Benben's parallel beams, -1, 0 or 1 times BENBEN_BEAM_SPACING widest half widths to the side of her)
             // (thin: as thick as a slider's beam and never widening, but turning as the others do - Benben's, 2026-11-20)
-            void addRotatingLaser(Vector2 origin, double startTime, double endTime, int comboIndex, bool followsBoss, int beams = DanmakusuBalance.SPINNER_LASER_BEAMS, bool straight = false, bool spark = false, int across = 0, bool thin = false, float turnFactor = 1f)
+            void addRotatingLaser(Vector2 origin, double startTime, double endTime, int comboIndex, bool followsBoss, int beams = DanmakusuBalance.SPINNER_LASER_BEAMS, bool straight = false, bool spark = false, int across = 0, bool thin = false, float turnFactor = 1f, bool silent = false)
             {
                 double duration = endTime - startTime;
                 if (duration <= 0)
@@ -1712,6 +1712,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     FollowsBoss = followsBoss,
                     Across = across * DanmakusuBalance.BENBEN_BEAM_SPACING * widest,
                     KeepsOrigin = straight,
+                    Silent = silent, // (Benben's: Byakuren's beam sound every eight beats instead, a cue - 2026-11-22)
                     BossRank = followsBoss ? currentRank : 0,
                     HalfWidth = halfWidth,
                     HitHalfWidth = halfWidth * DanmakusuBalance.BULLET_HITBOX_SCALE,
@@ -2397,6 +2398,32 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
+            // Aya (2026-11-22): every two beats a fan of five arrowheads, 60 degrees wide, centred on the player, from wherever her dashes have taken her; they pull towards the player as Chen's do
+            void addAyaFans(Vector2 origin, double startTime, double endTime)
+            {
+                double beatLength = Math.Max(DanmakusuBalance.BossBeat(beatmap.ControlPointInfo.TimingPointAt(startTime).BeatLength), 1);
+                double step = beatLength * DanmakusuBalance.AYA_FAN_EVERY_BEATS;
+                int count = DanmakusuBalance.AYA_FAN_BULLETS;
+                float spread = DanmakusuBalance.AYA_FAN_DEGREES * MathF.PI / 180f;
+                float between = count > 1 ? spread / (count - 1) : 0f;
+
+                for (double t = startTime; t < endTime; t += step)
+                {
+                    var fan = new Vector2[count];
+
+                    for (int i = 0; i < count; i++)
+                        fan[i] = new Vector2(MathF.Cos(i * between), MathF.Sin(i * between));
+
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, radius, BulletShape.Triangle, aimAtPlayer: true, followsBoss: true, aimOffset: -spread / 2f);
+                    ring.OwnShot = true;
+
+                    // (drawn as orange maple leaves: they fly as arrowheads do - 2026-11-22, the same day)
+                    ring.DrawShape = BulletShape.Maple;
+                    ring.Tint = osu.Game.Rulesets.Danmakusu.UI.BulletRenderer.TINT_ORANGE; // (all of it: TintAmount is 1)
+                    emitters.Add(ring);
+                }
+            }
+
             // Watari Nina (2026-11-22): every two beats a fan of three balls of two osu! circle radii each (as sharp as Tsukasa's, hurting like a slider body as hers do), 120 degrees wide, centred on the player
             void addNinaBalls(Vector2 origin, double startTime, double endTime)
             {
@@ -2627,6 +2654,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Nina's spinner: her fans of big balls in place of the spinner's stars
                     addNinaBalls(bossPlanOrigin, attackStart, end);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Wind)
+                {
+                    // Aya's spinner: her fans of arrowheads in place of the spinner's stars
+                    addAyaFans(bossPlanOrigin, attackStart, end);
+                }
                 else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
                 {
                     // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
@@ -2647,6 +2679,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addFoxBalls(bossPlanOrigin, attackStart, end); // (Tsukasa's rings of big balls)
                     else if (boss.Mechanic == BossMechanic.Mirage)
                         addNinaBalls(bossPlanOrigin, attackStart, end); // (Nina's fans of big balls)
+                    else if (boss.Mechanic == BossMechanic.Wind)
+                        addAyaFans(bossPlanOrigin, attackStart, end); // (Aya's fans of arrowheads)
                     else if (boss.Mechanic == BossMechanic.Haniwa)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.KEIKI_SQUARE_BULLETS, DanmakusuBalance.KEIKI_SQUARE_EVERY_BEATS); // (Keiki's very dense squares)
                     else if (boss.Mechanic == BossMechanic.Momentum)
@@ -2822,7 +2856,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 int half = DanmakusuBalance.BENBEN_BEAMS / 2;
 
                                 for (int side = -half; side <= half; side++)
-                                    addRotatingLaser(bossPlanOrigin, t, Math.Min(t + length, end), 0, true, 1, across: side, thin: true, turnFactor: DanmakusuBalance.BENBEN_TURN_FACTOR);
+                                    addRotatingLaser(bossPlanOrigin, t, Math.Min(t + length, end), 0, true, 1, across: side, thin: true, turnFactor: DanmakusuBalance.BENBEN_TURN_FACTOR, silent: true);
                             }
                         }
                         else
@@ -3719,6 +3753,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                     bigRing.KeepCount = true; // (six with another boss on the screen too)
                                     bigRing.Sharp = true; // (drawn as sharp as Mokou's ball)
                                     bigRing.HurtsLikeSlider = true; // (and hurts like a slider body, as Mokou's ball does)
+                                    bigRing.FromCentre = true; // (from the middle of the screen, wherever she stands - beside another boss she stands aside: 2026-11-22)
                                     emitters.Add(bigRing);
                                 }
                             }

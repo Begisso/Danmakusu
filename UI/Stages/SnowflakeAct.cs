@@ -300,6 +300,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private float widthAt(int i, float along, float half)
             {
                 float u = Math.Clamp(along / Math.Max(shape[i].Length * size, 1f), 0f, 1f);
+
+                // (the six arms, the main branches: twice as thick again at their root and half as thick again at their tip, narrowing evenly between - 2026-11-22)
+                if (i < 6)
+                    return half * (DanmakusuBalance.MAI_MAIN_ROOT_WIDTH + (DanmakusuBalance.MAI_MAIN_TIP_WIDTH - DanmakusuBalance.MAI_MAIN_ROOT_WIDTH) * u);
+
                 return half * (DanmakusuBalance.MAI_ARM_WIDTH + (DanmakusuBalance.MAI_ARM_TIP_WIDTH - DanmakusuBalance.MAI_ARM_WIDTH) * u);
             }
 

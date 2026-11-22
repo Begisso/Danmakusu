@@ -115,6 +115,18 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A bullet (or a beam) that Ariya has stopped: grey, as stone.</summary>
         public static readonly BulletLook Stone = new BulletLook { Overlay = BulletRenderer.TINT_GRAY, OverlayAmount = 1f };
 
+        /// <summary>Hatate's throws (2026-11-22): every HATATE_EVERY_BEATS from when she starts shooting, each whose photo (HATATE_FLY_BEATS later) is taken in her section.</summary>
+        public static List<double> PhotoShots(BossPeriod period)
+        {
+            var list = new List<double>();
+            double beat = Math.Max(period.BeatLength, 1);
+
+            for (double t = period.ShootStart; t + beat * DanmakusuBalance.HATATE_FLY_BEATS < period.End && list.Count < 10000; t += beat * DanmakusuBalance.HATATE_EVERY_BEATS)
+                list.Add(t);
+
+            return list;
+        }
+
         /// <summary>
         /// Ariya's stretches (2026-11-22): ARIYA_STONE_BEATS each, one after the other from when she starts shooting, the last one begun at least a beat before her section ends (it ends after it, whole):
         /// what is flying when one begins stops until it ends, and what the circles and sliders would shoot in it is shot as it ends.
@@ -495,17 +507,30 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         break;
                     }
 
+                    case BossMechanic.Spoiler:
+                        // Hatate (2026-11-22): every photo of hers turns everything that is flying the way from her frame to the player, half as fast (her act places the way as the photo is taken: a point
+                        // far off that way, so that every bullet turns parallel to it)
+                        foreach (double shot in PhotoShots(period))
+                        {
+                            double photo = shot + Math.Max(period.BeatLength, 1) * DanmakusuBalance.HATATE_FLY_BEATS;
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Aim, Time = photo, End = photo, SpeedFactor = DanmakusuBalance.HATATE_SLOW });
+                        }
+
+                        break;
+
                     case BossMechanic.Fossil:
                     {
                         // Ariya (2026-11-22): when each of her stretches begins everything that is flying, bullets and beams, stops, grey, until it ends (what came before the stretch before it stopped then already:
                         // let go as this one begins, it flies on - nothing stops twice). What the circles and sliders held is shot as the stretch ends (the planner), after it: it does not stop
                         double before = double.NegativeInfinity;
 
+                        // (what was held is shot as the stretch before ends - when this one begins: it must not stop. Its time is that moment only as nearly as adding times gives it, a hair before it at
+                        // times, so what was fired up to half a millisecond before is left alone: 2026-11-22, the held shots stopped again the moment they were let go)
                         foreach (var (start, end) in StoneStretches(period))
                         {
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, BornAfter = before, During = Stone });
-                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start, BornAfter = before, During = Stone });
-                            before = start;
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start - 0.5, BornAfter = before, During = Stone });
+                            beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = start, End = end, BornBefore = start - 0.5, BornAfter = before, During = Stone });
+                            before = start - 0.5;
                         }
 
                         break;

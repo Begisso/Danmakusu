@@ -212,11 +212,72 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// Sakuya's knives that hang round her: one per knife of every held ring that is not thrown yet, in the order they appeared. While her preview shows (<paramref name="previewAlpha"/> above 0) every knife also has a green copy
         /// where the mirroring will put it, pointing the way it will fly.
         /// </summary>
-        /// <summary>Does Sakuya's preview show a green copy at <paramref name="at"/>: only within <see cref="DanmakusuBalance.SAKUYA_PREVIEW_CIRCLES"/> circle radii of the player.</summary>
+        /// <summary>
+        /// Does Sakuya's preview show a green copy at <paramref name="at"/>: only within <see cref="DanmakusuBalance.SAKUYA_PREVIEW_CIRCLES"/> circle radii of the player - and not within the
+        /// <see cref="DanmakusuBalance.SAKUYA_CLEAR_CIRCLES"/> round the player that the mirroring clears (2026-11-22).
+        /// </summary>
         private bool nearSakuyaPreview(Vector2 at)
         {
-            float reach = circleRadius * DanmakusuBalance.SAKUYA_PREVIEW_CIRCLES;
-            return Vector2.DistanceSquared(at, characterPosition) <= reach * reach;
+            float reach = circleRadius * DanmakusuBalance.SAKUYA_PREVIEW_CIRCLES, clear = circleRadius * DanmakusuBalance.SAKUYA_CLEAR_CIRCLES;
+            float apart = Vector2.DistanceSquared(at, characterPosition);
+            return apart <= reach * reach && apart > clear * clear;
+        }
+
+        /// <summary>A bullet of Sakuya's preview: green, where the mirroring will put it, and a knife already, pointing the way it will fly (mirrored: the other way) - 2026-11-22.</summary>
+        private static void sakuyaGhost(ref BulletInstance ghost, Vector2 at, float alpha)
+        {
+            ghost.Position = at;
+            ghost.Overlay = BulletRenderer.TINT_GREEN;
+            ghost.OverlayAmount = 1f;
+            ghost.Decal = BulletDecal.None;
+            ghost.Shape = BulletShape.Knife;
+            ghost.Direction = ghost.Direction.LengthSquared > 1e-8f ? -ghost.Direction : new Vector2(1, 0);
+            ghost.Fade = 1f - DanmakusuBalance.SAKUYA_PREVIEW_VISIBLE * alpha;
+        }
+
+        private double[]? sakuyaMirrors;
+
+        /// <summary>
+        /// Sakuya (2026-11-22): as her mirroring happens, every bullet of a ring that it puts within <see cref="DanmakusuBalance.SAKUYA_CLEAR_CIRCLES"/> circle radii of the player is taken away, once (the preview
+        /// leaves them out already).
+        /// </summary>
+        private void clearAroundOnMirror(double now)
+        {
+            sakuyaMirrors ??= bulletOps.Where(op => op.Kind == TrajectoryOpKind.Mirror).Select(op => op.Time).Distinct().OrderBy(t => t).ToArray();
+
+            if (sakuyaMirrors.Length == 0 || failed || now <= previousTime)
+                return;
+
+            foreach (double mirror in sakuyaMirrors)
+            {
+                if (mirror <= previousTime || mirror > now)
+                    continue;
+
+                float clear = circleRadius * DanmakusuBalance.SAKUYA_CLEAR_CIRCLES;
+
+                for (int k = 0; k < activeCount; k++)
+                {
+                    var emitter = emitters[active[k]];
+
+                    if (emitter.Retired || emitter.Time > mirror)
+                        continue;
+
+                    double own = emitter.WithoutFrozenTime(effects.Effective(emitter, now));
+
+                    for (int b = 0; b < emitter.Count && b < 64; b++)
+                    {
+                        ulong bit = 1UL << b;
+
+                        if (((emitter.ConsumedMask | emitter.AbsorbedMask | emitter.HiddenMask) & bit) != 0)
+                            continue;
+
+                        emitter.Evaluate(b, own, out Vector2 at, out _, out bool alive);
+
+                        if (alive && Vector2.DistanceSquared(at, characterPosition) <= clear * clear)
+                            emitter.AbsorbedMask |= bit;
+                    }
+                }
+            }
         }
 
         private int addHeldKnives(double drawTime, int count, float previewAlpha)

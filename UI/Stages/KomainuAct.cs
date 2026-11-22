@@ -12,7 +12,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Aunn Komano (2026-11-21): every AUNN_EVERY_BEATS of her attacks she shoots AUNN_BEAMS curving beams from where she is, the first at the player and the others evenly round: each is as wide as a
         // slider's beam and AUNN_BEAM_LENGTH_CIRCLES circle radii long, and its head runs along a curve (the body following it, as a snake's) - bending ever more over its first AUNN_CURL_CIRCLES circle
         // radii, then once round a loop AUNN_LOOP_CIRCLES circle radii wide, then straight out of the screen. Every second volley curls the other way. They hurt like a slider body.
-        // Her other mechanic is the ops' (BossOps: every bullet fired in her section swells, then sets off at the player - AUNN_MOVE_SPEED times as fast as it was fired - moves, stands, sets off again...); this act places where the player is when each of
+        // Her other mechanic is the ops' (BossOps: every bullet fired in her section stops (it no longer swells: 2026-11-22), then sets off at the player - AUNN_MOVE_SPEED times as fast as it was fired - moves, stands, sets off again...); this act places where the player is when each of
         // those moves begins (every ring's own: BulletEmitter.ConfigureOps), and the field draws the arrows that warn of them (SwellWarnings).
         // ======================================================================================================================================================
 

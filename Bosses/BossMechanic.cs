@@ -563,5 +563,17 @@
         /// when it ends, after a big flash, they all shoot what they held at once and go, and the rest flies on. She shoots a grid of ellipses down from the top that bounce once off the bottom.
         /// </summary>
         Fossil,
+
+        /// <summary>
+        /// Aya Shameimaru (2026-11-22): no pauses. She dashes from edge to edge of the screen, fast, each time along the line through the most bullets (a see-through beam warns of it), leaving a beam behind her
+        /// for eight beats; what she passes flies out to the side of her way, twice as fast. She shoots fans of five arrowheads that pull towards the player, as Chen's.
+        /// </summary>
+        Wind,
+
+        /// <summary>
+        /// Hatate Himekaidou (2026-11-22): no pauses. Every eight beats she throws a photo frame at where the player is, shrinking as it flies; when it gets there she takes the picture: everything flying
+        /// turns to fly the way from the frame to the player, half as fast. A player in the frame is hit, and for four beats the character follows where the mouse was four beats before.
+        /// </summary>
+        Spoiler,
     }
 }

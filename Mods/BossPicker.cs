@@ -320,8 +320,24 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             /// <summary>The map has been read: this many bosses have an attack and a pause of their own on it (two or three times as many when that many are on the screen at once).</summary>
             private void setMostOnMap(int most)
             {
+                int before = mostOnMap;
+                bool wasRead = mapRead;
+
                 mostOnMap = Math.Max(most * least, least);
                 mapRead = true;
+
+                // (the slider stands at the most the map has room for unless the player has moved it, and stays at the top as the room changes: 2026-11-22, "by default is max allowed one")
+                if (current.IsDefault || (wasRead && CountOf(current.Value) == Math.Max(before, least)))
+                {
+                    string atMost = valueOf(mostOnMap, Ids(current.Value).Take(mostOnMap));
+
+                    if (atMost != current.Value)
+                    {
+                        current.Value = atMost;
+                        return; // (the change refreshes it)
+                    }
+                }
+
                 refresh();
             }
 

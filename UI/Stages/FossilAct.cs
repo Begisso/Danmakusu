@@ -16,7 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // planner) and shot, all of it at once, as the stretch ends - when the held ones go. Over the last ARIYA_WARN_BEATS of every stretch a big white flash swells over the screen, the held ones glowing white,
         // and it dies away after; Byakuren's beam sound comes with it.
         // She shoots a row of ellipses down from the top of the screen every ARIYA_ROW_EVERY_BEATS, across the whole screen ARIYA_COLUMN_GAP bullet radii apart, every second row half a gap aside, so that they
-        // make a grid; each bounces once off the bottom and flies back up out of the screen. Her own ellipses stop in a stretch as everything else does (once, grey).
+        // make a grid; each bounces once off the bottom and flies back up out of the screen. Her own ellipses never stop (2026-11-22; they stopped in a stretch as everything else does).
         // ======================================================================================================================================================
 
         private sealed class FossilAct : StageAct
@@ -138,79 +138,32 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 int style = f.comboStyle(k, true, Period.Rank);
                 float hit = r * DanmakusuBalance.BULLET_HITBOX_SCALE;
 
-                // (the first stretch that begins after the row comes stops it, if it is still there)
-                double stopFrom = double.NaN, stopTo = double.NaN;
-
-                foreach (var (start, end) in stretches)
-                {
-                    if (start > t0)
-                    {
-                        stopFrom = start;
-                        stopTo = end;
-                        break;
-                    }
-                }
-
+                // (her own ellipses do not stop in her stretches: 2026-11-22, "Her grid bullets are not affected by freeze" - they stopped once until then)
                 double bounceAt = t0 + (bottom - top) / speed;
                 double outAt = bounceAt + (bottom - top + r) / speed;
 
                 for (float x = f.stageMin.X + gap * (k % 2 == 0 ? 0.5f : 1f); x < f.stageMax.X; x += gap)
                 {
-                    var legs = new List<StageLeg> { new StageLeg { T = t0, P = new Vector2(x, top), V = new Vector2(0f, speed) } };
-                    double bounce = bounceAt, gone = outAt;
-                    bool stops = !double.IsNaN(stopFrom) && stopFrom < outAt;
-
-                    if (stops && stopFrom < bounceAt)
-                    {
-                        // (stopped on its way down: it comes down the rest of the way when the stretch is over)
-                        Vector2 at = new Vector2(x, top + speed * (float)(stopFrom - t0));
-                        legs.Add(new StageLeg { T = stopFrom, P = at, V = Vector2.Zero });
-                        legs.Add(new StageLeg { T = stopTo, P = at, V = new Vector2(0f, speed) });
-                        bounce += stopTo - stopFrom;
-                        gone += stopTo - stopFrom;
-                        legs.Add(new StageLeg { T = bounce, P = new Vector2(x, bottom), V = new Vector2(0f, -speed) });
-                    }
-                    else
-                    {
-                        legs.Add(new StageLeg { T = bounce, P = new Vector2(x, bottom), V = new Vector2(0f, -speed) });
-
-                        if (stops)
-                        {
-                            // (stopped on its way back up)
-                            Vector2 at = new Vector2(x, bottom - speed * (float)(stopFrom - bounceAt));
-                            legs.Add(new StageLeg { T = stopFrom, P = at, V = Vector2.Zero });
-                            legs.Add(new StageLeg { T = stopTo, P = at, V = new Vector2(0f, -speed) });
-                            gone += stopTo - stopFrom;
-                        }
-                    }
-
-                    var bullet = new StageBullet
+                    AddBullet(new StageBullet
                     {
                         T0 = t0,
                         P0 = new Vector2(x, top),
                         V = new Vector2(0f, speed),
-                        Legs = legs.ToArray(),
+                        Legs = new[]
+                        {
+                            new StageLeg { T = t0, P = new Vector2(x, top), V = new Vector2(0f, speed) },
+                            new StageLeg { T = bounceAt, P = new Vector2(x, bottom), V = new Vector2(0f, -speed) },
+                        },
                         Radius = r,
                         Hit = hit,
                         Style = style,
                         Shape = BulletShape.Ellipse,
-                        Until = gone,
-                    };
-
-                    if (stops)
-                    {
-                        bullet.Tint2At = stopFrom;
-                        bullet.Tint2 = BulletRenderer.TINT_GRAY;
-                        bullet.Tint2Amount = 1f;
-                        bullet.Tint2Over = 150;
-                        bullet.Tint2Until = stopTo;
-                    }
-
-                    AddBullet(bullet);
+                        Until = outAt,
+                    });
 
                     // (every bounce flashes)
                     if (live)
-                        f.addFlash(bounce, new Vector2(x, bottom), r * DanmakusuBalance.RICOCHET_FLASH_SIZE);
+                        f.addFlash(bounceAt, new Vector2(x, bottom), r * DanmakusuBalance.RICOCHET_FLASH_SIZE);
                 }
             }
 

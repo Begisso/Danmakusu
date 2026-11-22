@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -90,7 +90,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The moments the acts warn about (given again every frame: Mokou's jumps), which the bullets flash before.</summary>
         private readonly List<double> actFlashTimes = new List<double>();
         private readonly Dictionary<string, Sample?> cueSamples = new Dictionary<string, Sample?>();
-        private static readonly string[] cue_names = { "freeze", "cirno_reverse", "cirno_unfreeze", "chen_cat", "kagerou_howl", "kagerou_swing_0", "kagerou_swing_1", "kagerou_swing_2", "kagerou_swing_3", "kagerou_swing_4", "kagerou_swing_5", "kagerou_swing_6", "kagerou_swing_7", "kagerou_swing_8", "kagerou_swing_9", "elly_swing", "hecatia_cut", "hecatia_explosion", "koishi_ring", "koishi_glitch_in", "koishi_glitch_out", "hecatia_earth_hit", "hecatia_moon_hit", "hecatia_world_hit", "mokou_wall_hit", "power_up", "kyouko_walls", "kyouko_walls_reverse", "taiko_slam", "taiko_stick", "nuclear_alarm", "ufo_suck", "ufo_shoot", "train_horn", "yukari_warning", "yukari_reverse", "sakuya_stop", "sakuya_swap", "warning_reverse", "yuyuko_tree", "yuyuko_tree_loop", "yuyuko_petals", "reimu_orb_throw", "remilia_bell", "zanmu_graveyard", "zanmu_impact", "utsuho_hole_loop", "gengetsu_riser", "tojiko_thunder", "yumemi_bomb", "touhou_strike", "mima_moon", "mima_moon_active", "fly_by_0", "fly_by_1", "fly_by_2", "fly_by_3", "fly_by_4", "fly_by_5", "fly_by_6", "fly_by_7", "fly_by_8", "fly_by_9", "fly_by_10", "fly_by_11", "murasa_anchor" };
+        private static readonly string[] cue_names = { "freeze", "cirno_reverse", "cirno_unfreeze", "chen_cat", "kagerou_howl", "kagerou_swing_0", "kagerou_swing_1", "kagerou_swing_2", "kagerou_swing_3", "kagerou_swing_4", "kagerou_swing_5", "kagerou_swing_6", "kagerou_swing_7", "kagerou_swing_8", "kagerou_swing_9", "elly_swing", "hecatia_cut", "hecatia_explosion", "koishi_ring", "koishi_glitch_in", "koishi_glitch_out", "hecatia_earth_hit", "hecatia_moon_hit", "hecatia_world_hit", "mokou_wall_hit", "power_up", "kyouko_walls", "kyouko_walls_reverse", "taiko_slam", "taiko_stick", "nuclear_alarm", "ufo_suck", "ufo_shoot", "train_horn", "yukari_warning", "yukari_reverse", "sakuya_stop", "sakuya_swap", "warning_reverse", "yuyuko_tree", "yuyuko_tree_loop", "yuyuko_petals", "reimu_orb_throw", "remilia_bell", "zanmu_graveyard", "zanmu_impact", "utsuho_hole_loop", "gengetsu_riser", "tojiko_thunder", "yumemi_bomb", "touhou_strike", "mima_moon", "mima_moon_active", "fly_by_0", "fly_by_1", "fly_by_2", "fly_by_3", "fly_by_4", "fly_by_5", "fly_by_6", "fly_by_7", "fly_by_8", "fly_by_9", "fly_by_10", "fly_by_11", "murasa_anchor", "hatate_shutter" };
 
         /// <summary>Cues that sound exactly like another sample share its file (Yukari's warning is the power-up, her reverse the one of Cirno, Elly's scythe the lighting up of Mima's moon).</summary>
         private static readonly Dictionary<string, string> cue_sample_aliases = new Dictionary<string, string>
@@ -269,6 +269,34 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var sphere in SphereAct.Schedule(period))
                     list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" });
+            }
+
+            // Momiji: Mokou's impact as her piles start to move, the sound of Yuyuko's petals flying off as they crash (2026-11-22)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Patrol)
+                    continue;
+
+                foreach (var (_, to, crash) in PatrolAct.Schedule(period))
+                {
+                    list.Add(new Cue { Time = to, Name = "mokou_wall_hit" });
+                    list.Add(new Cue { Time = crash, Name = "yuyuko_petals" });
+                }
+            }
+
+            // Benben: Byakuren's beam sound every eight beats of her attacks, while her own beams fire (2026-11-22: they made the beams' own sound)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Strings || period.Kind == BossKind.Spinner)
+                    continue;
+
+                double beat = Math.Max(period.BeatLength, 1);
+
+                foreach (var (start, end) in BossOps.Attacks(period))
+                {
+                    for (double t = start; t < end && t < period.End; t += beat * DanmakusuBalance.BENBEN_STRIKE_EVERY_BEATS)
+                        list.Add(new Cue { Time = t, Name = "touhou_strike" });
+                }
             }
 
             // Sannyo: the sound of Kyouko's walls appearing at every throw of smoke

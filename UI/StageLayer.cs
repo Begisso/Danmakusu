@@ -323,6 +323,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Ubame's doll (Resources/Textures/rumia_fumo.png, the user's photo of a fumo, its white background taken away with Tools/Bake `fumo`): sitting, facing us, 256 x 226.</summary>
         RumiaFumo,
 
+        /// <summary>Hatate's photo frame (2026-11-22, drawn here after the user's screenshot): a see-through grey rectangle 3 : 2 with a light rim and a white cross in its middle.</summary>
+        PhotoFrame,
+
         /// <summary>
         /// Shinki's wings (2026-11-22, drawn here: white, pink towards the scalloped lower edge, the tip curling up), cut into <see cref="StageLayer.SHINKI_WING_STRIPS"/> strips from the root out, each a little wider than its share so
         /// that no gap opens where the wing bends (see <see cref="StageLayer.ShinkiWingStrip"/>): the right wing's, its root on the left, then the left one's, its mirror image.
@@ -562,6 +565,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"), StageTexture.Butterfly => BossCharacter.LoadResource(renderer, "Textures.larva_butterfly.png"),
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
+                    StageTexture.PhotoFrame => bake(renderer, makePhotoFrame()),
                     StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc1 => bake(renderer, makeLitArc(1f - (1 + 0.5f) / LIT_ARCS)),
@@ -711,6 +715,96 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>A puff of cloud (white, to be tinted): like the glow, but its edge is half as wide. The bullet renderer draws these itself (Tojiko's clouds go between the beams and the bullets).</summary>
         public static Texture BakeCloud(IRenderer renderer) => bake(renderer, makeCloud());
+
+        /// <summary>
+        /// The lava inside Suika's cracks (2026-11-22, after the user's picture of cracked lava): dark, cooling rock broken into plates by a network of glowing cracks - wide bright ones between big plates, fine
+        /// dim ones inside them - with a red haze round them. It repeats along its width without a seam (the plates go round), so a crack shows it end to end.
+        /// </summary>
+        public static Texture BakeLava(IRenderer renderer) => bake(renderer, lava_picture.Value.Clone());
+
+        private static readonly Lazy<Image<Rgba32>> lava_picture = new Lazy<Image<Rgba32>>(makeLava);
+
+        private static Image<Rgba32> makeLava()
+        {
+            const int width = 512, height = 256;
+            var image = new Image<Rgba32>(width, height);
+
+            // (a feature point in every square of a grid that goes round in x, at a place of its own; the cracks lie where two points are about as near)
+            static (float Edge, float Near) cells(float x, float y, int columns, int rows, int seed)
+            {
+                float cell = 1f / columns, cellY = 1f / rows;
+                int cx = (int)MathF.Floor(x / cell), cy = (int)MathF.Floor(y / cellY);
+                float first = float.MaxValue, second = float.MaxValue;
+
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int gx = cx + dx, gy = cy + dy;
+                        int wrapped = ((gx % columns) + columns) % columns;
+                        float px = (gx + 0.15f + 0.7f * hash(wrapped, gy, seed)) * cell;
+                        float py = (gy + 0.15f + 0.7f * hash(wrapped, gy, seed + 1)) * cellY;
+                        float ddx = (x - px) * columns, ddy = (y - py) * rows;
+                        float d = MathF.Sqrt(ddx * ddx + ddy * ddy);
+
+                        if (d < first)
+                        {
+                            second = first;
+                            first = d;
+                        }
+                        else if (d < second)
+                            second = d;
+                    }
+                }
+
+                return (second - first, first);
+            }
+
+            static float hash(int a, int b, int seed)
+            {
+                unchecked
+                {
+                    uint h = (uint)(a * 374761393 + b * 668265263 + seed * 2147483647);
+                    h = (h ^ (h >> 13)) * 1274126177u;
+                    return ((h ^ (h >> 16)) & 0xffffff) / (float)0x1000000;
+                }
+            }
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float u = (x + 0.5f) / width, v = (y + 0.5f) / height;
+
+                    // (big plates, and fine cracks inside them; the line wobbles a little so it is not ruled)
+                    float wobble = 0.012f * MathF.Sin(MathF.Tau * (v * 3f + u * 2f)) + 0.008f * MathF.Sin(MathF.Tau * (u * 7f - v * 5f));
+                    var (bigEdge, _) = cells(u + wobble, v, 8, 4, 11);
+                    var (fineEdge, _) = cells(u - wobble, v + wobble, 22, 11, 29);
+
+                    float crack = 1f - smooth(bigEdge / 0.075f);
+                    float core = 1f - smooth(bigEdge / 0.025f);
+                    float fine = (1f - smooth(fineEdge / 0.05f)) * 0.55f;
+                    float haze = MathF.Exp(-bigEdge / 0.22f) * 0.55f;
+                    float grain = 0.85f + 0.3f * hash(x / 4, y / 4, 47); // (in squares of four: 128 across, so it goes round too)
+
+                    // (rock: almost black with a red-brown cast; hazed red near the cracks; the cracks orange, yellow-white in their middles)
+                    var rock = new Vector3(0.11f, 0.035f, 0.025f) * grain;
+                    var hazed = Vector3.Lerp(rock, new Vector3(0.55f, 0.09f, 0.02f), haze);
+                    var lit = Vector3.Lerp(hazed, new Vector3(1f, 0.45f, 0.05f), Math.Max(crack, fine));
+                    var colour = Vector3.Lerp(lit, new Vector3(1f, 0.88f, 0.45f), core);
+
+                    image[x, y] = new Rgba32((byte)Math.Clamp((int)(colour.X * 255f), 0, 255), (byte)Math.Clamp((int)(colour.Y * 255f), 0, 255), (byte)Math.Clamp((int)(colour.Z * 255f), 0, 255), 255);
+                }
+            }
+
+            return image;
+
+            static float smooth(float t)
+            {
+                float c = Math.Clamp(t, 0f, 1f);
+                return c * c * (3f - 2f * c);
+            }
+        }
 
         /// <summary>The soft light of <see cref="StageTexture.Glow"/>, for the flashes in the clouds.</summary>
         public static Texture BakeGlow(IRenderer renderer) => bake(renderer, makeGlow());
@@ -993,6 +1087,48 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             return strip;
+        }
+
+        /// <summary>
+        /// Hatate's photo frame (2026-11-22, after the user's screenshot of her spell, made solid and sharp): a rectangle three wide to two tall, see-through grey, a light rim round it with a thin dark line outside
+        /// that, and a white cross in its middle, as a viewfinder's.
+        /// </summary>
+        private static Image<Rgba32> makePhotoFrame()
+        {
+            const int width = 768, height = 512;
+            const float rim = 7f, outline = 2.5f, crossArm = 46f, crossHalf = 3.5f;
+            var image = new Image<Rgba32>(width, height);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float px = x + 0.5f, py = y + 0.5f;
+                    float edge = Math.Min(Math.Min(px, width - px), Math.Min(py, height - py)); // (how far in from the outer edge)
+                    float dx = MathF.Abs(px - width / 2f), dy = MathF.Abs(py - height / 2f);
+                    bool cross = (dx <= crossArm && dy <= crossHalf) || (dy <= crossArm && dx <= crossHalf);
+
+                    Rgba32 colour;
+
+                    if (edge < outline)
+                        colour = new Rgba32(40, 40, 46, 230); // (the thin dark line outside the rim)
+                    else if (edge < outline + rim)
+                        colour = new Rgba32(236, 236, 240, 240); // (the light rim)
+                    else if (cross)
+                        colour = new Rgba32(255, 255, 255, 235);
+                    else
+                    {
+                        // (the glass: grey, a little lighter towards the rim)
+                        float lift = Math.Clamp(1f - (edge - outline - rim) / 40f, 0f, 1f) * 18f;
+                        byte grey = (byte)(150 + lift);
+                        colour = new Rgba32(grey, grey, (byte)(grey + 4), 140);
+                    }
+
+                    image[x, y] = colour;
+                }
+            }
+
+            return image;
         }
 
         /// <summary>A chevron pointing right (white, to be tinted), with soft edges.</summary>

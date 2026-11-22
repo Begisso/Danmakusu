@@ -39,6 +39,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public readonly List<Vector2[]> Groups = new List<Vector2[]>();
                 public readonly List<Star[]> Members = new List<Star[]>(); // (the bullets of every constellation, in the order of its beam)
                 public readonly List<double> GroupFrom = new List<double>(); // (when its preview comes)
+
+                // (the constellations made so far on a grid of their boxes: a new one is only compared with those near it - 2026-11-22: it was compared with every one made for the mark, and on a
+                // dense map, hundreds of them, a frame took 150 - 200 ms)
+                public readonly Dictionary<long, List<int>> GroupCells = new Dictionary<long, List<int>>();
+                public int[] Stamp = new int[64];
+                public int StampNow;
+
                 public int Batches;
                 public bool Sounded;
                 public bool Stopped; // (its bullets have been stopped)
@@ -134,6 +141,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     mark.Groups.Clear();
                     mark.Members.Clear();
                     mark.GroupFrom.Clear();
+                    mark.GroupCells.Clear();
                     mark.Batches = 0;
                     mark.Sounded = mark.Time <= time;
                     mark.Stopped = false;
@@ -364,6 +372,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     mark.Groups.Add(points);
                     mark.Members.Add(members);
                     mark.GroupFrom.Add(boundary);
+                    placeGroup(mark, mark.Groups.Count - 1);
                 }
 
                 for (int i = 0; i < pool.Count; i++)
@@ -434,20 +443,86 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return false;
             }
 
-            /// <summary>Would a constellation through <paramref name="points"/> cross, or come within <see cref="DanmakusuBalance.EIRIN_APART"/> of, one already made for this mark?</summary>
+            private const float group_cell = 64f;
+
+            /// <summary>The grid squares a box covers (the box made bigger by <see cref="DanmakusuBalance.EIRIN_APART"/>).</summary>
+            private static (int X0, int Y0, int X1, int Y1) squaresOf(Vector2[] points)
+            {
+                Vector2 low = new Vector2(float.PositiveInfinity), high = new Vector2(float.NegativeInfinity);
+
+                foreach (var p in points)
+                {
+                    low = Vector2.ComponentMin(low, p);
+                    high = Vector2.ComponentMax(high, p);
+                }
+
+                float apart = DanmakusuBalance.EIRIN_APART;
+                return ((int)MathF.Floor((low.X - apart) / group_cell), (int)MathF.Floor((low.Y - apart) / group_cell), (int)MathF.Floor((high.X + apart) / group_cell), (int)MathF.Floor((high.Y + apart) / group_cell));
+            }
+
+            /// <summary>Puts constellation <paramref name="index"/> of the mark on its grid.</summary>
+            private static void placeGroup(Mark mark, int index)
+            {
+                var (x0, y0, x1, y1) = squaresOf(mark.Groups[index]);
+
+                for (int x = x0; x <= x1; x++)
+                {
+                    for (int y = y0; y <= y1; y++)
+                    {
+                        long key = ((long)x << 32) ^ (uint)y;
+
+                        if (!mark.GroupCells.TryGetValue(key, out var list))
+                            mark.GroupCells[key] = list = new List<int>();
+
+                        list.Add(index);
+                    }
+                }
+            }
+
+            /// <summary>Would a constellation through <paramref name="points"/> cross, or come within <see cref="DanmakusuBalance.EIRIN_APART"/> of, one already made for this mark (only those near it are looked at)?</summary>
             private static bool overlaps(Mark mark, Vector2[] points)
             {
                 float apart = DanmakusuBalance.EIRIN_APART;
+                var (x0, y0, x1, y1) = squaresOf(points);
 
-                foreach (var other in mark.Groups)
+                if (mark.Stamp.Length < mark.Groups.Count)
+                    Array.Resize(ref mark.Stamp, Math.Max(mark.Groups.Count, mark.Stamp.Length * 2));
+
+                mark.StampNow++;
+
+                for (int x = x0; x <= x1; x++)
                 {
-                    for (int i = 0; i + 1 < points.Length; i++)
+                    for (int y = y0; y <= y1; y++)
                     {
-                        for (int j = 0; j + 1 < other.Length; j++)
+                        if (!mark.GroupCells.TryGetValue(((long)x << 32) ^ (uint)y, out var near))
+                            continue;
+
+                        foreach (int g in near)
                         {
-                            if (segmentsApart(points[i], points[i + 1], other[j], other[j + 1]) < apart)
+                            // (each one once, however many squares it shares with this one)
+                            if (mark.Stamp[g] == mark.StampNow)
+                                continue;
+
+                            mark.Stamp[g] = mark.StampNow;
+
+                            if (meets(points, mark.Groups[g], apart))
                                 return true;
                         }
+                    }
+                }
+
+                return false;
+            }
+
+            /// <summary>Does a piece of the beam through <paramref name="points"/> cross, or come within <paramref name="apart"/> of, a piece of the one through <paramref name="other"/>?</summary>
+            private static bool meets(Vector2[] points, Vector2[] other, float apart)
+            {
+                for (int i = 0; i + 1 < points.Length; i++)
+                {
+                    for (int j = 0; j + 1 < other.Length; j++)
+                    {
+                        if (segmentsApart(points[i], points[i + 1], other[j], other[j + 1]) < apart)
+                            return true;
                     }
                 }
 

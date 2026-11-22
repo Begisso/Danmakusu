@@ -138,6 +138,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The round bullets of the ring are big and are drawn as sharp as Mokou's ball, from a big picture (Utsuho's), instead of by the bullet renderer.</summary>
         public bool Sharp { get; set; }
 
+        /// <summary>A boss's ring that is fired from the middle of the screen, wherever she stands (Utsuho's big balls, 2026-11-22: beside another boss she stood aside).</summary>
+        public bool FromCentre { get; set; }
+
         /// <summary>0 = the bullets do not glow; otherwise they glow this much (see UI.BulletInstance.Bloom).</summary>
         public float Bloom { get; set; }
 
@@ -720,6 +723,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 AltTint = tint != null ? 0 : AltTint,
                 Bloom = Bloom,
                 Sharp = Sharp,
+                FromCentre = FromCentre,
                 FadeInMs = FadeInMs,
                 HurtsLikeSlider = HurtsLikeSlider,
                 VerdantScale = VerdantScale,

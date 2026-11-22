@@ -12,8 +12,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Watari Nina (2026-11-22): every NINA_EVERY_BEATS of her section a golden beam as Matenshi's, twice as thick, along the line from her to the player as it was when its preview came, across the
         // whole screen: a see-through preview for NINA_PREVIEW_BEATS, then it widens from its middle line over NINA_GROW_BEATS (with Byakuren's beam sound) and hurts like a slider body for
         // NINA_LIVE_BEATS, fading out over NINA_FADE_BEATS (harmless by then); the next preview comes as it fades.
-        // While a beam hurts, every bullet that leaves the screen (anyone's, but Yukari's train) comes back out of the beam: from the point of it nearest to where it left, out of the side that faces that
-        // place, flying straight away from the beam (across it) at the speed it had - once.
+        // While a beam hurts, every bullet that leaves the screen (anyone's, but her own, Yukari's train and what follows a boss) comes back in where it left, flying straight at the beam (square to it) at
+        // the speed it had - once (2026-11-22; it came out of the beam, flying away from it).
         // Her own shots are the planner's: fans of three big balls at the player.
         // ======================================================================================================================================================
 
@@ -198,7 +198,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bool solid = t >= solidAt(k);
                     float alpha = solid
                         ? 1f - smoothStep((t - liveEnd(k)) / (beat * DanmakusuBalance.NINA_FADE_BEATS))
-                        : DanmakusuBalance.MATENSHI_PREVIEW_ALPHA * smoothStep((t - strikes[k]) / (beat * 0.25));
+                        : DanmakusuBalance.BEAM_PREVIEW_ALPHA * smoothStep((t - strikes[k]) / (beat * 0.25));
                     float half = solid ? Math.Max(widthAt(f, k, t), 1f) : halfWidth(f);
 
                     if (alpha < 0.01f)
@@ -239,10 +239,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return false;
             }
 
-            /// <summary>While a beam hurts, a bullet that leaves the screen comes back out of the beam's side, flying straight away from it.</summary>
+            /// <summary>
+            /// While a beam hurts, a bullet of the circles and sliders that leaves the screen comes back in where it left, flying across the screen at the beam, straight towards it (2026-11-22, the same day:
+            /// it came out of the beam's side, flying away from it; anyone's).
+            /// </summary>
             public override bool Takes(BulletField f, double t, Vector2 from_, Vector2 to, BulletEmitter emitter, int bullet)
             {
-                if (f.failed || emitter.Shape == BulletShape.Train)
+                if (f.failed || emitter.Shape == BulletShape.Train || emitter.FollowsBoss || emitter.OwnShot)
                     return false;
 
                 int k = solidOne(t);
@@ -271,11 +274,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 var stored = f.makeStored(emitter, t);
                 float speed = seenSpeed(stored, emitter, from_, to, ScanPrevious, t);
-                float radius = stored.Radius * emitter.BigScale(bullet);
-                Vector2 velocity = across * speed;
+                Vector2 velocity = -across * speed;
 
-                var back = f.makeStageBullet(stored, emitter, bullet, t, axis + across * (halfWidth(f) + radius), velocity);
-                back.Untraced = true; // (it flies straight away from the beam: no other boss's op turns it)
+                // (back in at the edge where it left, flying across the beam's line, at it)
+                var back = f.makeStageBullet(stored, emitter, bullet, t, crossed, velocity);
+                back.Untraced = true; // (it flies straight at the beam: no other boss's op turns it)
 
                 int before = Bullets.Count;
                 AddBullet(back);

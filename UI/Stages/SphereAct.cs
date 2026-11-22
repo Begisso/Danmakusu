@@ -9,9 +9,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Star Sapphire (2026-11-21): she stands in the middle of the screen all her section and shoots stars out (finish stars, Marisa's) that make a sphere of lines round her - the user's animation
-        // (Sphere_rotating_transparency.gif): meridians and parallels, a star every SAPPHIRE_STEP_DEGREES along each, seen a little from above, turning about the line from pole to pole. Both its sides are
+        // (Sphere_rotating_transparency.gif): meridians and parallels, a star every SAPPHIRE_STEP_DEGREES along each, seen a little from above, turning about the line from pole to pole, and the whole of it
+        // spinning round her in the plane of the screen once in SAPPHIRE_SPIN_BEATS (2026-11-22; it tumbled through its equator). Both its sides are
         // seen (it is see-through) and every star hurts like a slider body. Over SAPPHIRE_GROW_BEATS the sphere grows from her until its edge is just past the farthest edge of the screen, turns as big for
-        // SAPPHIRE_HOLD_BEATS, is pulled back into her over SAPPHIRE_BACK_BEATS, and after SAPPHIRE_REST_BEATS more it comes again, turning the other way. A section too short for one is one as long as it is.
+        // SAPPHIRE_HOLD_BEATS, is pulled back into her over SAPPHIRE_BACK_BEATS, and the moment it is in it comes again (SAPPHIRE_REST_BEATS, 0), turning the other way. No pauses: what is left of the section
+        // at its end gets a shorter one. A section too short for one is one as long as it is.
         // Everything is a closed form of time (the stars are beads: the autoplay asks where they are at any moment).
         // ======================================================================================================================================================
 
@@ -85,13 +87,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 double every = grow + hold + back + beat * DanmakusuBalance.SAPPHIRE_REST_BEATS;
                 var list = new List<(double, double, double, double)>();
 
-                for (double s = period.ShootStart; s + grow + hold + back <= period.End + 1 && list.Count < 10000; s += every)
+                double s = period.ShootStart;
+
+                for (; s + grow + hold + back <= period.End + 1 && list.Count < 10000; s += every)
                     list.Add((s, grow, hold, back));
 
-                if (list.Count == 0 && period.End > period.ShootStart + beat)
+                // (what is left at the end, too short for a whole sphere, has one as long as it is - each part as much shorter: she never stands without one. 2026-11-22, "She has no pause phases": the end of
+                // a section was empty. A section too short for a whole one is the same)
+                if (period.End > s + beat * 2)
                 {
-                    double share = (period.End - period.ShootStart) / (grow + hold + back);
-                    list.Add((period.ShootStart, grow * share, hold * share, back * share));
+                    double share = (period.End - s) / (grow + hold + back);
+                    list.Add((s, grow * share, hold * share, back * share));
                 }
 
                 return list;
@@ -198,23 +204,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float turn = way * (float)((t - spheres[k].Start) / (beat * DanmakusuBalance.SAPPHIRE_TURN_BEATS) * Math.Tau);
                 float cosTurn = MathF.Cos(turn), sinTurn = MathF.Sin(turn);
 
-                // (and it tumbles about a line through its equator too, across the screen, the same way round: 2026-11-22)
-                float tumble = way * (float)((t - spheres[k].Start) / (beat * DanmakusuBalance.SAPPHIRE_TUMBLE_BEATS) * Math.Tau);
-                float cosTumble = MathF.Cos(tumble), sinTumble = MathF.Sin(tumble);
+                // (it no longer tumbles about a line through its equator - 2026-11-22, the same day it began to: "rollback spin around equator")
+                const float cosTumble = 1f, sinTumble = 0f;
                 float tilt = DanmakusuBalance.SAPPHIRE_TILT_DEGREES * MathF.PI / 180f;
                 float cosTilt = MathF.Cos(tilt), sinTilt = MathF.Sin(tilt);
 
                 Vector2 centre = middle(f);
                 float radius = starRadius(f);
 
-                // (its line from pole to pole points at the player as it begins: a sphere not begun yet - the autoplay asks ahead - at where the player is now)
-                float roll = rollKnown[k] ? rolls[k] : rollAtPlayer(f);
+                // (its line from pole to pole points at the player as it begins: a sphere not begun yet - the autoplay asks ahead - at where the player is now. And it spins round her, in the plane of the
+                // screen, once in SAPPHIRE_SPIN_BEATS, the same way round as it turns: 2026-11-22, "Sphere spins around saphire too instead")
+                float spinRound = way * (float)((t - spheres[k].Start) / (beat * DanmakusuBalance.SAPPHIRE_SPIN_BEATS) * Math.Tau);
+                float roll = (rollKnown[k] ? rolls[k] : rollAtPlayer(f)) + spinRound;
                 float cosRoll = MathF.Cos(roll), sinRoll = MathF.Sin(roll);
                 float hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE;
 
                 // (the autoplay looks at moments AUTO_SAMPLE_MS apart, and the stars of the rim go round fast: to it they are as much bigger as the fastest goes in half of that)
                 if (autoAsking)
-                    hit += ((float)(Math.Tau / (beat * DanmakusuBalance.SAPPHIRE_TURN_BEATS) + Math.Tau / (beat * DanmakusuBalance.SAPPHIRE_TUMBLE_BEATS)) * size + growing) * (float)DanmakusuBalance.AUTO_SAMPLE_MS * 0.5f;
+                    hit += ((float)(Math.Tau / (beat * DanmakusuBalance.SAPPHIRE_TURN_BEATS) + Math.Tau / (beat * DanmakusuBalance.SAPPHIRE_SPIN_BEATS)) * size + growing) * (float)DanmakusuBalance.AUTO_SAMPLE_MS * 0.5f;
                 int style = f.comboStyle(0, true, Period.Rank);
                 float spin = (float)(t * 0.004);
 

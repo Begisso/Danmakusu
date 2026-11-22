@@ -2011,6 +2011,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Wind:
+                        // Aya: her dashes, the trace behind her and what she passes (her fans of arrowheads are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new WindAct(period));
+
+                        break;
+
+                    case BossMechanic.Spoiler:
+                        // Hatate: her photo frames and her pictures (that everything turns as a picture is taken is BossOps')
+                        if (period.End > period.ShootStart)
+                            registerStage(new PhotoAct(this, period));
+
+                        break;
+
                     case BossMechanic.Fossil:
                         // Ariya: the circles and sliders she holds, her flash and her grid of ellipses (that everything stops is BossOps', that what they would shoot is held the planner's)
                         if (period.End > period.ShootStart)
@@ -2519,7 +2533,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             lensPresence = 0f;
 
             foreach (var act in stageActs)
+            {
+                long since = System.Diagnostics.Stopwatch.GetTimestamp();
                 act.Update(this, now);
+                actTime(act, since);
+            }
 
             stageBeads.Clear();
 
@@ -2531,7 +2549,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private void lateStage(double now)
         {
             foreach (var act in stageActs)
+            {
+                long since = System.Diagnostics.Stopwatch.GetTimestamp();
                 act.Late(this, now);
+                actTime(act, since);
+            }
         }
 
         private void addHide(Vector2 centre, float radius, float presence)
@@ -3450,11 +3472,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             Array.Resize(ref instanceBuffer, instanceBuffer.Length * 2);
 
                         var ghost = instanceBuffer[count - 1];
-                        ghost.Position = sakuyaCentre * 2f - position;
-                        ghost.Overlay = BulletRenderer.TINT_GREEN;
-                        ghost.OverlayAmount = 1f;
-                        ghost.Decal = BulletDecal.None;
-                        ghost.Fade = 1f - DanmakusuBalance.SAKUYA_PREVIEW_VISIBLE * stageSakuyaAlpha;
+                        sakuyaGhost(ref ghost, sakuyaCentre * 2f - position, stageSakuyaAlpha);
                         instanceBuffer[count++] = ghost;
                     }
                 }
@@ -3645,8 +3663,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (now < act.Start - 1 || now > Math.Max(act.End, act.MechanicsEnd) + act_linger_ms)
                     continue;
 
-                long since = timed ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                long since = System.Diagnostics.Stopwatch.GetTimestamp();
                 bool hurts = act.Hurts(this, now);
+                actTime(act, since);
 
                 if (timed)
                     autoActCost(act.GetType().Name + ".Hurts", since);
