@@ -14,6 +14,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // one, flying on the way it flew (so towards the player's back): where it comes out is as far from the middle of that portal as where it went in was from the middle of the first.
         // Both portals follow along the border of the screen: the first Okina, the second the player; when Okina goes to another side they slide there (round the corners), they never jump. A portal that is near a corner bends round it (an L): the part that does not fit on the wall goes on along the next one.
         // The portals grow to their size during the warning that leads into the attack, and the whole screen shakes a little meanwhile.
+        // A beam comes out as the beam it was, as long as it was (2026-11-22, the user's rule: "laserbeam total length that goes through portal should always remain the same"): all of it goes through the
+        // portals as they were when it was first seen to go in, each of its slices is where the beam without the portals has it, moved and turned as the portal moves and turns what goes through (one way, never
+        // mirrored; the move is the one its first slice through those two walls got, `beamMoves`), and slices that went in through different walls or came out of different walls are cut from each other. `PORTAL_LENGTH=1` on the bench counts the runs that are not.
         // ======================================================================================================================================================
 
         private sealed class PortalAct : StageAct
@@ -148,6 +151,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (beamEntered[laser] > time)
                         beamEntered.Remove(laser);
                 }
+
+                foreach (var key in new List<(LaserEmitter, int, int)>(beamMoves.Keys))
+                {
+                    if (beamMoves[key].Time > time)
+                        beamMoves.Remove(key);
+                }
             }
 
             private readonly HashSet<(BulletEmitter, int)> entered = new HashSet<(BulletEmitter, int)>();
@@ -218,35 +227,85 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || t < Start || t > End)
                     return false;
 
-                // (a beam that has gone through keeps the portals where they were when it first did: every later slice of it goes in and comes out there, wherever the portals have slid since)
+                // (a beam that has gone through keeps the portals where they were when it was first seen to: every slice of it goes in and comes out there - also one that reached the wall before - wherever
+                // the portals have slid since, so the part that has come out is the same beam, as long as it was. That moment is never moved: a slice looked at later that had reached the wall earlier
+                // moved it before, and with it every slice after it, and the slices looked at in between change from frame to frame - the beam came out in zigzags, ever longer: 2026-11-22, "laserbeam
+                // total length that goes through portal should always remain the same")
                 double asOf = t;
+                bool seen = laser != null && beamEntered.TryGetValue(laser, out asOf);
 
-                if (laser != null && beamEntered.TryGetValue(laser, out double first) && t >= first)
-                    asOf = first;
+                if (!seen)
+                    asOf = t;
 
                 if (!geometryAt(f, asOf, out var entry, out var exit))
                     return false;
 
-                if (!transferThrough(f, entry, exit, from, to, radius, out exitPoint, out exitDirection, out fraction, out int exitWall))
+                if (!transferThrough(f, entry, exit, from, to, radius, out exitPoint, out exitDirection, out fraction, out int entryWall, out int exitWall))
                     return false;
 
-                if (laser != null && (!beamEntered.TryGetValue(laser, out double known) || t < known))
+                if (laser != null && !seen)
                     beamEntered[laser] = t;
 
-                // (slices of a beam are only joined if they teleported together: through the same portals, of the same attack, out of the same wall. Otherwise they come out far apart or go different ways, and the line between them
-                // would stretch across the screen and on. The number is the Portal of the look, and neighbours with different ones are cut.)
-                teleport = 1 + Id * 4 + exitWall;
+                // (the first slice of a beam to go in through a wall and out of another sets how the portal moves and turns that beam: every later slice of it through the same two walls comes out moved and turned
+                // just so - as one piece, whatever the places along the walls make of it, which they did not do evenly everywhere (2026-11-22, Enoko and Okina: the part that came out was a fifth longer))
+                if (laser != null)
+                {
+                    Vector2 delta = to - from;
+                    Vector2 way = delta.LengthSquared > 1e-12f ? Vector2.Normalize(delta) : exitDirection;
+                    Vector2 crossing = from + delta * fraction;
+                    var key = (laser, entryWall, exitWall);
+
+                    if (beamMoves.TryGetValue(key, out var move))
+                    {
+                        Vector2 d = crossing - move.Entered;
+                        exitPoint = move.Came + new Vector2(d.X * move.Cos - d.Y * move.Sin, d.X * move.Sin + d.Y * move.Cos);
+                        exitDirection = new Vector2(way.X * move.Cos - way.Y * move.Sin, way.X * move.Sin + way.Y * move.Cos);
+                    }
+                    else
+                        beamMoves[key] = (t, crossing, exitPoint, Vector2.Dot(way, exitDirection), way.X * exitDirection.Y - way.Y * exitDirection.X);
+                }
+
+                // (slices of a beam are only joined if they teleported together: through the same portals, of the same attack, in through the same wall and out of the same wall. Otherwise they come out far apart or
+                // turned different ways, and the line between them would stretch across the screen and on. The number is the Portal of the look, and neighbours with different ones are cut. It stays under 1 << 16,
+                // which the beam's own cuts count in: LaserEmitter. The wall it went in through is in it since 2026-11-22: a portal bent round a corner took in through two walls and let out through one, turned two ways.)
+                teleport = 1 + Id * 16 + entryWall * 4 + exitWall;
                 return true;
             }
 
-            /// <summary>When each beam first went through (the moment its later slices take the portals as they were then; forgotten for what came later when time goes back).</summary>
+            /// <summary>When each beam was first seen to go through (the moment all its slices take the portals as they were then; forgotten for what came later when time goes back).</summary>
             private readonly Dictionary<LaserEmitter, double> beamEntered = new Dictionary<LaserEmitter, double>();
 
-            private bool transferThrough(BulletField f, List<Seg> entry, List<Seg> exit, Vector2 from, Vector2 to, float radius, out Vector2 exitPoint, out Vector2 exitDirection, out float fraction, out int exitWall)
+            /// <summary>How the portal moves and turns each beam through each pair of walls: when, where its first slice went in and came out, and the turn (forgotten for what came later when time goes back).</summary>
+            private readonly Dictionary<(LaserEmitter, int, int), (double Time, Vector2 Entered, Vector2 Came, float Cos, float Sin)> beamMoves = new Dictionary<(LaserEmitter, int, int), (double, Vector2, Vector2, float, float)>();
+
+            /// <summary>The wall's own way along it (the way s grows on the middle piece of a portal in it).</summary>
+            private static Vector2 tangent(int w) => alongX(w) ? Vector2.UnitX : Vector2.UnitY;
+
+            /// <summary>
+            /// 1 or -1: which way along the second portal a place along the first one comes out, so that what goes through is turned as a whole and not mirrored. Across from each other the two run the same way (1);
+            /// on two walls at a right angle (while a portal slides round a corner) the turn takes the first's way along it to the second's backwards, and a beam came out mirrored - its slices as far apart along the
+            /// wall as they went in, but flying the other way round, so the beam came out longer or shorter than it went in (2026-11-22).
+            /// </summary>
+            private static float alongSign(int entryWall, int exitWall)
+            {
+                Vector2 goingOut = outward(entryWall), comingIn = -outward(exitWall);
+                float turn = MathF.Atan2(comingIn.Y, comingIn.X) - MathF.Atan2(goingOut.Y, goingOut.X);
+                Vector2 way = tangent(entryWall);
+                Vector2 turned = new Vector2(way.X * MathF.Cos(turn) - way.Y * MathF.Sin(turn), way.X * MathF.Sin(turn) + way.Y * MathF.Cos(turn));
+
+                return Vector2.Dot(turned, tangent(exitWall)) < 0f ? -1f : 1f;
+            }
+
+            /// <summary><see cref="alongSign"/> for two portals as they are (the walls of their middle pieces).</summary>
+            private static float alongSign(List<Seg> entry, List<Seg> exit)
+                => locate(entry, 0f, out Seg entryMiddle, out _) && locate(exit, 0f, out Seg exitMiddle, out _) ? alongSign(entryMiddle.Wall, exitMiddle.Wall) : 1f;
+
+            private bool transferThrough(BulletField f, List<Seg> entry, List<Seg> exit, Vector2 from, Vector2 to, float radius, out Vector2 exitPoint, out Vector2 exitDirection, out float fraction, out int entryWall, out int exitWall)
             {
                 exitPoint = to;
                 exitDirection = Vector2.UnitX;
                 fraction = 1f;
+                entryWall = 0;
                 exitWall = 0;
 
                 Vector2 delta = to - from;
@@ -275,7 +334,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float s = seg.S0 + Math.Clamp(onPiece, 0f, seg.Len);
 
-                    if (!locate(exit, s, out Seg exitSeg, out float exitAlong))
+                    if (!locate(exit, s * alongSign(entry, exit), out Seg exitSeg, out float exitAlong))
                         continue;
 
                     int xw = exitSeg.Wall;
@@ -288,6 +347,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     exitDirection = new Vector2(way.X * cos - way.Y * sin, way.X * sin + way.Y * cos);
                     fraction = u;
+                    entryWall = sw;
                     exitWall = xw;
                     return true;
                 }
@@ -554,7 +614,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float s = seg.S0 + Math.Clamp(onPiece, 0f, seg.Len);
 
-                if (!locate(exitPath, s, out Seg exitSeg, out float exitAlong))
+                // (turned as a whole, not mirrored, as the beams: alongSign)
+                if (!locate(exitPath, s * alongSign(entryPath, exitPath), out Seg exitSeg, out float exitAlong))
                     return false;
 
                 int xw = exitSeg.Wall;

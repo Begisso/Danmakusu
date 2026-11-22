@@ -849,9 +849,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Where a slice is at <paramref name="time"/> and how it looks after what the ops have done to it (without the portals).</summary>
         public void TraceSlice(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out BulletLook? look)
+            => TraceSliceClocked(start, velocity, fired, clocked(fired, time), out position, out look);
+
+        /// <summary><see cref="TraceSlice"/> at a time that has been through the beam's clock (Gengetsu's) already: the portals get it so, and took it through the clock a second time.</summary>
+        public void TraceSliceClocked(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out BulletLook? look)
         {
             look = null;
-            time = clocked(fired, time);
 
             // (a beam whose only op is its own one bounce: the bounce in closed form, as the trace would do it - the trace cost Suwako, whose every beam bounces, most of her 10 ms a frame)
             if (bounceOnly && Ops is { Length: 1 } && OpsArea != null)
@@ -1116,7 +1119,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 double f = (lo + hi) / 2;
                 stateAt(f, k, beam, out Vector2 start, out Vector2 velocity);
-                evaluate(start, velocity, f, time, out Vector2 changeAt, out _, out double changeShown, out _);
+                evaluate(start, velocity, f, time, out Vector2 changeAt, out BulletLook? changeLook, out double changeShown, out _);
+
+                // (a corner that has not been through the portals its two neighbours have - a sliver of slices that did not go in, between two that did - is not a corner of theirs: it took their look and was drawn
+                // joined to them, from wherever it was, a line across the screen. The beam is cut there instead, each side ending at its own last slice: 2026-11-22, Seija and Okina)
+                if ((changeLook?.Portal ?? 0) != (looks[k]?.Portal ?? 0) || (changeLook?.Portal ?? 0) != (looks[k + 1]?.Portal ?? 0))
+                {
+                    // (the two keep their own looks; the slices on either side of the sliver are side by side, so where both went through, the line between them is as short as theirs)
+                    if (count + 1 < buffer.Length && count + 1 < looks.Length)
+                    {
+                        insertPointAt(k + 1, hi, k, beam, time, buffer, widths, distances, looks, ref count);
+                        insertPointAt(k + 1, lo, k, beam, time, buffer, widths, distances, looks, ref count);
+                    }
+
+                    continue;
+                }
 
                 // make room at k + 1
                 if (pointFired.Length <= count + 1)
@@ -1689,7 +1706,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The moment a slice fired at <paramref name="fired"/> has flown up to at <paramref name="time"/>, on <see cref="Clock"/>.</summary>
         private double clocked(double fired, double time) => Clock != null && !Immune ? Clock.Effective(fired, time) : time;
 
+        /// <summary>(Tools/SectionCheck: every set of points made for a beam - the laser, which of its beams, the time, the points, their looks and when each slice was fired, and how many; null when unused)</summary>
+        public static Action<LaserEmitter, int, double, Vector2[], BulletLook?[], double[], int>? PointsProbe;
+
         private int pointsOf(double time, Vector2[] buffer, int beam, float[]? widths, float[]? distances, BulletLook?[]? looks)
+        {
+            if (PointsProbe == null)
+                return madePointsOf(time, buffer, beam, widths, distances, looks);
+
+            BulletLook?[] flags = looksFor(looks, buffer.Length);
+            int count = madePointsOf(time, buffer, beam, widths, distances, flags);
+            PointsProbe(this, beam, time, buffer, flags, pointFired, count);
+            return count;
+        }
+
+        private int madePointsOf(double time, Vector2[] buffer, int beam, float[]? widths, float[]? distances, BulletLook?[]? looks)
         {
             if (time >= VanishAt)
                 return 0;

@@ -1337,7 +1337,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const double HATATE_EVERY_BEATS = 8;
 
-        public const double HATATE_FLY_BEATS = 2;
+        public const double HATATE_FLY_BEATS = 4; // (2 until 2026-11-22, the same day: "halve the movement speed of photo frame" - as far, twice as long)
         public const float HATATE_FRAME_START = 8f; // (4 until 2026-11-22, the same day: twice as big)
         public const float HATATE_FRAME_END = 4f; // (2 until 2026-11-22, the same day)
         public const float HATATE_FRAME_ASPECT = 1.5f;

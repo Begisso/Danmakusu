@@ -162,7 +162,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             if (laser != null)
             {
-                laser.TraceSlice(start, velocity, t0, time, out position, out look);
+                laser.TraceSliceClocked(start, velocity, t0, time, out position, out look); // (the beam's clock has been asked already: LaserEmitter.evaluate)
                 speed = velocity;
                 return true;
             }
@@ -189,6 +189,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public int Through;
             public Vector2 PieceStart, PieceVelocity;
             public double PieceT0, PieceUntil;
+
+            // (a slice of a beam that has gone through: where it went in and came out, and the portal's turn - it is where the beam would be without the portal, moved and turned so)
+            public Vector2 Entered, Came;
+            public float TurnCos, TurnSin;
+        }
+
+        /// <summary>
+        /// Where a slice of a beam that went into a portal at <paramref name="entered"/> and came out at <paramref name="came"/> is, when the beam without the portal would have it at <paramref name="unported"/>: the portal
+        /// moves and turns what goes through as a whole, so what comes out is the beam as it would have been, as long as it would have been - whatever the ops do to it (2026-11-22, "laserbeam total length that goes
+        /// through portal should always remain the same": the slices started the ops again from where they came out, each its own way, and the beam came out stretched).
+        /// </summary>
+        private static Vector2 throughPortal(Vector2 unported, Vector2 entered, Vector2 came, float cos, float sin)
+        {
+            Vector2 d = unported - entered;
+            return came + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
         }
 
         private bool carry(LaserEmitter? laser, Vector2 start, Vector2 velocity, Vector2 pull, double t0, double until, double now, float radius, out Vector2 position, out Vector2 speed, out BulletLook? look, out int through)
@@ -233,6 +248,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (through > 0)
                 {
+                    if (laser != null)
+                        return portedSlice(laser, start, velocity, pull, t0, until, now, radius, mark, out position, out speed, out look);
+
                     pieceStart = mark.PieceStart;
                     pieceVelocity = mark.PieceVelocity;
                     pieceT0 = mark.PieceT0;
@@ -251,6 +269,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             int guard = 0;
             float pace = velocity.Length;
             bool fallen = laser != null && BossOps.IsFallenBeam(look); // (a slice of a beam that has fallen from the top, Kaguya's, goes past the portals)
+            Vector2 entered = default, came = default;
+            float turnCos = 1f, turnSin = 0f;
 
             // (a step never goes all the way to the nearest wall, so it can be long while the thing is far from one: every step is worked out from where it started, and a beam asks this for every slice, many times a frame)
             while (through < 1 && !fallen && t < last && guard++ < 2000)
@@ -269,6 +289,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     double crossed = t + (next - t) * fraction;
                     float length = laser != null ? laser.Speed : Math.Max(flying.Length, 1e-6f);
+
+                    // (a slice of a beam: where it went in and came out, and the turn - from the way it flew in to the way it comes out - for throughPortal)
+                    Vector2 delta = after - before;
+                    Vector2 way = delta.LengthSquared > 1e-12f ? Vector2.Normalize(delta) : exitDirection;
+                    entered = before + delta * fraction;
+                    came = exitPoint;
+                    turnCos = Vector2.Dot(way, exitDirection);
+                    turnSin = way.X * exitDirection.Y - way.Y * exitDirection.X;
 
                     pieceStart = exitPoint;
                     pieceVelocity = exitDirection * length;
@@ -289,7 +317,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 t = next;
             }
 
-            mark = new CarryMark { Time = t, Through = through, PieceStart = pieceStart, PieceVelocity = pieceVelocity, PieceT0 = pieceT0, PieceUntil = pieceUntil };
+            mark = new CarryMark { Time = t, Through = through, PieceStart = pieceStart, PieceVelocity = pieceVelocity, PieceT0 = pieceT0, PieceUntil = pieceUntil, Entered = entered, Came = came, TurnCos = turnCos, TurnSin = turnSin };
+
+            if (laser != null && through > 0)
+                return portedSlice(laser, start, velocity, pull, t0, until, now, radius, mark, out position, out speed, out look);
 
             // ...and after the last moment a portal can take it, closed form again
             if (!tracePiece(laser, pieceStart, pieceVelocity, pull, pieceT0, pieceUntil, now, radius, out position, out speed, out look))
@@ -297,6 +328,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (the slices that have come out of the second portal fly on their own way from where they came out: they do not move along with the portal when it slides)
 
+            return true;
+        }
+
+        /// <summary>A slice of a beam that has gone through a portal (<paramref name="mark"/>): where the beam without the portal has it now, moved and turned as the portal moves and turns it (<see cref="throughPortal"/>).</summary>
+        private bool portedSlice(LaserEmitter laser, Vector2 start, Vector2 velocity, Vector2 pull, double t0, double until, double now, float radius, in CarryMark mark, out Vector2 position, out Vector2 speed, out BulletLook? look)
+        {
+            tracePiece(laser, start, velocity, pull, t0, until, now, radius, out Vector2 unported, out _, out look);
+            position = throughPortal(unported, mark.Entered, mark.Came, mark.TurnCos, mark.TurnSin);
+            speed = new Vector2(velocity.X * mark.TurnCos - velocity.Y * mark.TurnSin, velocity.X * mark.TurnSin + velocity.Y * mark.TurnCos);
             return true;
         }
 
@@ -329,7 +369,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     continue;
 
                 double crossed = reaches - probe + 2 * probe * fraction;
-                float length = laser != null ? laser.Speed : Math.Max(velocity.Length, 1e-6f);
+                float length = Math.Max(velocity.Length, 1e-6f); // (as fast as it flew in: 2026-11-22, it was the beam's own speed)
 
                 through = teleport;
                 speed = exitDirection * length;
