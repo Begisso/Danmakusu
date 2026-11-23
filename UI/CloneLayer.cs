@@ -25,6 +25,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     ///  - Doremy: every circle and slider that starts in one of her attacks, at the same time, mirrored through the middle of the playfield (x and y), dark blue;
     ///  - Sagume: as soon as one of her attacks ends it is played again backwards: what started t ms before the end starts again t ms after it, where it was, white (a slider that ended
     ///    at the far end of its path goes the other way along it). The approach circles play as always.
+    ///  - Lyrica (2026-11-23): every circle and slider of her section again four beats later, twice as far from the middle of the playfield (kept on the screen), approaching twice as long, red.
     /// They are real osu! circles and sliders (they look exactly like the originals) and are hit when they are due, like the originals, but nothing of theirs counts: they are not in the
     /// playfield's own list of objects. They hurt like the originals (see <see cref="BulletPlanner.PlanCircleZones"/>); what they shoot is planned with the map.
     /// </summary>
@@ -105,6 +106,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 var mechanic = period.Boss?.Mechanic;
 
+                // Lyrica (2026-11-23): every circle and slider of her section again, later and further out (LyricaEcho)
+                if (mechanic == BossMechanic.Keyboard)
+                {
+                    double later = Math.Max(period.BeatLength, 1) * DanmakusuBalance.LYRICA_ECHO_BEATS;
+
+                    foreach (var hitObject in beatmap.HitObjects)
+                    {
+                        if (hitObject.StartTime < period.ShootStart || hitObject.StartTime >= period.End || hitObject is not (HitCircle or Slider))
+                            continue;
+
+                        var original = (OsuHitObject)hitObject;
+                        Vector2 position = original.StackedPosition + LyricaShift(original.StackedPosition);
+                        OsuHitObject echo = original is Slider echoed
+                            ? sliderLike(echoed, echoed.StartTime + later, position, new SliderPath(echoed.Path.ControlPoints.Select(point => new PathControlPoint(point.Position, point.Type)).ToArray(), echoed.Path.ExpectedDistance.Value))
+                            : circle(original, original.StartTime + later, position);
+
+                        echo.ApplyDefaults(beatmap.ControlPointInfo, beatmap.Difficulty);
+                        slowApproach(echo, DanmakusuBalance.LYRICA_ECHO_APPROACH);
+                        copies.Add((echo, DanmakusuBalance.LYRICA_COPY_COLOUR));
+                    }
+
+                    continue;
+                }
+
                 if (mechanic != BossMechanic.Dream && mechanic != BossMechanic.Rewind)
                     continue;
 
@@ -127,6 +152,33 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             copies.Sort((a, b) => a.Item1.StartTime.CompareTo(b.Item1.StartTime));
             return copies;
+        }
+
+        // ---- Lyrica: again, later and further out ----
+
+        /// <summary>
+        /// How far an echo of Lyrica's is moved from where the map has its circle or slider (at <paramref name="position"/>): out from the middle of the playfield until it is LYRICA_ECHO_DISTANCE times as far,
+        /// but its middle kept LYRICA_EDGE_MARGIN inside the screen (16:9). Everything of it moves as far: a slider keeps its shape, what it shoots comes from its moved places (the planner uses this too).
+        /// </summary>
+        public static Vector2 LyricaShift(Vector2 position)
+        {
+            Vector2 middle = OsuPlayfield.BASE_SIZE / 2f;
+            Vector2 low = DanmakusuBalance.LYRICA_SCREEN_MIN + new Vector2(DanmakusuBalance.LYRICA_EDGE_MARGIN), high = DanmakusuBalance.LYRICA_SCREEN_MAX - new Vector2(DanmakusuBalance.LYRICA_EDGE_MARGIN);
+            Vector2 moved = Vector2.Clamp(middle + (position - middle) * DanmakusuBalance.LYRICA_ECHO_DISTANCE, low, high);
+            return moved - position;
+        }
+
+        /// <summary>The approach of a copy (and of every part of a slider) <paramref name="factor"/> times as long: it shows that much earlier.</summary>
+        private static void slowApproach(OsuHitObject hitObject, double factor)
+        {
+            hitObject.TimePreempt *= factor;
+            hitObject.TimeFadeIn *= factor;
+
+            foreach (var nested in hitObject.NestedHitObjects.OfType<OsuHitObject>())
+            {
+                nested.TimePreempt *= factor;
+                nested.TimeFadeIn *= factor;
+            }
         }
 
         // ---- Doremy: mirrored ----

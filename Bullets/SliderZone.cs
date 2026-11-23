@@ -30,8 +30,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         public double LandsAt { get; init; }
 
-        /// <summary>How far down from its points the body is at <paramref name="time"/> (above them before it lands).</summary>
-        public Vector2 FallOffset(double time) => FallSpeed > 0f ? new Vector2(0f, (float)(time - LandsAt) * FallSpeed) : Vector2.Zero;
+        /// <summary>
+        /// (Kogasa's, 2026-11-23) the body turns round the middle of the playfield as its object does (<see cref="SurpriseOrbit"/>; its head at <see cref="Head"/>), and it stays to the end of the object's
+        /// stay (this zone's <see cref="EndTime"/>): a circle of hers has a zone of one point then.
+        /// </summary>
+        public SurpriseOrbit.Turn? Orbit { get; init; }
+
+        public Vector2 Head { get; init; }
+
+        /// <summary>How far down from its points the body is at <paramref name="time"/> (above them before it lands); a body of Kogasa's: how far it has turned round the middle.</summary>
+        public Vector2 FallOffset(double time)
+            => (FallSpeed > 0f ? new Vector2(0f, (float)(time - LandsAt) * FallSpeed) : Vector2.Zero) + (Orbit is SurpriseOrbit.Turn turn ? turn.Offset(Head, time) : Vector2.Zero);
 
         public bool Touches(Vector2 position, float extraRadius)
         {

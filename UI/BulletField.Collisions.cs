@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -416,22 +416,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!flower && emitter.Blades <= 1 && (lookB?.Shape ?? emitter.DrawShape ?? emitter.Shape) == BulletShape.Circle)
                         hitSize = Math.Max(hitSize, bigBallHit(emitter.VisualRadius * grow, emitter.Sharp));
 
-                    float bladeReach = emitter.Blades > 1 ? emitter.VisualRadius * grow * DanmakusuBalance.KNIFE_LENGTH_FACTOR * DanmakusuBalance.KNIFE_PIVOT * 2f : 0f;
+                    float bladeLength = emitter.VisualRadius * grow * DanmakusuBalance.KNIFE_LENGTH_FACTOR;
+                    float bladeReach = emitter.Blades > 1 ? bladeLength * (DanmakusuBalance.KNIFE_PIVOT * 2f + 1f) : 0f; // (to the farthest tip)
 
                     if (distanceToSegment(Vector2.Zero, rel0, rel1) > hitSize + DanmakusuBalance.PLAYER_HITBOX_RADIUS + bladeReach)
                         continue;
 
                     if (emitter.Blades > 1 && !flower)
                     {
-                        // a knife with more blades hurts where any of its blades is (each blade is a knife: a circle round its middle)
+                        // a knife with more blades hurts where any of its blades is: each blade all along its body, from its handle to its tip, as a slider's body hurts all along it (2026-11-22,
+                        // "multi-edge knives body hit like sliders"; it was a circle round each blade's middle) - and as a slider's body, it is not used up (HurtsLikeSlider, the planner)
                         bool touched = false;
-                        float half = emitter.VisualRadius * grow * DanmakusuBalance.KNIFE_LENGTH_FACTOR;
                         float spin = emitter.BladeAngle(b, eb);
+                        float body = bladeLength * DanmakusuBalance.KNIFE_ASPECT * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                         for (int blade = 0; blade < emitter.Blades && !touched; blade++)
                         {
-                            Vector2 offset = BulletCollision.BladeOffset(emitter.Blades, blade, dir, half, spin);
-                            touched = distanceToSegment(Vector2.Zero, rel0 + offset, rel1 + offset) <= hitSize + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                            Vector2 offset = BulletCollision.BladeOffset(emitter.Blades, blade, dir, bladeLength, spin);
+                            Vector2 along = BulletCollision.BladeDirection(emitter.Blades, blade, dir, spin) * bladeLength;
+
+                            // (its middle on its way through the step, and the whole blade where it is at the start and the end of it)
+                            touched = distanceToSegment(Vector2.Zero, rel0 + offset, rel1 + offset) <= Math.Max(hitSize + DanmakusuBalance.PLAYER_HITBOX_RADIUS, body)
+                                      || distanceToSegment(Vector2.Zero, rel0 + offset - along, rel0 + offset + along) <= body
+                                      || distanceToSegment(Vector2.Zero, rel1 + offset - along, rel1 + offset + along) <= body;
                         }
 
                         if (!touched)

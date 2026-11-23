@@ -153,7 +153,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 lasers,
                 periods,
                 DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize),
-                BulletPlanner.PlanSliderZones(map),
+                BulletPlanner.PlanSliderZones(map, null, periods),
                 BulletPlanner.PlanCircleZones(map),
                 DanmakusuBalance.DamagePerBullet(difficulty.DrainRate),
                 DanmakusuBalance.DamagePerSliderTick(difficulty.DrainRate),

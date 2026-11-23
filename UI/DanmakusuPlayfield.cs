@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
@@ -428,6 +428,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                             .Select(period => new BossColours.Section(period.Start, Math.Max(period.End, period.SequenceEnd), period.Rank, period.BossSlot)).ToArray();
             BossColours.SetSections(beatmap, BossColours.Of(bosses), colourSections);
 
+            // (Kogasa's circles and sliders turn round the middle: where each is drawn, by when it is due - SurpriseOrbit)
+            var turnsOf = SurpriseOrbit.Of(beatmap, bossPeriods);
+            surpriseTurns = turnsOf.Count == 0 ? null : turnsOf.GroupBy(pair => pair.Key.StartTime).ToDictionary(group => group.Key, group => (group.First().Key.StackedPosition, group.First().Value));
+
             // (Doremy's and Sagume's copies of the circles and sliders hurt like the originals: they are zones too)
             var copies = CloneLayer.MakeCopies(beatmap, bossPeriods);
 
@@ -436,7 +440,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 lasers,
                 bossPeriods,
                 DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize),
-                BulletPlanner.PlanSliderZones(beatmap, copies.Select(copy => (HitObject)copy.Copy)),
+                BulletPlanner.PlanSliderZones(beatmap, copies.Select(copy => (HitObject)copy.Copy), bossPeriods),
                 BulletPlanner.PlanCircleZones(beatmap, copies.Select(copy => (HitObject)copy.Copy)),
                 DanmakusuBalance.DamagePerBullet(difficulty.DrainRate),
                 DanmakusuBalance.DamagePerSliderTick(difficulty.DrainRate),
@@ -573,6 +577,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             else if (ringMap)
                 hideStillBalls();
 
+            if (surpriseTurns != null && !catchMap)
+                orbitObjects();
+
             bool silence = bulletField != null && bulletField.HasSilence;
             bool trumpet = bulletField != null && bulletField.HasTrumpet;
 
@@ -640,6 +647,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             foreach (var number in drawable.ChildrenOfType<osu.Framework.Graphics.Sprites.SpriteText>())
                 number.Alpha = show ? 1f : 0f;
+        }
+
+        /// <summary>Kogasa's circles and sliders (by when they are due): where each one's head is on the map, and how it turns round the middle (null: no Kogasa on this map).</summary>
+        private Dictionary<double, (Vector2 Head, SurpriseOrbit.Turn Turn)>? surpriseTurns;
+
+        /// <summary>Kogasa (2026-11-23): every circle and slider of her sections is drawn turned round the middle of the playfield as SurpriseOrbit says - only the look: what hurts turns with it (the zones).</summary>
+        private void orbitObjects()
+        {
+            double time = Time.Current;
+
+            foreach (var drawable in HitObjectContainer.AliveObjects)
+            {
+                if (drawable is not DrawableOsuHitObject osuObject || drawable.HitObject is not Rulesets.Osu.Objects.OsuHitObject hitObject || !surpriseTurns!.TryGetValue(hitObject.StartTime, out var turned))
+                    continue;
+
+                osuObject.Position = hitObject.StackedPosition + turned.Turn.Offset(turned.Head, time);
+            }
         }
 
         /// <summary>A catch map (see ConvertedModes): its circles and sliders fall.</summary>

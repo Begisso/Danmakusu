@@ -343,6 +343,189 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             };
         }
 
+        // ---- Son Biten's hold (2026-11-23): the beam stands, twice as big and as thick, then flies on spinning ----
+
+        /// <summary>Until this moment every slice stands where it was fired (0: never held). The beam as it stands is <see cref="HoldGrow"/> times as big round its middle, and as thick.</summary>
+        public double HoldUntil { get; init; }
+
+        public float HoldGrow { get; init; } = 1f;
+
+        /// <summary>After the hold the beam flies on its way as one piece, turning this many radians a ms round its middle (the sign is which way round), and its size and thickness go back over <see cref="HoldEase"/> ms.</summary>
+        public float HoldSpin { get; init; }
+
+        public double HoldEase { get; init; }
+
+        private Vector2? holdPivot;
+
+        /// <summary>The middle of a held beam: the middle of the slider's path (what it turns round).</summary>
+        private Vector2 holdMiddle
+        {
+            get
+            {
+                if (holdPivot is Vector2 known)
+                    return known;
+
+                Vector2 sum = Vector2.Zero;
+
+                foreach (var point in BallPositions)
+                    sum += point;
+
+                holdPivot = BallPositions.Length > 0 ? sum / BallPositions.Length : Origin;
+                return holdPivot.Value;
+            }
+        }
+
+        /// <summary>How many times as big and as thick a held beam is at <paramref name="time"/>.</summary>
+        private float holdScale(double time)
+        {
+            if (HoldUntil <= 0 || HoldGrow == 1f)
+                return 1f;
+
+            if (time <= HoldUntil)
+                return HoldGrow;
+
+            float u = HoldEase > 0 ? (float)Math.Clamp((time - HoldUntil) / HoldEase, 0, 1) : 1f;
+            return 1f + (HoldGrow - 1f) * (1f - u * u * (3f - 2f * u));
+        }
+
+        /// <summary>Where a slice of a held beam is: standing (as big as the beam is then, round its middle) until the hold is over, then the whole beam flying on its way and turning round its middle.</summary>
+        private Vector2 heldPlace(Vector2 start, Vector2 velocity, double time)
+        {
+            Vector2 middle = holdMiddle;
+            Vector2 from = (start - middle) * holdScale(time);
+
+            if (time <= HoldUntil)
+                return middle + from;
+
+            float u = (float)(time - HoldUntil);
+            float angle = HoldSpin * u;
+            float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+            return middle + velocity * u + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos);
+        }
+
+        /// <summary>The same slider's beam held (Son Biten's): see <see cref="HoldUntil"/>. Its slices live as much longer as they stand.</summary>
+        public LaserEmitter Held(double until, float grow, float spin, double ease) => new LaserEmitter
+        {
+            StartTime = StartTime,
+            EndTime = EndTime,
+            ComboIndex = ComboIndex,
+            Origin = Origin,
+            HalfWidth = HalfWidth,
+            HitHalfWidth = HitHalfWidth,
+            Speed = Speed,
+            BeamCount = BeamCount,
+            Directions = new Vector2[Directions.Length],
+            BallPositions = BallPositions,
+            BallTimes = BallTimes,
+            FollowsBoss = FollowsBoss,
+            BossRank = BossRank,
+            PathFromOrigin = PathFromOrigin,
+            Grows = Grows,
+            StartHalfWidth = StartHalfWidth,
+            GrowthPower = GrowthPower,
+            PeakScale = PeakScale,
+            GhostMs = GhostMs,
+            CutAge = CutAge,
+            CutStretch = CutStretch,
+            ShrinkDelay = ShrinkDelay,
+            Lifetime = Lifetime + Math.Max(until - StartTime, 0),
+            Fan = Fan,
+            FanCentre = FanCentre,
+            FanAimed = FanAimed,
+            WallSide = WallSide,
+            Rotates = Rotates,
+            AngularSpeed = AngularSpeed,
+            HoldBeam = HoldBeam,
+            HoldUntil = until,
+            HoldGrow = grow,
+            HoldSpin = spin,
+            HoldEase = ease,
+        };
+
+        /// <summary>The same slider's beam fired from these places of the ball instead (Kogasa's, 2026-11-23: the slider turns round the middle as it goes).</summary>
+        public LaserEmitter AlongPath(Vector2[] positions) => new LaserEmitter
+        {
+            StartTime = StartTime,
+            EndTime = EndTime,
+            ComboIndex = ComboIndex,
+            Origin = positions.Length > 0 ? positions[0] : Origin,
+            HalfWidth = HalfWidth,
+            HitHalfWidth = HitHalfWidth,
+            Speed = Speed,
+            BeamCount = BeamCount,
+            Directions = new Vector2[Directions.Length],
+            BallPositions = positions,
+            BallTimes = BallTimes,
+            FollowsBoss = FollowsBoss,
+            BossRank = BossRank,
+            PathFromOrigin = PathFromOrigin,
+            Grows = Grows,
+            StartHalfWidth = StartHalfWidth,
+            GrowthPower = GrowthPower,
+            PeakScale = PeakScale,
+            GhostMs = GhostMs,
+            CutAge = CutAge,
+            CutStretch = CutStretch,
+            ShrinkDelay = ShrinkDelay,
+            Lifetime = Lifetime,
+            Fan = Fan,
+            FanCentre = FanCentre,
+            FanAimed = FanAimed,
+            WallSide = WallSide,
+            Rotates = Rotates,
+            AngularSpeed = AngularSpeed,
+            HoldBeam = HoldBeam,
+        };
+
+        /// <summary>
+        /// Lyrica's echo (2026-11-23): the same slider's beam <paramref name="milliseconds"/> later, its path (and where it is aimed from) moved by <paramref name="shift"/>, with <paramref name="beams"/> beams.
+        /// </summary>
+        public LaserEmitter Echoed(double milliseconds, Vector2 shift, int beams)
+        {
+            var positions = new Vector2[BallPositions.Length];
+            var times = new double[BallTimes.Length];
+
+            for (int i = 0; i < positions.Length; i++)
+                positions[i] = BallPositions[i] + shift;
+
+            for (int i = 0; i < times.Length; i++)
+                times[i] = BallTimes[i] + milliseconds;
+
+            return new LaserEmitter
+            {
+                StartTime = StartTime + milliseconds,
+                EndTime = EndTime + milliseconds,
+                ComboIndex = ComboIndex,
+                Origin = Origin + shift,
+                HalfWidth = HalfWidth,
+                HitHalfWidth = HitHalfWidth,
+                Speed = Speed,
+                BeamCount = beams,
+                Directions = new Vector2[beams],
+                BallPositions = positions,
+                BallTimes = times,
+                FollowsBoss = FollowsBoss,
+                BossRank = BossRank,
+                PathFromOrigin = PathFromOrigin,
+                Grows = Grows,
+                StartHalfWidth = StartHalfWidth,
+                GrowthPower = GrowthPower,
+                PeakScale = PeakScale,
+                GhostMs = GhostMs,
+                CutAge = CutAge,
+                CutStretch = CutStretch,
+                ShrinkDelay = ShrinkDelay,
+                Lifetime = Lifetime,
+                Fan = Fan,
+                FanCentre = FanCentre,
+                FanAimed = FanAimed,
+                WallSide = WallSide,
+                Rotates = Rotates,
+                AngularSpeed = AngularSpeed,
+                HoldBeam = HoldBeam,
+            };
+        }
+
         /// <summary>
         /// (a long note of mania, a drumroll of taiko) a slider's beams that turn as a spinner's do: every rule that tells a slider's beams from a spinner's or a boss's (which a boss takes away, which colour,
         /// which glow) counts them as a slider's. See <see cref="SpinnerLike"/>.
@@ -874,6 +1057,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 if (!state.Alive)
                     look = BulletLook.Blasted(look);
             }
+            else if (HoldUntil > 0)
+                position = heldPlace(start, velocity, time); // (Son Biten's: standing, then flying on spinning - 2026-11-23)
             else
                 position = start + velocity * (float)(time - fired);
         }
@@ -1041,6 +1226,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // (stopped, as wide as it was then; sped up by Gengetsu, as wide as it is where it has flown)
             if (stopped || Clock != null)
                 width = HalfWidthAtAge(shown - fired);
+
+            // (Son Biten's held beam: twice as thick while it stands)
+            if (HoldUntil > 0)
+                width *= holdScale(time);
 
             if (widths != null)
                 widths[count] = width;

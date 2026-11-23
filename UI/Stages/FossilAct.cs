@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osu.Game.Rulesets.Osu.Objects;
@@ -189,7 +189,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>What is held at <paramref name="t"/>, for the <see cref="FallLayer"/>: grey and still where it was (not what is already shown, falling in Urumi's section).</summary>
-            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By)> into)
+            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
             {
                 int shownBefore = into.Count;
 
@@ -206,7 +206,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         shown = ReferenceEquals(into[j].Source, h.Source);
 
                     if (!shown)
-                        into.Add((h.Source, t, Vector2.Zero)); // (began now: it does not darken)
+                        into.Add((h.Source, t, Vector2.Zero, null)); // (began now: it does not darken)
                 }
             }
 

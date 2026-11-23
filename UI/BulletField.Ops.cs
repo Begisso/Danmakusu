@@ -107,7 +107,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 float radius = Math.Max(laser.HalfWidth, 1f);
 
-                if (laser.Ops == null || laser.OpsArea == null)
+                // (a straight one is worked out at once; one that ops steer, or Son Biten's held one, is followed step by step and how far is remembered)
+                if ((laser.Ops == null || laser.OpsArea == null) && laser.HoldUntil <= 0)
                 {
                     field.carry(laser, start, velocity, Vector2.Zero, fired, fired + 60000, time, radius, out position, out _, out look, out through);
                     return;
@@ -231,7 +232,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return tracePiece(laser, start, velocity, pull, t0, until, now, radius, out position, out speed, out look);
 
             // (nothing else steers it: it flies straight, so the one moment it can go into a portal is when it reaches the wall)
-            if (laser != null ? laser.Ops == null || laser.OpsArea == null : pull == Vector2.Zero && bulletOps.Length == 0 && !effects.Any)
+            if (laser != null ? (laser.Ops == null || laser.OpsArea == null) && laser.HoldUntil <= 0 : pull == Vector2.Zero && bulletOps.Length == 0 && !effects.Any) // (Son Biten's held beams do not fly straight)
                 return carryStraight(laser, start, velocity, t0, until, now, radius, out position, out speed, out look, out through);
 
             const double step = 24;

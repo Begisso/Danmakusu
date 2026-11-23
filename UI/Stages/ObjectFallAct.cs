@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osu.Game.Rulesets.Osu.Objects;
@@ -113,14 +113,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>What is falling at <paramref name="t"/>, for the <see cref="FallLayer"/> (only what has begun: its way has to be known).</summary>
-            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By)> into)
+            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
             {
                 for (int i = firstAt(t); i < next && objects[i].Time <= t; i++)
                 {
                     var o = objects[i];
 
                     if (o.Source != null)
-                        into.Add((o.Source, o.Time, fallenBy(o, t)));
+                        into.Add((o.Source, o.Time, fallenBy(o, t), null));
                 }
             }
 

@@ -328,6 +328,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     feather.Hit *= DanmakusuBalance.MATENSHI_FEATHER_SIZE;
                     feather.Tint = BulletRenderer.TINT_HISAMI_HAIR; // (black, with a sheen: a crow's)
                     feather.TintAmount = 1f;
+                    feather.Rimmed = true; // (with a white rim, to be seen on the dark: 2026-11-22)
                     feather.Untraced = true; // (it flies straight out: no other boss's op turns it)
                     AddBullet(feather);
                 }

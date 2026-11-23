@@ -13,7 +13,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // whole screen: a see-through preview for NINA_PREVIEW_BEATS, then it widens from its middle line over NINA_GROW_BEATS (with Byakuren's beam sound) and hurts like a slider body for
         // NINA_LIVE_BEATS, fading out over NINA_FADE_BEATS (harmless by then); the next preview comes as it fades.
         // While a beam hurts, every bullet that leaves the screen (anyone's, but her own, Yukari's train and what follows a boss) comes back in where it left, flying straight at the beam (square to it) at
-        // the speed it had - once (2026-11-22; it came out of the beam, flying away from it).
+        // the speed it had - once (2026-11-22; it came out of the beam, flying away from it). And what leaves the screen over the last NINA_RECORD_BEATS before a beam turns solid (its preview) is kept where it
+        // left, unseen, and all of it comes back in from there at once as the beam turns solid, flying at it (2026-11-22); over the last NINA_WARN_BEATS before, each flashes gold where it will come in.
         // Her own shots are the planner's: fans of three big balls at the player.
         // ======================================================================================================================================================
 
@@ -54,9 +55,26 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (strikes.Length > 0)
                 {
-                    AbsorbFrom = solidAt(0);
+                    AbsorbFrom = recordFrom(0);
                     AbsorbTo = liveEnd(strikes.Length - 1);
                 }
+            }
+
+            /// <summary>From when what leaves the screen is kept for beam <paramref name="k"/>, to come back as it turns solid: NINA_RECORD_BEATS before, not before its preview (where it will be is known from then).</summary>
+            private double recordFrom(int k) => Math.Max(strikes[k], solidAt(k) - beat * DanmakusuBalance.NINA_RECORD_BEATS);
+
+            /// <summary>The beam that what leaves the screen at <paramref name="t"/> is kept for, or -1.</summary>
+            private int recordingFor(double t)
+            {
+                var (first, last) = around(t);
+
+                for (int k = first; k <= last; k++)
+                {
+                    if (known[k] && t >= recordFrom(k) && t < solidAt(k))
+                        return k;
+                }
+
+                return -1;
             }
 
             /// <summary>She stays until her last beam has faded.</summary>
@@ -96,7 +114,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return -1;
             }
 
-            public override bool Absorbs(double t) => solidOne(t) >= 0;
+            public override bool Absorbs(double t) => solidOne(t) >= 0 || recordingFor(t) >= 0;
 
             public override bool AbsorbsBetween(double from, double to)
             {
@@ -105,7 +123,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 for (int k = first; k <= last; k++)
                 {
-                    if (solidAt(k) <= to && liveEnd(k) >= from)
+                    if (recordFrom(k) <= to && liveEnd(k) >= from)
                         return true;
                 }
 
@@ -215,6 +233,34 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>
+            /// The bullets kept at the edge of the screen flash gold where they will come back in, over the last NINA_WARN_BEATS before they do - twice, brighter the second time (2026-11-22, "warn about bullets
+            /// that about to come out of edge, golden flash").
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || Bullets.Count == 0 || t < Start)
+                    return;
+
+                double warn = beat * DanmakusuBalance.NINA_WARN_BEATS;
+                var gold = new Color4(1f, 0.82f, 0.25f, 1f);
+                var all = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(Bullets);
+
+                for (int i = Math.Max(DrawFrom, 0); i < all.Length; i++)
+                {
+                    ref readonly var kept = ref all[i];
+
+                    if (kept.T0 <= t || kept.T0 - t > warn)
+                        continue;
+
+                    float u = (float)(1.0 - (kept.T0 - t) / warn);
+                    float pulse = MathF.Sin(MathF.PI * 2f * u);
+                    float flash = pulse * pulse * (0.5f + 0.5f * u);
+
+                    f.stageTop.Add(StageTexture.Glow, kept.P0, new Vector2(kept.Radius * DanmakusuBalance.NINA_WARN_SIZE), 0f, flash * DanmakusuBalance.NINA_WARN_ALPHA, gold, true);
+                }
+            }
+
             /// <summary>A solid beam hurts like a slider body, as wide as it has grown (not while it fades).</summary>
             public override bool Hurts(BulletField f, double now)
             {
@@ -248,10 +294,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || emitter.Shape == BulletShape.Train || emitter.FollowsBoss || emitter.OwnShot)
                     return false;
 
+                // (while a beam hurts it comes back at once; over the last beats before one turns solid it is kept where it left, and comes back as the beam turns solid - 2026-11-22)
                 int k = solidOne(t);
+                double comes = t;
 
                 if (k < 0)
-                    return false;
+                {
+                    k = recordingFor(t);
+
+                    if (k < 0)
+                        return false;
+
+                    comes = solidAt(k);
+                }
 
                 Vector2 low = f.stageMin, high = f.stageMax;
                 bool wasIn = from_.X >= low.X && from_.X <= high.X && from_.Y >= low.Y && from_.Y <= high.Y;
@@ -276,8 +331,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float speed = seenSpeed(stored, emitter, from_, to, ScanPrevious, t);
                 Vector2 velocity = -across * speed;
 
-                // (back in at the edge where it left, flying across the beam's line, at it)
-                var back = f.makeStageBullet(stored, emitter, bullet, t, crossed, velocity);
+                // (back in at the edge where it left, flying across the beam's line, at it - at once, or as the beam turns solid: it waits there unseen until then)
+                var back = f.makeStageBullet(stored, emitter, bullet, comes, crossed, velocity);
                 back.Untraced = true; // (it flies straight at the beam: no other boss's op turns it)
 
                 int before = Bullets.Count;

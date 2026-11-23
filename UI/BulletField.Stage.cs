@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using osu.Framework.Audio.Sample;
@@ -245,6 +245,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>A knife: its handle is blue (Chimata's).</summary>
             public bool BlueHandle;
 
+            /// <summary>A feather drawn with a white rim round it (Aya's black ones: 2026-11-22).</summary>
+            public bool Rimmed;
+
             /// <summary>When not 0 the bullet is drawn turning at this many radians per ms, from <see cref="SpinPhase"/>, whichever way it moves (Shizuha's leaves); after <see cref="FallAt"/> at <see cref="FallSpin"/> instead.</summary>
             public float Spin;
 
@@ -259,6 +262,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// Suika's stomp throws). Before the first leg it stands at <see cref="P0"/>. The ops of the other bosses leave it alone.
             /// </summary>
             public StageLeg[]? Legs;
+
+            /// <summary>How much later than its <see cref="Legs"/> say it goes along them (ms): a copy following another along the same legs, Yoshika's train (2026-11-22). The legs are shared, not copied.</summary>
+            public double LegsDelay;
         }
 
         /// <summary>One straight stretch of a stage bullet's flight (see <see cref="StageBullet.Legs"/>): from <see cref="T"/> on it is at <see cref="P"/> + <see cref="V"/> x the time since.</summary>
@@ -314,11 +320,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return before;
             }
 
-            int i = legs.Length - 1;
+            // (the last leg that has begun: a search, as Yoshika's curves have hundreds of legs and her train asks for them many times a frame)
+            int lo = 0, hi = legs.Length - 1;
 
-            while (i > 0 && legs[i].T > t)
-                i--;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) / 2;
 
+                if (legs[mid].T <= t)
+                    lo = mid;
+                else
+                    hi = mid - 1;
+            }
+
+            int i = lo;
             velocity = legs[i].V;
             return legs[i].P + legs[i].V * (float)(t - legs[i].T);
         }
@@ -1037,15 +1052,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         }
 
         private readonly List<FossilAct> fossilActs = new List<FossilAct>();
+        private readonly List<SurpriseAct> surpriseActs = new List<SurpriseAct>();
 
         /// <summary>Do circles and sliders fall in this map (Urumi's sections), or stay grey (Ariya's)?</summary>
-        public bool HasFallingObjects => objectFallActs.Count > 0 || fossilActs.Count > 0;
+        public bool HasFallingObjects => objectFallActs.Count > 0 || fossilActs.Count > 0 || surpriseActs.Count > 0;
 
         /// <summary>A <see cref="FallLayer"/> shows the falling objects as what they are; without one (the boss menu's preview, the bench) the act draws them itself.</summary>
         public bool FallingObjectsShown { get; set; }
 
         /// <summary>What is falling at <paramref name="t"/>: the object, when it began to fall and how far it has got.</summary>
-        public void FallingObjects(double t, List<(OsuHitObject Source, double Began, Vector2 By)> into)
+        public void FallingObjects(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
         {
             if (failed)
                 return;
@@ -1055,6 +1071,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (Ariya's held ones, grey and still: after Urumi's, which go first)
             foreach (var act in fossilActs)
+                act.Collect(t, into);
+
+            // (Kogasa's, red and blue, turning round the middle)
+            foreach (var act in surpriseActs)
                 act.Collect(t, into);
         }
         private readonly List<BossPeriod> nuclearPeriods = new List<BossPeriod>();
@@ -2025,6 +2045,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Vampire:
+                        // Kurumi: the fans of what has left the screen (that the circles and sliders shoot beams is the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new VampireAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Surprise:
+                        // Kogasa: which of her circles and sliders stay where (that they turn and hurt is SurpriseOrbit's and the zones', what they shoot the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new SurpriseAct(period, sliderZones));
+
+                        break;
+
+                    case BossMechanic.Curse:
+                        // Noroiko: her curses, and the sliders' (that the sliders' beams are gone is the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new CurseAct(this, period, sliderZones));
+
+                        break;
+
                     case BossMechanic.Fossil:
                         // Ariya: the circles and sliders she holds, her flash and her grid of ellipses (that everything stops is BossOps', that what they would shoot is held the planner's)
                         if (period.End > period.ShootStart)
@@ -2488,6 +2529,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 case FossilAct fossil:
                     fossilActs.Add(fossil);
+                    break;
+
+                case SurpriseAct surprise:
+                    surpriseActs.Add(surprise);
                     break;
 
                 case ReturnAct returned:
@@ -3049,7 +3094,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private static Vector2 stageBulletPosition(in StageBullet b, double t)
         {
             if (b.Legs != null)
-                return legPoint(b.Legs, b.P0, t, out _);
+                return legPoint(b.Legs, b.P0, t - b.LegsDelay, out _);
 
             if (b.Trail != null)
             {
@@ -3255,7 +3300,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             if (b.Legs != null)
             {
-                legPoint(b.Legs, b.P0, t, out Vector2 legVelocity);
+                legPoint(b.Legs, b.P0, t - b.LegsDelay, out Vector2 legVelocity);
                 return legVelocity;
             }
 
@@ -3443,6 +3488,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Direction = bullet.Spin != 0f ? stageSpun(bullet, drawTime) : bullet.KeepFace && bullet.Face.LengthSquared > 0f ? bullet.Face : velocity.LengthSquared > 1e-12f ? Vector2.Normalize(velocity) : bullet.Face.LengthSquared > 0f ? bullet.Face : new Vector2(1, 0),
                         BlueHandle = bullet.BlueHandle,
                         YellowHandle = bullet.YellowHandle,
+                        Rimmed = bullet.Rimmed,
                         Shape = look?.Shape ?? bullet.Shape,
                         Speed = velocity.Length,
                         Overlay = look is { Overlay: > 0 } ? look.Overlay : stageTint(bullet, drawTime),
@@ -3516,16 +3562,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             if (bullet.Blades > 1 && bullet.Shape == BulletShape.Knife)
             {
-                // a knife with more blades hurts where any of its blades is (each blade is a circle round its middle), as it does before it is stopped
+                // a knife with more blades hurts where any of its blades is - each blade all along its body, as the rings' do (2026-11-22, "multi-edge knives blades are harmless": it was a circle
+                // round each blade's middle) - as it does before it is stopped
                 Vector2 facing = velocity.LengthSquared > 1e-12f ? Vector2.Normalize(velocity) : bullet.Face.LengthSquared > 0f ? Vector2.Normalize(bullet.Face) : new Vector2(1, 0);
                 float half = bullet.Radius * DanmakusuBalance.KNIFE_LENGTH_FACTOR;
                 float spin = stageBladeAngle(bullet, t);
+                float body = half * DanmakusuBalance.KNIFE_ASPECT * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                 for (int blade = 0; blade < bullet.Blades; blade++)
                 {
                     Vector2 offset = BulletCollision.BladeOffset(bullet.Blades, blade, facing, half, spin);
+                    Vector2 along = BulletCollision.BladeDirection(bullet.Blades, blade, facing, spin) * half;
 
-                    if (distanceToSegment(Vector2.Zero, rel0 + offset, rel1 + offset) <= bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                    if (distanceToSegment(Vector2.Zero, rel0 + offset, rel1 + offset) <= Math.Max(bullet.Hit + DanmakusuBalance.PLAYER_HITBOX_RADIUS, body)
+                        || distanceToSegment(Vector2.Zero, rel0 + offset - along, rel0 + offset + along) <= body
+                        || distanceToSegment(Vector2.Zero, rel1 + offset - along, rel1 + offset + along) <= body)
                         return true;
                 }
 

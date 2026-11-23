@@ -786,7 +786,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             float body = Math.Max(ringHitRadius(emitter, growMax), treeActs.Count > 0 || emitter.FlowerScale > 1f ? fallFlowerRadius * emitter.FlowerScale : 0f);
-            float bladeReach = emitter.Blades > 1 ? emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * growMax * emitter.BigScaleMax * DanmakusuBalance.KNIFE_PIVOT * 2f : 0f;
+            float bladeReach = emitter.Blades > 1 ? emitter.VisualRadius * DanmakusuBalance.KNIFE_LENGTH_FACTOR * growMax * emitter.BigScaleMax * (DanmakusuBalance.KNIFE_PIVOT * 2f + 1f) : 0f; // (to the farthest tip: the blades hurt all along them since 2026-11-22)
             float extra = bladeReach + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN;
 
             // (not fired yet: from where it will be fired, as far as its fastest bullet flies in the time)

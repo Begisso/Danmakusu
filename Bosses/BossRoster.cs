@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.Danmakusu.Bosses
@@ -32,7 +32,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(2, "aunn_komano", "Aunn Komano", 2, BossMechanic.Komainu, (63, 165, 138, 0.2f), (143, 211, 181, 0.3f), (240, 230, 226, 0.3f), (208, 72, 72, 0.2f)),
             make(3, "aya_shameimaru", "Aya Shameimaru", 3, BossMechanic.Wind, (192, 58, 58, 0.2f), (42, 26, 26, 0.3f), (244, 232, 228, 0.3f), (214, 58, 54, 0.2f)),
             make(4, "benben_tsukumo", "Benben Tsukumo", 4, BossMechanic.Strings, (200, 74, 106, 0.2f), (154, 127, 200, 0.3f), (240, 168, 96, 0.3f), (184, 71, 46, 0.2f)),
-            make(5, "biten_son", "Biten Son", 5, BossMechanic.None, (138, 90, 46, 0.2f), (138, 90, 50, 0.3f), (79, 168, 232, 0.3f), (94, 158, 94, 0.2f)),
+            make(5, "biten_son", "Biten Son", 5, BossMechanic.Staff, (138, 90, 46, 0.2f), (138, 90, 50, 0.3f), (79, 168, 232, 0.3f), (94, 158, 94, 0.2f)),
             make(6, "byakuren_hijiri", "Byakuren Hijiri", 1, BossMechanic.Scrolls, (74, 58, 58, 0.2f), (90, 58, 110, 0.3f), (233, 169, 138, 0.3f), (74, 58, 80, 0.2f)),
             make(7, "chen", "Chen", 2, BossMechanic.Shikigami, (106, 58, 42, 0.2f), (154, 74, 58, 0.3f), (214, 58, 58, 0.3f), (63, 122, 69, 0.2f)),
             make(8, "chimata_tenkyuu", "Chimata Tenkyuu", 3, BossMechanic.Market, (58, 42, 138, 0.2f), (47, 42, 138, 0.3f), (90, 75, 200, 0.3f), (242, 232, 58, 0.2f)),
@@ -72,11 +72,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(42, "keine_kamishirasawa", "Keine Kamishirasawa", 1, BossMechanic.None, (216, 64, 58, 0.2f), (184, 200, 232, 0.3f), (90, 98, 192, 0.3f), (240, 240, 248, 0.2f)),
             make(43, "kisume", "Kisume", 2, BossMechanic.None, (74, 176, 128, 0.2f), (47, 168, 120, 0.3f), (244, 242, 240, 0.3f), (154, 106, 58, 0.2f)),
             make(44, "koakuma", "Koakuma", 3, BossMechanic.Bats, (216, 64, 58, 0.2f), (232, 88, 122, 0.3f), (42, 42, 48, 0.3f), (192, 120, 56, 0.2f)),
-            make(45, "kogasa_tatara", "Kogasa Tatara", 4, BossMechanic.None, (216, 58, 72, 0.2f), (184, 200, 224, 0.3f), (200, 232, 224, 0.3f), (90, 42, 120, 0.2f)),
+            make(45, "kogasa_tatara", "Kogasa Tatara", 4, BossMechanic.Surprise, (216, 58, 72, 0.2f), (184, 200, 224, 0.3f), (200, 232, 224, 0.3f), (90, 42, 120, 0.2f)),
             make(46, "koishi_komeiji", "Koishi Komeiji", 5, BossMechanic.Unconscious, (58, 176, 112, 0.2f), (138, 200, 128, 0.3f), (232, 176, 48, 0.3f), (46, 154, 90, 0.2f)),
             make(47, "komachi_onozuka", "Komachi Onozuka", 1, BossMechanic.Distance, (216, 64, 58, 0.2f), (232, 48, 74, 0.3f), (58, 90, 200, 0.3f), (244, 232, 224, 0.2f)),
             make(48, "kotohime", "Kotohime", 2, BossMechanic.None, (216, 64, 58, 0.2f), (184, 48, 64, 0.3f), (168, 58, 184, 0.3f), (216, 112, 184, 0.2f)),
-            make(49, "kurumi", "Kurumi", 3, BossMechanic.None, (216, 160, 48, 0.2f), (240, 216, 144, 0.3f), (42, 42, 52, 0.3f), (244, 240, 242, 0.2f)),
+            make(49, "kurumi", "Kurumi", 3, BossMechanic.Vampire, (216, 160, 48, 0.2f), (240, 216, 144, 0.3f), (42, 42, 52, 0.3f), (244, 240, 242, 0.2f)),
             make(50, "kutaka_niwatari", "Kutaka Niwatari", 4, BossMechanic.None, (216, 64, 58, 0.2f), (216, 58, 42, 0.3f), (232, 120, 56, 0.3f), (248, 232, 192, 0.2f)),
             make(51, "kyouko_kasodani", "Kyouko Kasodani", 5, BossMechanic.Echo, (58, 160, 168, 0.2f), (90, 160, 152, 0.3f), (232, 168, 160, 0.3f), (138, 90, 58, 0.2f)),
             make(52, "letty_whiterock", "Letty Whiterock", 1, BossMechanic.Winter, (90, 88, 200, 0.2f), (184, 160, 216, 0.3f), (90, 74, 192, 0.3f), (242, 240, 248, 0.2f)),
@@ -84,7 +84,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(54, "louise", "Louise", 3, BossMechanic.None, (216, 168, 64, 0.2f), (240, 216, 160, 0.3f), (248, 220, 228, 0.3f), (138, 72, 184, 0.2f)),
             make(55, "luna_child", "Luna Child", 4, BossMechanic.Silence, (216, 64, 58, 0.2f), (240, 192, 112, 0.3f), (248, 224, 208, 0.3f), (138, 90, 58, 0.2f)),
             make(56, "lunasa_prismriver", "Lunasa Prismriver", 5, BossMechanic.None, (138, 122, 90, 0.2f), (232, 208, 96, 0.3f), (42, 42, 68, 0.3f), (90, 120, 200, 0.2f)),
-            make(57, "lyrica_prismriver", "Lyrica Prismriver", 1, BossMechanic.None, (138, 90, 58, 0.2f), (200, 176, 144, 0.3f), (216, 40, 58, 0.3f), (46, 42, 48, 0.2f)),
+            make(57, "lyrica_prismriver", "Lyrica Prismriver", 1, BossMechanic.Keyboard, (138, 90, 58, 0.2f), (200, 176, 144, 0.3f), (216, 40, 58, 0.3f), (46, 42, 48, 0.2f)),
             make(58, "mai", "Mai", 2, BossMechanic.Snowflake, (122, 88, 200, 0.2f), (184, 176, 232, 0.3f), (248, 208, 224, 0.3f), (240, 160, 200, 0.2f)),
             make(59, "mai_teireida", "Mai Teireida", 3, BossMechanic.None, (90, 122, 88, 0.2f), (138, 122, 106, 0.3f), (47, 138, 74, 0.3f), (74, 78, 88, 0.2f)),
             make(60, "mamizou_futatsuiwa", "Mamizou Futatsuiwa", 4, BossMechanic.Illusions, (138, 90, 58, 0.2f), (122, 42, 72, 0.3f), (160, 122, 72, 0.3f), (58, 138, 56, 0.2f)),
@@ -111,7 +111,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(81, "nemuno_sakata", "Nemuno Sakata", 4, BossMechanic.Blades, (216, 58, 58, 0.2f), (200, 208, 224, 0.3f), (232, 138, 40, 0.3f), (216, 72, 58, 0.2f)),
             make(82, "nina_watari", "Nina Watari", 3, BossMechanic.Mirage, (216, 138, 40, 0.2f), (240, 208, 100, 0.3f), (244, 238, 240, 0.3f), (200, 72, 200, 0.2f)), // (Touhou 20, 2026-11-22; her mechanic the same day)
             make(83, "nitori_kawashiro", "Nitori Kawashiro", 5, BossMechanic.Icosahedron, (74, 106, 200, 0.2f), (58, 152, 216, 0.3f), (42, 122, 168, 0.3f), (58, 154, 72, 0.2f)),
-            make(84, "noroiko", "Noroiko", 1, BossMechanic.None, (58, 192, 112, 0.2f), (216, 42, 42, 0.3f), (122, 42, 152, 0.3f), (237, 232, 240, 0.2f)),
+            make(84, "noroiko", "Noroiko", 1, BossMechanic.Curse, (58, 192, 112, 0.2f), (216, 42, 42, 0.3f), (122, 42, 152, 0.3f), (237, 232, 240, 0.2f)),
             make(85, "nue_houjuu", "Nue Houjuu", 2, BossMechanic.Unknown, (216, 58, 58, 0.2f), (42, 38, 48, 0.3f), (216, 64, 63, 0.3f), (63, 111, 216, 0.2f)),
             make(86, "okina_matara", "Okina Matara", 3, BossMechanic.Doors, (216, 160, 48, 0.2f), (232, 192, 64, 0.3f), (232, 154, 42, 0.3f), (42, 42, 48, 0.2f)),
             make(87, "orange", "Orange", 4, BossMechanic.None, (58, 154, 88, 0.2f), (216, 58, 47, 0.3f), (74, 154, 72, 0.3f), (240, 216, 88, 0.2f)),

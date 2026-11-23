@@ -10,11 +10,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Seiga Kaku: every second bullet that goes out through a wall of the playfield while she attacks (the bullets of the hit objects and the other boss too) comes back. It turns round where it went out, flies the way it came at a
         // quarter of its speed as a paper talisman (whatever it was), and fades out once sixteen beats have passed. Under it, the bullet that went out comes back too, tinted brown and harmless (2026-11-22).
         // Like the bullets of any act it is a function of time: a straight line from the wall.
-        // Yoshika Miyako (2026-11-13) does the same with every fourth bullet, which comes back at its own speed as a talisman YOSHIKA_TALISMAN_SIZE times as big and leaves static copies of itself behind it
-        // all the way, end to end with no gap between them, each there for eight beats from when it is left. Since 2026-11-22 it comes back along a curve as Aunn's beams do: bending ever more over its first
-        // YOSHIKA_CURL_CIRCLES circle radii, once round a loop YOSHIKA_LOOP_BIG wide, once round one YOSHIKA_LOOP_SMALL wide, then straight on for YOSHIKA_STRAIGHT_CIRCLES (each one curling the other way from
-        // the last; legs every few px, so all of it, echoes too, is worked out when the bullet turns and known before it comes). The returning talisman itself (the head) lives YOSHIKA_HEAD_BEATS (one beat;
-        // it was sixteen as Seiga's, then eight, then two), so it leaves its echoes only that far.
+        // Yoshika Miyako (2026-11-13) does the same with every fourth bullet, which comes back at its own speed as a talisman YOSHIKA_TALISMAN_SIZE times as big. Since 2026-11-22 it comes back along a curve
+        // as Aunn's beams do: bending ever more over its first YOSHIKA_CURL_CIRCLES circle radii, once round a loop YOSHIKA_LOOP_BIG wide, once round one YOSHIKA_LOOP_SMALL wide, then straight on out of the
+        // screen (each one curling the other way from the last; legs every few px, so all of it is worked out when the bullet turns and known before it comes), and a train of its copies as long as it goes in YOSHIKA_TRAIN_BEATS
+        // follows it end to end along the same legs, as the body of Aunn's beam follows its head. (Until then its copies stood where it left them for eight beats - since the curve, rings
+        // of talismans standing all over the screen: the user's "why circles stopped".)
         // ======================================================================================================================================================
 
         private sealed class NecromancyAct : StageAct
@@ -118,8 +118,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>
             /// Yoshika's returning talisman (2026-11-22): twice as big, from the wall along a curve as Aunn's beams run - bending ever more over YOSHIKA_CURL_CIRCLES circle radii, then once round a loop
-            /// YOSHIKA_LOOP_BIG circle radii wide and once round one YOSHIKA_LOOP_SMALL wide, then straight on for YOSHIKA_STRAIGHT_CIRCLES - at its own speed, as legs a few px long; it leaves its echoes all the way,
-            /// end to end. Every second one curls the other way.
+            /// YOSHIKA_LOOP_BIG circle radii wide and once round one YOSHIKA_LOOP_SMALL wide, then straight on out of the screen - at its own speed, as legs a few px long; a train of its copies follows it
+            /// (followTrain). Every second one curls the other way.
             /// </summary>
             private bool returnAlongCurve(BulletField f, StageBullet b, BulletEmitter emitter, int bullet, Vector2 wall, Vector2 velocity, double crossed)
             {
@@ -146,15 +146,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 const float step = 8f;
                 int steps = Math.Clamp((int)MathF.Ceiling(total / step), 2, 400);
                 var legs = new StageLeg[steps];
-                var places = new Vector2[steps + 1];
-                var ways = new float[steps + 1];
                 Vector2 p = wall;
                 float angle = heading;
 
                 // (a leg every step of its way, each along the heading half way through that step, so that the legs meet end to end)
-                places[0] = p;
-                ways[0] = angle;
-
                 for (int k = 0; k < steps; k++)
                 {
                     float turn = side * bend((k + 0.5f) * step) * step;
@@ -164,15 +159,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     legs[k] = new StageLeg { T = crossed + k * step / speed, P = p, V = way * speed };
                     p += way * step;
                     angle += turn;
-                    places[k + 1] = p;
-                    ways[k + 1] = angle;
                 }
 
+                // (after its curve it flies straight on, the way its last leg goes, out of the screen: gone there)
                 double over = crossed + steps * step / speed;
+                double until = over + f.stageLife(legs[^1].V);
                 b.Legs = legs;
-                b.AlphaFrom = over - DanmakusuBalance.KAKU_RETURN_FADE_MS;
-                b.AlphaOver = DanmakusuBalance.KAKU_RETURN_FADE_MS;
-                b.Until = over;
+                b.AlphaFrom = until - DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
+                b.AlphaOver = DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
+                b.Until = until;
 
                 int index = Bullets.Count;
                 AddBullet(b);
@@ -180,52 +175,36 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (Bullets.Count == index)
                     return false;
 
-                leaveEchoes(f, b, places, ways, step, speed, crossed);
+                followTrain(f, b, speed, crossed);
                 return true;
             }
 
             /// <summary>
-            /// Yoshika's: the copies a returning talisman leaves behind it along its curve (<paramref name="places"/>, a point every <paramref name="step"/> px, and which way it heads there), one every talisman's
-            /// length (they touch, end to end), from the wall to the end of its way - not off the screen - each standing where it was left for eight beats, facing the way it went, and fading out at the end.
+            /// Yoshika's: the train behind a returning talisman (2026-11-22; it left copies standing on its way for eight beats, and its loops stood on the screen as rings): as long as it goes in YOSHIKA_TRAIN_BEATS, copies
+            /// one every talisman's length (end to end), each going along the very same legs a length later than the one before it, out of the wall where it came back - the body of a snake following its head, as Aunn's
+            /// beams do - and on out of the screen. The legs are shared (<see cref="StageBullet.LegsDelay"/>).
             /// </summary>
-            private void leaveEchoes(BulletField f, StageBullet talisman, Vector2[] places, float[] ways, float step, float speed, double crossed)
+            private void followTrain(BulletField f, StageBullet talisman, float speed, double crossed)
             {
                 float length = talisman.Radius * DanmakusuBalance.TALISMAN_LENGTH_FACTOR * 2f; // (a talisman from end to end, along its way)
 
-                if (length < 0.5f || places.Length < 2)
+                if (length < 0.5f)
                     return;
 
-                double life = beat * DanmakusuBalance.YOSHIKA_ECHO_BEATS;
-                Vector2 low = (f.hasScreenBounds ? f.screenMin : f.stageMin) - new Vector2(length), high = (f.hasScreenBounds ? f.screenMax : f.stageMax) + new Vector2(length);
-                float total = step * (places.Length - 1);
+                int cars = Math.Clamp((int)Math.Round(speed * beat * DanmakusuBalance.YOSHIKA_TRAIN_BEATS / length), 0, 64);
 
-                for (float s = length; s < total; s += length)
+                for (int k = 1; k <= cars; k++)
                 {
-                    int k = Math.Min((int)(s / step), places.Length - 2);
-                    float u = s / step - k;
-                    Vector2 position = Vector2.Lerp(places[k], places[k + 1], u);
+                    double delay = k * length / speed;
 
-                    if (position.X < low.X || position.X > high.X || position.Y < low.Y || position.Y > high.Y)
-                        continue; // (it may come back in after a loop)
-
-                    float heading = ways[k] + (ways[k + 1] - ways[k]) * u;
-                    double at = crossed + s / speed;
-
-                    var echo = talisman;
-                    echo.Legs = null;
-                    echo.T0 = at;
-                    echo.P0 = position;
-                    echo.V = Vector2.Zero;
-                    echo.KeepFace = true; // (it faces the way the talisman went)
-                    echo.Still = true;
-                    echo.Untraced = true; // (it stays where it was left: the ops of the other bosses leave it be - tracing thousands of them through those every frame cost 4 ms and more, 2026-11-14)
-                    echo.Face = new Vector2(MathF.Cos(heading), MathF.Sin(heading));
-                    echo.AlphaFrom = at + life - DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
-                    echo.AlphaOver = DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
-                    echo.Until = at + life;
+                    var car = talisman;
+                    car.LegsDelay = delay;
+                    car.T0 = crossed + delay;
+                    car.AlphaFrom = talisman.AlphaFrom + delay;
+                    car.Until = talisman.Until + delay;
 
                     int count = Bullets.Count;
-                    AddBullet(echo);
+                    AddBullet(car);
 
                     if (Bullets.Count == count)
                         break; // (the act is full)

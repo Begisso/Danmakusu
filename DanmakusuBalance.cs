@@ -1258,7 +1258,7 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const int SAPPHIRE_MERIDIANS = 12;
         public const int SAPPHIRE_PARALLELS = 5;
-        public const float SAPPHIRE_STEP_DEGREES = 15f;
+        public const float SAPPHIRE_STEP_DEGREES = 7.5f; // (15 until 2026-11-22: "sphere frames are twice more populated" - twice as many stars along every line)
         public const float SAPPHIRE_TILT_DEGREES = 15f;
         public const double SAPPHIRE_TURN_BEATS = 128; // (16 until 2026-11-21: "sphere spin speed quadruple slower"; 64 until 2026-11-22: "halve spin speed more")
         public const double SAPPHIRE_SPIN_BEATS = 128; // (and it spins round her in the plane of the screen, once in this many beats - 2026-11-22; that day it tumbled about its equator so first, taken back)
@@ -1325,6 +1325,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double AYA_TRACE_FADE_BEATS = 0.5;
         public const float AYA_SLASH_CIRCLES = 1.5f;
         public const float AYA_SLASH_SPEED = 2f;
+
+        /// <summary>Aya's black feathers (2026-11-22, "white outlines on black feathers") have a white rim this share of their radius wide all round.</summary>
+        public const float AYA_FEATHER_RIM = 0.3f;
         public const int AYA_DIRECTIONS = 72; // (the ways she looks at when she chooses a line)
         public const int AYA_FAN_BULLETS = 10; // (5 until 2026-11-22, the same day)
         public const float AYA_FAN_DEGREES = 60f;
@@ -1359,6 +1362,18 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double NINA_LIVE_BEATS = 8;
         public const double NINA_GROW_BEATS = 0.25;
         public const double NINA_FADE_BEATS = 0.5;
+
+        /// <summary>
+        /// Nina (2026-11-22, "when laserbeam gets active - shoot out all left bullets recorded in past 8 beats from playfield aimed towards laserbeam"): what leaves the screen over the last this many beats before a beam
+        /// turns solid (its preview, no longer than it) is kept where it left and comes back in from there, all of it at once as the beam turns solid, flying at it.
+        /// </summary>
+        public const double NINA_RECORD_BEATS = 8;
+
+        /// <summary>Over the last this many beats before they come back in, the kept bullets flash gold where they will come in (2026-11-22, "warn about bullets that about to come out of edge, golden flash"): a glow this many times their radius, this bright at its brightest.</summary>
+        public const double NINA_WARN_BEATS = 1;
+
+        public const float NINA_WARN_SIZE = 5f;
+        public const float NINA_WARN_ALPHA = 0.85f;
         public const float NINA_BEAM_THICKNESS = 2f; // (times Matenshi's)
         public const int NINA_BALLS = 3;
         public const float NINA_BALL_CIRCLES = 2f;
@@ -1948,9 +1963,16 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float YOSHIKA_LOOP_SMALL = 0.8f;
         public const float YOSHIKA_STRAIGHT_CIRCLES = 2f;
 
-        /// <summary>Yoshika's returning talisman (the head) lives this many beats, leaving its echoes only so far (2026-11-14: 16 as Seiga's, then 8, then 2, then 1).</summary>
+        /// <summary>Yoshika's returning talisman (the head) lived this many beats, leaving its echoes only so far (2026-11-14: 16 as Seiga's, then 8, then 2, then 1; not used since its curve, 2026-11-22).</summary>
         public const double YOSHIKA_HEAD_BEATS = 1;
         public const double YOSHIKA_ECHO_FADE_MS = 250;
+
+        /// <summary>
+        /// Her copies (2026-11-22, the user's "what is this, why circles stopped": they stood where they were left for YOSHIKA_ECHO_BEATS, so her loops stood on the screen as rings of talismans): a train as long as
+        /// the talisman goes in this many beats follows it along its curve, end to end, as Aunn's beam's body follows its head, and flies on out of the screen with it (as many copies as it left in a beat before
+        /// the curve; as long as Aunn's beam, 16 circle radii, cost 32 ms a frame with the autoplay and left it nowhere safe).
+        /// </summary>
+        public const double YOSHIKA_TRAIN_BEATS = YOSHIKA_HEAD_BEATS;
 
         /// <summary>
         /// Matenshi (2026-11-13): each wing this share of the playfield's width, unfolding over this many beats, this opaque; every this many-th bullet fired comes out of the wings as a feather this many times its size,
@@ -4188,5 +4210,81 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MURASA_SOUND_VOLUME = 0.7;
 
         public const double MURASA_SOUND_LATE_MS = 100;
+
+        // ---- 2026-11-23: Lyrica, Kurumi, Son Biten, Noroiko, Kogasa ----
+
+        /// <summary>
+        /// Lyrica Prismriver: every circle and slider of her section comes again this many beats later, this many times as far from the middle of the playfield (but kept on the screen: its middle at least
+        /// LYRICA_EDGE_MARGIN px inside the screen as it is at 16:9, x -170..682 and y -48..432), with an approach this many times as long, in this colour; what it shoots is halved (bullets and beams).
+        /// </summary>
+        public const double LYRICA_ECHO_BEATS = 4;
+
+        public const float LYRICA_ECHO_DISTANCE = 2f;
+        public const double LYRICA_ECHO_APPROACH = 2;
+        public const float LYRICA_EDGE_MARGIN = 40f;
+        public static readonly osuTK.Vector2 LYRICA_SCREEN_MIN = new osuTK.Vector2(-170f, -48f);
+        public static readonly osuTK.Vector2 LYRICA_SCREEN_MAX = new osuTK.Vector2(682f, 432f);
+        public static readonly osuTK.Graphics.Color4 LYRICA_COPY_COLOUR = new osuTK.Graphics.Color4(0.85f, 0.16f, 0.23f, 1f); // (her hat's red)
+
+        /// <summary>
+        /// Kurumi: every circle of her section shoots a ring of this many straight beams (the first at the player), each fired for this many beats; every beam that has left the screen altogether shoots a fan of
+        /// this many basic bullets this many degrees wide back in from where its end left, square to that edge.
+        /// </summary>
+        public const int KURUMI_CIRCLE_BEAMS = 6;
+
+        public const double KURUMI_BEAM_BEATS = 4;
+        public const int KURUMI_FAN_BULLETS = 7;
+        public const float KURUMI_FAN_DEGREES = 120f;
+
+        /// <summary>
+        /// Son Biten: every slider's beam of her section stands, this many times as big and as thick, until this many beats after it began (or it is all fired), then flies on as one piece, spinning round
+        /// its middle once in this many beats (every next one the other way round), its size and thickness going back over this many beats.
+        /// </summary>
+        public const double SON_HOLD_BEATS = 4;
+
+        public const float SON_HOLD_GROW = 2f;
+        public const double SON_SLIDER_SPIN_BEATS = 8;
+        public const double SON_HOLD_EASE_BEATS = 0.5;
+
+        /// <summary>Son Biten's own: every this many beats a ring of this many straight beams round her, each fired for this many beats, spinning once round her in this many beats as it flies out (every next one the other way).</summary>
+        public const double SON_RING_EVERY_BEATS = 4;
+
+        public const int SON_RING_BEAMS = 15;
+        public const double SON_BEAM_BEATS = 4;
+        public const double SON_SPIN_BEATS = 16;
+
+        /// <summary>
+        /// Noroiko: every this many beats of her attacks two curses (呪 in beams, this many circle radii tall, strokes this many circle radii thick each side), left and right; for this many beats each speeds
+        /// up from this many times a plain bullet's speed to this many, turning towards the player at most this many degrees a beat, followed in steps of this many ms. A slider's is as big as the slider,
+        /// from this many to this many circle radii.
+        /// </summary>
+        public const double NOROIKO_EVERY_BEATS = 0.5;
+
+        public const float NOROIKO_CURSE_CIRCLES = 4f;
+        public const float NOROIKO_STROKE_CIRCLES = 0.12f;
+        public const double NOROIKO_HOMING_BEATS = 8;
+        public const float NOROIKO_SPEED_FROM = 0.5f;
+        public const float NOROIKO_SPEED_TO = 2.5f;
+        public const float NOROIKO_TURN_DEGREES = 45f;
+        public const double NOROIKO_STEP_MS = 10;
+        public const float NOROIKO_SLIDER_LEAST = 3f;
+        public const float NOROIKO_SLIDER_MOST = 10f;
+
+        /// <summary>
+        /// Kogasa Tatara: the circles and sliders of her section turn round the middle of the playfield this many degrees a beat (every second the other way round) and stay this many beats after they are
+        /// over, red (clockwise) or blue; what each would shoot goes out over that stay, one bullet at a time, at most this many.
+        /// </summary>
+        public const float KOGASA_ORBIT_DEGREES = 15f;
+
+        public const double KOGASA_HOLD_BEATS = 8;
+        public const int KOGASA_MOST_SHOTS = 48;
+        public static readonly osuTK.Graphics.Color4 KOGASA_RED = new osuTK.Graphics.Color4(0.9f, 0.18f, 0.22f, 1f);
+        public static readonly osuTK.Graphics.Color4 KOGASA_BLUE = new osuTK.Graphics.Color4(0.22f, 0.42f, 0.95f, 1f);
+
+        /// <summary>Kogasa's own: six spirals of basic bullets - a ring of this many every this many beats, each turned this many degrees further.</summary>
+        public const int KOGASA_SPIRALS = 6;
+
+        public const double KOGASA_SPIRAL_EVERY_BEATS = 0.125;
+        public const float KOGASA_SPIRAL_STEP_DEGREES = 7f;
     }
 }

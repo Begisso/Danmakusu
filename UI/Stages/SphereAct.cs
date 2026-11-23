@@ -8,7 +8,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Star Sapphire (2026-11-21): she stands in the middle of the screen all her section and shoots stars out (finish stars, Marisa's) that make a sphere of lines round her - the user's animation
+        // Star Sapphire (2026-11-21): she stands in the middle of the screen all her section and shoots stars out (Marisa's: the bosses' soft star, since 2026-11-22) that make a sphere of lines round her - the user's animation
         // (Sphere_rotating_transparency.gif): meridians and parallels, a star every SAPPHIRE_STEP_DEGREES along each, seen a little from above, turning about the line from pole to pole, and the whole of it
         // spinning round her in the plane of the screen once in SAPPHIRE_SPIN_BEATS (2026-11-22; it tumbled through its equator). Both its sides are
         // seen (it is see-through) and every star hurts like a slider body. Over SAPPHIRE_GROW_BEATS the sphere grows from her until its edge is just past the farthest edge of the screen, turns as big for
@@ -243,7 +243,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Radius = radius,
                         Hit = hit,
                         Style = style,
-                        Shape = BulletShape.Star,
+                        Shape = BulletShape.SoftStar, // (Marisa's: the bosses' plump, glowing star - 2026-11-22; the sharp star of the bullets before)
                         Direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle)),
                     });
                 }

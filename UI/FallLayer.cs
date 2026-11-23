@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Graphics;
@@ -22,10 +22,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             public Container Holder = null!;
             public DrawableOsuHitObject Drawable = null!;
+
+            /// <summary>Its combo colour: Urumi's grey, or what the act gives (Kogasa's red or blue).</summary>
+            public Color4 Colour = DanmakusuBalance.URUMI_FALL_COLOUR;
         }
 
         private readonly BulletField field;
-        private readonly List<(OsuHitObject Source, double Began, Vector2 By)> falling = new List<(OsuHitObject, double, Vector2)>();
+        private readonly List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> falling = new List<(OsuHitObject, double, Vector2, Color4?)>();
         private readonly Dictionary<OsuHitObject, Shown> shown = new Dictionary<OsuHitObject, Shown>();
         private readonly HashSet<OsuHitObject> stillFalling = new HashSet<OsuHitObject>();
 
@@ -65,16 +68,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             stillFalling.Clear();
             field.FallingObjects(time, falling);
 
-            foreach (var (source, began, by) in falling)
+            foreach (var (source, began, by, colour) in falling)
             {
                 stillFalling.Add(source);
 
                 if (!shown.TryGetValue(source, out var item))
                     shown[source] = item = show(source);
 
-                // (darker and darker as it falls, like Zanmu's bullets)
-                float u = (float)Math.Clamp((time - began) / DanmakusuBalance.ZANMU_FALL_DARKEN_MS, 0, 1);
+                // (darker and darker as it falls, like Zanmu's bullets; one in a colour of its own keeps it: Kogasa's)
+                float u = colour.HasValue ? 0f : (float)Math.Clamp((time - began) / DanmakusuBalance.ZANMU_FALL_DARKEN_MS, 0, 1);
                 float keep = 1f - DanmakusuBalance.ZANMU_FALL_SHADE * u * u * (3f - 2f * u);
+                item.Colour = colour ?? DanmakusuBalance.URUMI_FALL_COLOUR;
 
                 item.Holder.Position = by;
                 item.Holder.Colour = new Color4(keep, keep, keep, 1f);
@@ -96,21 +100,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (!item.Drawable.IsLoaded)
                     continue;
 
-                settle(item.Drawable);
+                settle(item.Drawable, item.Colour);
 
                 if (item.Drawable is DrawableSlider slider)
                 {
                     foreach (var nested in slider.NestedHitObjects.OfType<DrawableOsuHitObject>())
-                        settle(nested);
+                        settle(nested, item.Colour);
                 }
             }
         }
 
-        /// <summary>Every part has the grey combo colour (the skin would give it the map's); a circle (or a slider's head) shows no approach circle and cannot be clicked.</summary>
-        private static void settle(DrawableOsuHitObject drawable)
+        /// <summary>Every part has the grey combo colour (Kogasa's: red or blue; the skin would give it the map's); a circle (or a slider's head) shows no approach circle and cannot be clicked.</summary>
+        private static void settle(DrawableOsuHitObject drawable, Color4 colour)
         {
-            if (drawable.AccentColour.Value != DanmakusuBalance.URUMI_FALL_COLOUR)
-                drawable.AccentColour.Value = DanmakusuBalance.URUMI_FALL_COLOUR;
+            if (drawable.AccentColour.Value != colour)
+                drawable.AccentColour.Value = colour;
 
             if (drawable is DrawableHitCircle circle)
             {

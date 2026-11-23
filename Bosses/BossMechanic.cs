@@ -575,5 +575,36 @@
         /// turns to fly the way from the frame to the player, half as fast. A player in the frame is hit, and for four beats the character follows where the mouse was four beats before.
         /// </summary>
         Spoiler,
+
+        /// <summary>
+        /// Lyrica Prismriver (2026-11-23): every circle and slider of her section comes again four beats later, twice as far from the middle of the playfield (kept on the screen), with an approach twice as long,
+        /// shooting half as many bullets and beams.
+        /// </summary>
+        Keyboard,
+
+        /// <summary>
+        /// Kurumi (2026-11-23): in her section every slider shoots a beam instead of bullets, every circle a ring of straight beams four beats long; every beam that leaves the screen altogether shoots a fan of
+        /// basic bullets 120 degrees wide back in from where it left.
+        /// </summary>
+        Vampire,
+
+        /// <summary>
+        /// Son Biten (2026-11-23): every slider's beam stands still, twice as big and as thick, for four beats after it begins, then flies on as it would, spinning. She throws rings of 15 straight beams four
+        /// beats long that spin as they fly out, every next one the other way round.
+        /// </summary>
+        Staff,
+
+        /// <summary>
+        /// Noroiko (2026-11-23): every half beat she throws a curse - the character 呪 drawn in beams - to her left and to her right; for eight beats each speeds up and turns towards the player. Every slider of her
+        /// section throws one too instead of its beam, as big as the slider.
+        /// </summary>
+        Curse,
+
+        /// <summary>
+        /// Kogasa Tatara (2026-11-23): the circles and sliders of her section turn round the middle of the playfield (every second the other way round), standing where the map has them when they are due, and
+        /// stay eight beats after they are over, red or blue, hurting as a slider's body does; instead of shooting all at once they shoot their bullets out from the middle over those eight beats. She shoots six
+        /// very dense spirals of basic bullets.
+        /// </summary>
+        Surprise,
     }
 }

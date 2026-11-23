@@ -122,6 +122,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>A knife with a yellow handle (Yumeko's).</summary>
         public bool YellowHandle;
 
+        /// <summary>A feather with a white rim round it (Aya's black ones): the picture drawn a little bigger in white under it.</summary>
+        public bool Rimmed;
+
         /// <summary>0 = sharp; 1 = the bullet is drawn from the soft sheet (the same picture, blurred, so its edge cannot be seen at all: Luna Child's); in between the two are faded into each other.</summary>
         public float Soft;
 
@@ -1369,6 +1372,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         drawShape(renderer, picture, pictureCoords, b.Position + b.Direction * (blur * (copy / (float)(copies - 1) - 0.5f)), b.Direction, along, across, faint);
 
                     return;
+                }
+
+                // (a white rim: the picture, as white as it is, a little bigger all round under the feather - Aya's black ones, 2026-11-22)
+                if (feather && b.Rimmed)
+                {
+                    float rim = b.Radius * DanmakusuBalance.AYA_FEATHER_RIM;
+                    float rimAcross = across < 0f ? across - rim : across + rim;
+
+                    drawShape(renderer, picture, pictureCoords, b.Position, b.Direction, along + rim, rimAcross, ColourInfo.SingleColour(new Color4(1f, 1f, 1f, alpha)));
                 }
 
                 drawShape(renderer, picture, pictureCoords, b.Position, b.Direction, along, across, ColourInfo.SingleColour(colour));
