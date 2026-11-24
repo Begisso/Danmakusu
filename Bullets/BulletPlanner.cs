@@ -41,6 +41,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Darkness, BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Momentum, BossMechanic.Rays, BossMechanic.ImpossibleRequests, BossMechanic.Haste, BossMechanic.HalfMoon, BossMechanic.Claws, BossMechanic.Reaping,
             BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls, BossMechanic.Patrol, BossMechanic.Starlight,
             BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
+            BossMechanic.Sword, BossMechanic.Statue, // (2026-11-24: Meira, Narumi)
         };
 
         /// <summary>
@@ -53,6 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Dolls,
             BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise, // (2026-11-23: Son Biten's rings of beams, Noroiko's curses, Kogasa's spirals)
+            BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy, // (2026-11-24: Iku's spiralling rings, Meira's fans, Narumi's ball, Parsee's balls and arrowheads)
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -69,6 +71,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Kasha, BossMechanic.Komainu, BossMechanic.Patrol, BossMechanic.Starlight, BossMechanic.Frog,
             BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Keyboard, BossMechanic.Vampire, BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
+            BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -94,6 +97,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Icosahedron, BossMechanic.Snowflake, BossMechanic.Jiangshi, BossMechanic.FallenAngel, BossMechanic.Koto, BossMechanic.PipeFox, BossMechanic.Web, BossMechanic.Onbashira, BossMechanic.Masks, BossMechanic.Trumpet, BossMechanic.Dolls,
             BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Mirage, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
+            BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -1888,8 +1892,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
-            // Son Biten's own (2026-11-23): every SON_RING_EVERY_BEATS a ring of SON_RING_BEAMS straight beams round her, as thick as a slider's, each fired for SON_BEAM_BEATS (so that long) and spinning round her
-            // as it flies out, a whole turn in SON_SPIN_BEATS - every next beam of the ring the other way round, so they cross; every next ring turned a little further
+            // Son Biten's own (2026-11-23): every SON_RING_EVERY_BEATS a ring of SON_RING_BEAMS straight beams from where she is, as thick as a slider's, each fired for SON_BEAM_BEATS (so that long) and flying out
+            // as any beam does, turning round its own middle as it goes (a thrown staff), a whole turn in SON_SPIN_BEATS - every next beam of the ring the other way round; every next ring turned a little further.
+            // (2026-11-24, "move normally but also spin around their own centres": they were straight lines from her, turning round her)
             void addBitenRings(double startTime, double endTime, double beatMs)
             {
                 if (endTime <= startTime)
@@ -1911,9 +1916,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         {
                             StartTime = t,
                             EndTime = t + length,
-                            Origin = Vector2.Zero, // (the field puts it where she is)
+                            Origin = Vector2.Zero, // (the field puts it where she is as it begins, and it stays there)
                             FollowsBoss = true,
                             BossRank = currentRank,
+                            PathFromOrigin = true,
+                            BallPositions = new[] { Vector2.Zero, Vector2.Zero },
+                            BallTimes = new[] { t, t + length },
                             AimOffset = k * MathF.Tau / beams + ring * MathF.PI / beams, // (beam 0 at the player; every next ring half a gap further round)
                             HalfWidth = halfWidth,
                             HitHalfWidth = halfWidth * DanmakusuBalance.BULLET_HITBOX_SCALE,
@@ -1921,12 +1929,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             Speed = speed,
                             BeamCount = 1,
                             Directions = new Vector2[1],
-                            Rotates = true,
-                            Spins = true,
-                            Rigid = true, // (a straight line as it turns)
+                            SelfSpin = (k % 2 == 0 ? 1f : -1f) * spin, // (round its own middle)
                             NoShake = true,
                             Silent = k != 0, // (one beam's sound a ring)
-                            AngularSpeed = (k % 2 == 0 ? 1f : -1f) * spin,
+                            CutAge = -1,
+                            CutStretch = 1,
+                            ShrinkDelay = -1,
+                            GrowthPower = 2f,
+                            PeakScale = 1f,
                             Lifetime = reach / speed + length,
                         });
                     }
@@ -1945,6 +1955,73 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, radius, BulletShape.Circle, followsBoss: true, straight: true);
                     ring.Layout = RingShape.Circle;
                     ring.LayoutPhase = phase;
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
+            // Iku Nagae (2026-11-24): every IKU_RING_EVERY_BEATS a ring of IKU_RING_BULLETS basic bullets, IKU_BULLET_SIZE times as big, that curl round where they were fired (all one way, IKU_CURL times as fast
+            // round as out: a spiral) at a plain bullet's speed along it; every bullet leaves a narrow beam behind it (ThunderAct). That every five of a ring are tied is seen to at the end of Plan.
+            void addIkuRings(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                float curl = DanmakusuBalance.IKU_CURL;
+                int shot = 0;
+
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.IKU_RING_EVERY_BEATS, shot++)
+                {
+                    float phase = shot * MathF.PI / DanmakusuBalance.IKU_RING_BULLETS; // (every next ring half a gap further round)
+                    var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.IKU_RING_BULLETS, phase, out _);
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t) / MathF.Sqrt(1f + curl * curl), directions, 0, radius * DanmakusuBalance.IKU_BULLET_SIZE, BulletShape.Circle,
+                        followsBoss: true, straight: true);
+                    ring.Layout = RingShape.Circle;
+                    ring.LayoutPhase = phase;
+                    ring.Curl = curl;
+                    ring.CurlsTogether = true;
+                    ring.LeavesTrace = true;
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
+            // Meira (2026-11-24): in the second half of every MEIRA_CYCLE_BEATS of her section (the first is for her slides: SwordAct) a fan of MEIRA_FAN_BULLETS basic bullets, MEIRA_FAN_DEGREES wide, at the
+            // player every MEIRA_FAN_EVERY_BEATS: streams of fans
+            void addMeiraFans(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                double cycle = beatMs * DanmakusuBalance.MEIRA_CYCLE_BEATS, sliding = beatMs * DanmakusuBalance.MEIRA_SLIDING_BEATS, step = beatMs * DanmakusuBalance.MEIRA_FAN_EVERY_BEATS;
+                int count = DanmakusuBalance.MEIRA_FAN_BULLETS;
+                float spread = DanmakusuBalance.MEIRA_FAN_DEGREES * MathF.PI / 180f;
+                float between = count > 1 ? spread / (count - 1) : 0f;
+
+                for (int k = 0; startTime + k * step < endTime; k++)
+                {
+                    double t = startTime + k * step;
+                    double into = (t - startTime) - Math.Floor((t - startTime) / cycle + 1e-9) * cycle;
+
+                    if (into < sliding - 1)
+                        continue; // (she slides)
+
+                    var fan = new Vector2[count];
+
+                    for (int i = 0; i < count; i++)
+                        fan[i] = new Vector2(MathF.Cos(i * between), MathF.Sin(i * between));
+
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, radius, BulletShape.Circle, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: -spread / 2f);
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
+            // Parsee Mizuhashi (2026-11-24): her clone in the middle of the screen shoots an arrowhead at the player every PARSEE_ARROW_EVERY_BEATS; one that leaves the screen fans out half-size basic bullets back
+            // in (JealousyAct, which draws the clone too)
+            void addParseeArrows(double startTime, double endTime, double beatMs)
+            {
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.PARSEE_ARROW_EVERY_BEATS)
+                {
+                    var ring = createEmitter(t, OsuPlayfield.BASE_SIZE / 2f, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), new[] { Vector2.UnitX }, 0, radius, BulletShape.Triangle, aimAtPlayer: true, followsBoss: true,
+                        straight: true);
+                    ring.FromCentre = true;
+                    ring.FansOnLeaving = true;
+                    ring.KeepCount = true;
                     ring.OwnShot = true;
                     emitters.Add(ring);
                 }
@@ -2735,6 +2812,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Kogasa's spinner: her spirals in place of the spinner's stars
                     addKogasaSpirals(bossPlanOrigin, attackStart, end, bossBeat);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Thunder)
+                {
+                    // Iku's spinner: her spiralling rings in place of the spinner's stars
+                    addIkuRings(bossPlanOrigin, attackStart, end, bossBeat);
+                }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Sword)
+                {
+                    // Meira's spinner: her fans in place of the spinner's stars (her slides are her act's)
+                    addMeiraFans(bossPlanOrigin, attackStart, end, bossBeat);
+                }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Jealousy)
+                {
+                    // Parsee's spinner: her clone's arrowheads in place of the spinner's stars (her balls are her act's)
+                    addParseeArrows(attackStart, end, bossBeat);
+                }
                 else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
                 {
                     // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
@@ -2761,6 +2853,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addBitenRings(attackStart, end, bossBeat); // (Son Biten's rings of spinning beams)
                     else if (boss.Mechanic == BossMechanic.Surprise)
                         addKogasaSpirals(bossPlanOrigin, attackStart, end, bossBeat); // (Kogasa's six dense spirals)
+                    else if (boss.Mechanic == BossMechanic.Thunder)
+                        addIkuRings(bossPlanOrigin, attackStart, end, bossBeat); // (Iku's spiralling rings; their beams behind them are her act's)
+                    else if (boss.Mechanic == BossMechanic.Sword)
+                        addMeiraFans(bossPlanOrigin, attackStart, end, bossBeat); // (Meira's streams of fans, while she does not slide)
+                    else if (boss.Mechanic == BossMechanic.Jealousy)
+                        addParseeArrows(attackStart, end, bossBeat); // (Parsee's clone's arrowheads; her balls are her act's)
                     else if (boss.Mechanic == BossMechanic.Haniwa)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.KEIKI_SQUARE_BULLETS, DanmakusuBalance.KEIKI_SQUARE_EVERY_BEATS); // (Keiki's very dense squares)
                     else if (boss.Mechanic == BossMechanic.Momentum)
@@ -5231,6 +5329,36 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ring.BigEvery = DanmakusuBalance.KAGUYA_BIG_EVERY;
                     ring.BigFactor = DanmakusuBalance.KAGUYA_BIG;
                     counted += ring.Count;
+                }
+            }
+
+            // Iku (2026-11-24): in her sections every IKU_TETHER_GROUP neighbouring bullets of a ring (anyone's; not one that ricochets, homes or is made out of others) are tied together: none gets further than
+            // half of IKU_TETHER_CIRCLES osu! circles from the middle one of its group (BulletEmitter.Evaluate); ThunderAct draws the beams between them. They leave the screen that much later.
+            {
+                float reach = DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize) * 2f * DanmakusuBalance.IKU_TETHER_CIRCLES;
+
+                foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Thunder))
+                {
+                    foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && !r.Derived && r.Derive == DeriveKind.None && !r.Ricochet && !r.Homing
+                                                             && r.Shape != BulletShape.Train && r.Count >= (DanmakusuBalance.IKU_TETHER_GROUP - 1) * DanmakusuBalance.IKU_EVERY + 1 && r.TetherGroup == 0))
+                    {
+                        ring.TetherGroup = DanmakusuBalance.IKU_TETHER_GROUP;
+                        ring.TetherStride = DanmakusuBalance.IKU_EVERY; // (every second bullet: 2026-11-24)
+                        ring.TetherReach = reach;
+                        ring.Lifetime += reach * 0.5f / Math.Max(ring.Speed, 1e-3f);
+                    }
+                }
+            }
+
+            // Narumi (2026-11-24): every ring fired in her sections (anyone's; not a train, nor one made out of others) flies at NARUMI_SLOW of its speed until one of her waves goes over a bullet (StatueAct
+            // pushes it on at its own speed again); it lives as much longer
+            foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Statue))
+            {
+                foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && !r.Derived && r.Derive == DeriveKind.None && r.Shape != BulletShape.Train && !r.WaveRestores && r.Count > 0))
+                {
+                    ring.Speed *= DanmakusuBalance.NARUMI_SLOW;
+                    ring.Lifetime /= DanmakusuBalance.NARUMI_SLOW;
+                    ring.WaveRestores = true;
                 }
             }
 

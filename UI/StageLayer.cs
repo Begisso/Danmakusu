@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -323,6 +323,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Ubame's doll (Resources/Textures/rumia_fumo.png, the user's photo of a fumo, its white background taken away with Tools/Bake `fumo`): sitting, facing us, 256 x 226.</summary>
         RumiaFumo,
 
+        /// <summary>Kogasa's umbrella (Resources/Textures/kogasa_umbrella.png, the user's photo of a purple paper umbrella with an eye and a tongue, unwrapped round its knob into a circle with Tools/Bake `umbrella`): 512 x 512.</summary>
+        KogasaUmbrella,
+
         /// <summary>Hatate's photo frame (2026-11-22, drawn here after the user's screenshot): a see-through grey rectangle 3 : 2 with a light rim and a white cross in its middle.</summary>
         PhotoFrame,
 
@@ -565,6 +568,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Anchor => BossCharacter.LoadResource(renderer, "Textures.murasa_anchor.png"), StageTexture.Butterfly => BossCharacter.LoadResource(renderer, "Textures.larva_butterfly.png"),
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
+                    StageTexture.KogasaUmbrella => BossCharacter.LoadResource(renderer, "Textures.kogasa_umbrella.png"),
                     StageTexture.PhotoFrame => bake(renderer, makePhotoFrame()),
                     StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),

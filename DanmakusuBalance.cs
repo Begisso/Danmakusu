@@ -618,10 +618,13 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Mugetsu's vortex: in her attacks every bullet goes round her at this share of its own speed (1: as fast round her as it flies), at any distance (Bullets/Swirl.cs); closer than this many px it is counted as this far
         /// (right by her the same speed round would be endlessly fast). The rings that meet her attacks live this many screen diagonals longer at their speed (going round they take longer to leave).
         /// </summary>
-        public const float MUGETSU_SWIRL = 2f; // (1 until 2026-11-21: "spin speed doubled")
+        public const float MUGETSU_SWIRL = 8f; // (1 until 2026-11-21: "spin speed doubled"; 2 until 2026-11-24: "halve the bullets speed but double the spin speed" - of half the speed, 8 is twice as fast round her as before)
 
         public const float MUGETSU_SWIRL_NEAR = 16f;
         public const float MUGETSU_SWIRL_LONGER = 1f;
+
+        /// <summary>Mugetsu (2026-11-24): in her attacks every bullet flies this share of its speed (a window of the bullets' clock, as Mystia's).</summary>
+        public const double MUGETSU_SLOWED = 0.5;
 
         /// <summary>Mokou comes back this many beats after the last boss section is over (if the map goes on for at least this many beats more), with her ball and her landings' bullets this many times as big.</summary>
         public const double REVIVAL_DELAY_BEATS = 8;
@@ -904,7 +907,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Eirin: every this many beats the constellations: see-through for this many beats first, then for this many beats everything stands still and the beams (this many plain bullet radii wide on each side) hurt;
         /// this many bullets to a constellation. The preview is this visible.
         /// </summary>
-        public const double EIRIN_EVERY_BEATS = 8;
+        public const double EIRIN_EVERY_BEATS = 8; // (2026-11-24, "double the constellations amount": every four beats made no more of them - a bullet was in one at most; now what one lets go may be in the next)
 
         public const double EIRIN_PREVIEW_BEATS = 4;
         public const double EIRIN_HOLD_BEATS = 4;
@@ -4281,10 +4284,121 @@ namespace osu.Game.Rulesets.Danmakusu
         public static readonly osuTK.Graphics.Color4 KOGASA_RED = new osuTK.Graphics.Color4(0.9f, 0.18f, 0.22f, 1f);
         public static readonly osuTK.Graphics.Color4 KOGASA_BLUE = new osuTK.Graphics.Color4(0.22f, 0.42f, 0.95f, 1f);
 
+        /// <summary>Kogasa's umbrella (2026-11-24) in the middle of the playfield: this many px across (playfield px; the playfield is 384 tall), this opaque.</summary>
+        public const float KOGASA_UMBRELLA_SIZE = 240f;
+
+        public const float KOGASA_UMBRELLA_ALPHA = 0.9f;
+
         /// <summary>Kogasa's own: six spirals of basic bullets - a ring of this many every this many beats, each turned this many degrees further.</summary>
         public const int KOGASA_SPIRALS = 6;
 
         public const double KOGASA_SPIRAL_EVERY_BEATS = 0.125;
         public const float KOGASA_SPIRAL_STEP_DEGREES = 7f;
+
+        // ---- 2026-11-24: the spin arrows; Iku, Meira, Narumi, Parsee ----
+
+        /// <summary>Kogasa's arrows: beside every circle and slider of hers, this many of its radii long, this opaque (red or blue as it turns).</summary>
+        public const float KOGASA_ARROW_SIZE = 0.8f;
+
+        public const float KOGASA_ARROW_ALPHA = 0.85f;
+
+        /// <summary>Son Biten's arrows: at either end of a spinning beam of hers, this many plain bullets' radii long, this opaque, until this many beats after it starts to spin (a held one) or is all fired (a thrown one).</summary>
+        public const float SON_ARROW_SIZE = 3f;
+
+        public const float SON_ARROW_ALPHA = 0.85f;
+        public const double SON_ARROW_AFTER_BEATS = 1;
+
+        /// <summary>
+        /// Iku Nagae: every this many beats a ring of this many basic bullets, this many times as big, that go round where they were fired this many times as fast as they go out (a spiral), at a plain bullet's
+        /// speed along it; every bullet leaves a beam behind it, this many beats long, this many circle radii thick each side, made of a point every this many beats.
+        /// </summary>
+        public const double IKU_RING_EVERY_BEATS = 2;
+
+        public const int IKU_RING_BULLETS = 15;
+        public const float IKU_BULLET_SIZE = 2f;
+        public const float IKU_CURL = 1.5f;
+        public const double IKU_TRACE_BEATS = 8;
+        public const float IKU_TRACE_WIDTH = 0.1f;
+        public const double IKU_TRACE_STEP_BEATS = 0.25;
+
+        /// <summary>Iku: in her section every this many neighbouring bullets of a ring are tied together; no two of them get further apart than this many osu! circles (circle diameters); the beams between them are this many circle radii thick each side.</summary>
+        public const int IKU_TETHER_GROUP = 5;
+
+        public const float IKU_TETHER_CIRCLES = 3f;
+        public const float IKU_LINK_WIDTH = 0.1f;
+
+        /// <summary>Iku (2026-11-24, the user: "iku mechanics stay but skip every second bullet"): only every this many-th bullet of a ring leaves a beam behind it or is tied (the groups are of those).</summary>
+        public const int IKU_EVERY = 2;
+
+        /// <summary>
+        /// Meira: every this many beats she slides after the player this many times, the slides starting evenly over the first this many beats, each at most this long (beats) and this many times a plain
+        /// bullet's speed, stopping as near as Elly does (ELLY_RADIUS x ELLY_NEAR of the screen's height); her way is laid down a step every this many ms. The beam behind her is this many circle radii thick each side;
+        /// as she slides again it goes, every this many circle radii of it a ring of this many basic bullets this big (of a plain one), as fast as a plain one.
+        /// </summary>
+        public const double MEIRA_CYCLE_BEATS = 16;
+
+        public const int MEIRA_SLIDES = 3;
+        public const double MEIRA_SLIDING_BEATS = 8;
+        public const double MEIRA_SLIDE_LONGEST_BEATS = 2;
+        public const float MEIRA_SLIDE_SPEED = 6f;
+        public const double MEIRA_STEP_MS = 10;
+        public const float MEIRA_TRACE_WIDTH = 1f;
+        public const float MEIRA_SLICE_CIRCLES = 1f;
+        public const int MEIRA_SLICE_BULLETS = 5;
+        public const float MEIRA_SLICE_SIZE = 0.5f;
+
+        /// <summary>Meira: in the other eight beats a fan of this many basic bullets, this many degrees wide, at the player every this many beats.</summary>
+        public const int MEIRA_FAN_BULLETS = 5;
+
+        public const float MEIRA_FAN_DEGREES = 40f;
+        public const double MEIRA_FAN_EVERY_BEATS = 0.25;
+
+        /// <summary>
+        /// Narumi Yatadera: every bullet of her section flies this share of its speed until one of her waves goes over it. A wave every this many beats from where she is, this many times as fast as a plain
+        /// bullet, drawn this many circle radii thick.
+        /// </summary>
+        public const float NARUMI_SLOW = 0.5f;
+
+        public const double NARUMI_WAVE_EVERY_BEATS = 2;
+        public const float NARUMI_WAVE_SPEED = 1.5f;
+        public const float NARUMI_WAVE_WIDTH = 0.15f;
+
+        /// <summary>
+        /// Narumi: every this many beats a big ball (this many circle radii) at this many times a plain bullet's speed, turning towards the player at most this many degrees a beat for this many beats, then
+        /// straight on, followed in steps of this many ms; every this many beats of its homing it shoots a ring of this many basic bullets (at her half speed, as every bullet of hers starts).
+        /// </summary>
+        public const double NARUMI_BALL_EVERY_BEATS = 8;
+
+        public const float NARUMI_BALL_CIRCLES = 1.5f;
+        public const float NARUMI_BALL_SPEED = 0.7f;
+        public const float NARUMI_TURN_DEGREES = 60f;
+        public const double NARUMI_HOMING_BEATS = 8;
+        public const double NARUMI_STEP_MS = 10;
+        public const double NARUMI_RING_EVERY_BEATS = 2;
+        public const int NARUMI_RING_BULLETS = 10;
+
+        /// <summary>
+        /// Parsee Mizuhashi: every this many beats of her attacks this many big balls (this many circle radii) in a fan this many degrees wide at the player, this many times a plain bullet's speed; every this many
+        /// beats of a ball's flight on the screen a flower where it is - Yuyuko's, of five petals this big (of a plain bullet) - that stands this many beats, then its petals fly off at this many times a plain
+        /// bullet's speed.
+        /// </summary>
+        public const double PARSEE_BALL_EVERY_BEATS = 8;
+
+        public const int PARSEE_BALLS = 3;
+        public const float PARSEE_BALL_CIRCLES = 1.5f;
+        public const float PARSEE_FAN_DEGREES = 60f;
+        public const float PARSEE_BALL_SPEED = 0.8f;
+        public const double PARSEE_FLOWER_EVERY_BEATS = 0.5;
+        public const float PARSEE_PETAL_SIZE = 1.6f;
+        public const double PARSEE_FLOWER_BEATS = 8;
+        public const float PARSEE_PETAL_SPEED = 0.6f;
+
+        /// <summary>Parsee: her clone in the middle of the playfield, this opaque, shoots an arrowhead at the player every this many beats; one that leaves the screen fans this many basic bullets, this big, this many degrees wide back in.</summary>
+        public const float PARSEE_CLONE_ALPHA = 0.6f;
+
+        public const double PARSEE_ARROW_EVERY_BEATS = 1;
+        public const int PARSEE_FAN_BULLETS = 7;
+        public const float PARSEE_FAN_SIZE = 0.5f;
+        public const float PARSEE_FAN_SPREAD_DEGREES = 120f;
     }
 }

@@ -100,7 +100,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Scorch] = 3, // Yuki (4 until 2026-11-20: one beam, twice as wide, instead of five)
             [BossMechanic.Recall] = 4, // Yumeko
             [BossMechanic.Pagoda] = 3, // Shou (4 until her cross turned half as fast, 2026-11-13)
-            [BossMechanic.Constellation] = 3, // Eirin
+            [BossMechanic.Constellation] = 4, // Eirin (3 until 2026-11-24: twice as many constellations, what one lets go standing again in the next)
             [BossMechanic.Galaxy] = 5, // Megumu
             [BossMechanic.Icosahedron] = 5, // Nitori
             [BossMechanic.Snowflake] = 4, // Mai
@@ -131,9 +131,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Fossil] = 4, // Ariya Iwanaga (2026-11-22: everything stops every 16 beats, the circles and sliders hold their shots and fire them all at once; a grid of bouncing ellipses that never stops)
             [BossMechanic.Keyboard] = 3, // Lyrica Prismriver (2026-11-23: every circle and slider again four beats later, further out, with half its shots)
             [BossMechanic.Vampire] = 3, // Kurumi (2026-11-23: sliders shoot beams, circles rings of straight beams; every beam that leaves the screen fans bullets back in)
-            [BossMechanic.Staff] = 4, // Son Biten (2026-11-23: rings of fifteen crossing spinning beams; the sliders' beams stand, doubled, then fly off spinning)
+            [BossMechanic.Staff] = 4, // Son Biten (2026-11-23: rings of fifteen thrown beams spinning round their own middles (round her until 2026-11-24); the sliders' beams stand, doubled, then fly off spinning)
             [BossMechanic.Curse] = 4, // Noroiko (2026-11-23: two homing, speeding curses every half beat; the sliders throw them too)
             [BossMechanic.Surprise] = 4, // Kogasa Tatara (2026-11-23: six very dense spirals; the circles and sliders turn round the middle, stay eight beats hurting, and shoot out over that time)
+            [BossMechanic.Thunder] = 4, // Iku Nagae (2026-11-24: spiralling rings with beams behind every second bullet; every second bullet of every ring tied in fives by beams)
+            [BossMechanic.Sword] = 4, // Meira (2026-11-24: slides after you leaving thick beams that burst into rings; streams of aimed fans; no pauses)
+            [BossMechanic.Statue] = 3, // Narumi Yatadera (2026-11-24: everything at half speed until her waves give it back; homing balls shooting rings; no pauses)
+            [BossMechanic.Jealousy] = 4, // Parsee Mizuhashi (2026-11-24: balls leaving trails of Yuyuko's flowers that burst into petals; a clone in the middle whose arrowheads fan back in from the edge)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

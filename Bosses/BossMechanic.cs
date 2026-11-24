@@ -292,7 +292,11 @@
         /// <summary>Three planets fire different patterns at once.</summary>
         ThreeWorlds,
 
-        /// <summary>Lightning lines with a long telegraph.</summary>
+        /// <summary>
+        /// Iku Nagae (2026-11-24): rings of basic bullets twice as big that spiral out round where they were fired, at one speed, every bullet leaving a narrow beam eight beats long behind it. In her section
+        /// every five neighbouring bullets of a ring (not one that ricochets) are tied together by straight beams that never get longer than three osu! circles: none can fly further from the others.
+        /// (A placeholder until then: "Lightning lines with a long telegraph".)
+        /// </summary>
         Thunder,
 
         /// <summary>
@@ -606,5 +610,23 @@
         /// very dense spirals of basic bullets.
         /// </summary>
         Surprise,
+
+        /// <summary>
+        /// Meira (2026-11-24): no pauses. Every sixteen beats she slides after the player three times in eight beats, as Elly does, leaving thick beams behind her; then for eight beats she shoots streams of
+        /// fans of five basic bullets at the player. When she slides again the beams before go, every slice of them into a ring of five small basic bullets.
+        /// </summary>
+        Sword,
+
+        /// <summary>
+        /// Narumi Yatadera (2026-11-24): no pauses. Every bullet of her section starts at half its speed; her waves, sent out every two beats like Raiko's ripples, give a bullet they go over its speed back.
+        /// Every eight beats she throws a big ball that homes on the player for eight beats, shooting a ring of ten basic bullets every two beats.
+        /// </summary>
+        Statue,
+
+        /// <summary>
+        /// Parsee Mizuhashi (2026-11-24): big balls every eight beats leave a trail of Yuyuko's flowers that stand eight beats and then fly apart into petals. Her clone in the middle of the playfield shoots
+        /// arrowheads at the player every beat; one that leaves the screen fans half-size basic bullets back in, 120 degrees wide.
+        /// </summary>
+        Jealousy,
     }
 }

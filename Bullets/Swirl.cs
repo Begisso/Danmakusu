@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using osuTK;
 
 namespace osu.Game.Rulesets.Danmakusu.Bullets
@@ -8,6 +8,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
     /// bullet's own flight, turned round her by an angle that grows by its speed over its distance from her (its speed round her is then its speed, at any distance). The angle is worked out along the straight line
     /// the bullet was fired on (exact for a bullet that flies straight, near enough for one that something else turns); once an attack is over the bullet flies on straight, turned by what the attack gave it.
     /// Every bullet goes round a middle of its own that does not move: where she stood when it was fired, if that was in the attack, or where she stood when the attack began, for what was on the screen already.
+    /// Since 2026-11-24 every bullet flies half as fast in her attacks (a window of the bullets' clock, <see cref="Bosses.BossEffects"/>), and the attacks are taken by that clock (<see cref="Clock"/>).
     /// </summary>
     public sealed class Swirl
     {
@@ -25,6 +26,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>The field has taken <see cref="Grabbed"/> for the attack.</summary>
         public bool[] Placed { get; init; } = [];
+
+        /// <summary>
+        /// The bullets' clock (the field's <see cref="Bosses.BossEffects"/>; since 2026-11-24 it runs at half speed in her attacks): <see cref="Apply"/> is given a bullet's time by it, so her attacks begin and
+        /// end for the bullet when that clock says. Null: the time of the game.
+        /// </summary>
+        public Bosses.BossEffects? Clock { get; set; }
 
         /// <summary>Is <paramref name="time"/> in one of her attacks, and where is she in it now (the middle of a ring fired then)?</summary>
         public bool CentreAt(double time, out Vector2 centre)
@@ -72,10 +79,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             for (int k = 0; k < Starts.Length; k++)
             {
-                if (Starts[k] >= time)
+                // (the attack as the bullet's clock has it: time is its own)
+                double begins = Clock != null ? Clock.Effective(fired, Starts[k]) : Starts[k];
+                double ends = Clock != null ? Clock.Effective(fired, Ends[k]) : Ends[k];
+
+                if (begins >= time)
                     break;
 
-                double from = Math.Max(Starts[k], fired), to = Math.Min(Ends[k], time);
+                double from = Math.Max(begins, fired), to = Math.Min(ends, time);
 
                 if (to <= from)
                     continue;
@@ -87,7 +98,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 position = centre + turn(position - centre, cos, sin);
                 direction = turn(direction, cos, sin);
 
-                if (time < Ends[k])
+                if (time < ends)
                 {
                     // (in the attack it also goes round her: its way is its own way plus the way round, as fast)
                     Vector2 outward = position - centre;

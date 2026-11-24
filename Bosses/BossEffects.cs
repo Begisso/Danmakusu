@@ -239,6 +239,18 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                     continue;
                 }
 
+                // Mugetsu (2026-11-24): in every attack of hers every bullet on the screen flies half as fast (and goes round her the faster: see Swirl)
+                if (period.Boss?.Mechanic == BossMechanic.Crescent)
+                {
+                    foreach (var (start, end) in BossOps.Attacks(period))
+                    {
+                        if (end > start)
+                            windows.Add((start, end, 0f, DanmakusuBalance.MUGETSU_SLOWED, DanmakusuBalance.MUGETSU_SLOWED, (int)BossMechanic.Crescent));
+                    }
+
+                    continue;
+                }
+
                 // Saki: in every attack of hers every bullet on the screen speeds up evenly from its own speed to 1.2 times it, and over the pause after it slows down evenly to its own speed again
                 if (period.Boss?.Mechanic == BossMechanic.Stampede)
                 {

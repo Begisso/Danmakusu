@@ -596,6 +596,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>(Tools/SectionCheck: sees every run of a beam that is handed to the renderer - the laser, the points, the first one and how many - to find beams that are drawn wrong; null when unused)</summary>
         public static Action<LaserEmitter, Vector2[], int, int, BulletLook?[]>? BeamProbe;
 
+        /// <summary>(Tools/SectionCheck: Eirin's constellations after every batch is joined - how many made so far for the mark, bullets left unjoined, bullets looked at; null when unused)</summary>
+        public static Action<int, int, int>? ConstellationProbe;
+
         /// <summary>(Tools/SectionCheck: where the cursor is at a moment: a player who moves, so that the boss and the portals move too; null when unused)</summary>
         public static Func<double, Vector2>? CursorProbe;
 

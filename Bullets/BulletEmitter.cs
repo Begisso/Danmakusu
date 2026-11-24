@@ -53,7 +53,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float SpawnRadius { get; set; }
 
         /// <summary>Pixels per millisecond.</summary>
-        public float Speed { get; init; }
+        public float Speed { get; set; } // (set: Narumi's half speed is put on the rings of her section by the planner, 2026-11-24; nothing changes it once the field has them)
 
         /// <summary>Combo index (with offsets) of the circle this ring belongs to; the field maps it to a skin combo colour.</summary>
         public int ComboIndex { get; init; }
@@ -219,6 +219,39 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             SwirlCentreKnown = Swirl != null && Swirl.CentreAt(Time, out var centre) && (SwirlCentre = centre) == centre;
         }
 
+        /// <summary>Narumi (2026-11-24): the ring flies at half its speed (the planner has halved it) until one of her waves goes over a bullet: her act pushes that one on at the speed it had.</summary>
+        public bool WaveRestores { get; set; }
+
+        /// <summary>
+        /// Iku (2026-11-24): every this many neighbouring bullets of the ring (0..4, 5..9, ...; what is left over is free) are tied together by straight beams: none of them gets further than half of
+        /// <see cref="TetherReach"/> from the middle one of its group, which flies on its own way (so no two of them are further apart than <see cref="TetherReach"/>). 0: not tied.
+        /// </summary>
+        public int TetherGroup { get; set; }
+
+        public float TetherReach { get; set; }
+
+        /// <summary>Only every this many-th bullet is tied (2026-11-24, the user: "skip every second bullet"): a group is that many apart (0, 2, 4, 6, 8; 10, 12, ...), the others fly free.</summary>
+        public int TetherStride { get; set; } = 1;
+
+        /// <summary>The first bullet of the group <paramref name="bullet"/> is tied in, and how far apart its bullets are; false when it is not tied.</summary>
+        public bool TetheredIn(int bullet, out int first, out int stride)
+        {
+            stride = Math.Max(TetherStride, 1);
+            first = -1;
+
+            if (TetherGroup <= 1 || bullet % stride != 0)
+                return false;
+
+            int span = TetherGroup * stride;
+            first = bullet / span * span;
+            return first + (TetherGroup - 1) * stride < Directions.Length;
+        }
+
+        /// <summary>Iku (2026-11-24): a ring of hers - every bullet leaves a narrow beam behind it (her act draws it and it hurts).</summary>
+        public bool LeavesTrace { get; set; }
+
+        /// <summary>Parsee (2026-11-24): the arrowheads of her clone - one that leaves the screen fans out basic bullets back in (her act).</summary>
+        public bool FansOnLeaving { get; set; }
         /// <summary>All the bullets curl the same way (<see cref="Curl"/>'s sign is the way round): the ring turns as it flies (Kaguya's).</summary>
         public bool CurlsTogether { get; set; }
 
@@ -752,6 +785,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Layout = Layout,
                 LayoutPhase = LayoutPhase + phaseShift,
                 OwnShot = OwnShot,
+                WaveRestores = WaveRestores,
+                TetherGroup = TetherGroup,
+                TetherReach = TetherReach,
+                TetherStride = TetherStride,
+                LeavesTrace = LeavesTrace,
+                FansOnLeaving = FansOnLeaving,
             };
         }
 
@@ -1632,6 +1671,48 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// The same, and <paramref name="stillUntil"/> says until when the bullet stays exactly like this (it is frozen and nothing about it changes until the freeze ends); NaN when that is not known.
         /// </summary>
         public void Evaluate(int bullet, double time, out Vector2 position, out Vector2 direction, out bool alive, out BulletLook? look, out double stillUntil)
+        {
+            evaluateSwirled(bullet, time, out position, out direction, out alive, out look, out stillUntil);
+
+            // (Iku's tethers: no bullet of a group gets further than half the reach from its middle one, which flies on its own - 2026-11-24)
+            if (TetherGroup > 1 && !Homing && bullet < Directions.Length && TetheredIn(bullet, out int first, out int stride))
+            {
+                int lead = first + TetherGroup / 2 * stride;
+
+                if (bullet != lead)
+                {
+                    Vector2 middle = tetherLead(lead, time);
+                    Vector2 off = position - middle;
+                    float most = TetherReach * 0.5f, length = off.Length;
+
+                    if (length > most)
+                    {
+                        position = middle + off * (most / length);
+                        stillUntil = double.NaN;
+                    }
+                }
+            }
+        }
+
+        // (the middle bullet of the last group asked about: the others of the group ask for it at the same moment, one after the other)
+        private double tetherTime = double.NaN;
+        private int tetherIndex = -1;
+        private Vector2 tetherAt;
+
+        private Vector2 tetherLead(int lead, double time)
+        {
+            if (time == tetherTime && lead == tetherIndex)
+                return tetherAt;
+
+            evaluateSwirled(lead, time, out Vector2 at, out _, out _, out _, out _);
+            tetherTime = time;
+            tetherIndex = lead;
+            tetherAt = at;
+            return at;
+        }
+
+        /// <summary>The bullet on its own, turned round Mugetsu by her vortex.</summary>
+        private void evaluateSwirled(int bullet, double time, out Vector2 position, out Vector2 direction, out bool alive, out BulletLook? look, out double stillUntil)
         {
             evaluateOwn(bullet, time, out position, out direction, out alive, out look, out stillUntil);
 

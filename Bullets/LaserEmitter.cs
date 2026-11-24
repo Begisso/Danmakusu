@@ -403,6 +403,26 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             return middle + velocity * u + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos);
         }
 
+        /// <summary>
+        /// Son Biten's thrown beams (2026-11-24, "laserbeams move normally but also spin around their own centres"): a straight beam fired from one place flies out as any does, and turns round its own middle
+        /// - the slice halfway between its first and the newest - this many radians a ms (the sign is which way round), from when it begins. 0: it does not.
+        /// </summary>
+        public float SelfSpin { get; init; }
+
+        /// <summary>Does every slice fly straight on its own (so a closed form of a straight line does for it: the portals' quick way)? Not one that is held or spins round its middle.</summary>
+        public bool FliesStraightAlone => HoldUntil <= 0 && SelfSpin == 0f;
+
+        /// <summary>Where a slice of a beam that spins round its own middle is (<see cref="SelfSpin"/>).</summary>
+        private Vector2 selfSpun(Vector2 start, Vector2 velocity, double fired, double time)
+        {
+            double middle = (StartTime + Math.Min(time, EndTime)) / 2;
+            Vector2 pivot = start + velocity * (float)(time - middle);
+            Vector2 from = velocity * (float)(middle - fired);
+            float angle = SelfSpin * (float)(time - StartTime);
+            float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+            return pivot + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos);
+        }
+
         /// <summary>The same slider's beam held (Son Biten's): see <see cref="HoldUntil"/>. Its slices live as much longer as they stand.</summary>
         public LaserEmitter Held(double until, float grow, float spin, double ease) => new LaserEmitter
         {
@@ -1059,6 +1079,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             }
             else if (HoldUntil > 0)
                 position = heldPlace(start, velocity, time); // (Son Biten's: standing, then flying on spinning - 2026-11-23)
+            else if (SelfSpin != 0f)
+                position = selfSpun(start, velocity, fired, time); // (Son Biten's thrown ones: flying out, turning round their middles - 2026-11-24)
             else
                 position = start + velocity * (float)(time - fired);
         }
@@ -1459,6 +1481,36 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             Vector2 offset = point - BallPositions[0];
 
             return Origin + new Vector2(offset.X * cos - offset.Y * sin, offset.X * sin + offset.Y * cos);
+        }
+
+        /// <summary>
+        /// Son Biten's arrows (2026-11-24): for a beam that turns round its own middle (<see cref="SelfSpin"/>, or a held one's <see cref="HoldSpin"/>), where its first and its newest slice and its middle are at
+        /// <paramref name="now"/> (as the bosses' doings have them, not through Okina's portals) and which way it turns (1 clockwise on the screen, -1 the other way). False for any other beam, or before it begins.
+        /// </summary>
+        public bool SpinShape(double now, int beam, out Vector2 first, out Vector2 newest, out Vector2 middle, out float way)
+        {
+            first = newest = middle = default;
+            float spin = SelfSpin != 0f ? SelfSpin : HoldUntil > 0 ? HoldSpin : 0f;
+            way = MathF.Sign(spin);
+
+            if (spin == 0f || now < StartTime || BallTimes.Length == 0 || beam >= Directions.Length)
+                return false;
+
+            double last = Math.Min(now, EndTime);
+            Vector2 velocity = Directions[beam] * Speed;
+
+            TraceSlice(ballAt(StartTime, beam), velocity, StartTime, now, out first, out _);
+            TraceSlice(ballAt(last, beam), velocity, last, now, out newest, out _);
+
+            if (SelfSpin != 0f)
+            {
+                double half = (StartTime + last) / 2; // (the slice it turns round)
+                TraceSlice(ballAt(half, beam), velocity, half, now, out middle, out _);
+            }
+            else
+                TraceSlice(holdMiddle, velocity, StartTime, now, out middle, out _);
+
+            return true;
         }
 
         /// <summary>Where the slice of beam <paramref name="beam"/> that was fired at <paramref name="fired"/> is at <paramref name="now"/> (it flies straight on in the direction of the beam).</summary>

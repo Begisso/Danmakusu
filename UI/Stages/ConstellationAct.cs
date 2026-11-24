@@ -15,6 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // and harmless, where the bullets will stop (worked out from their flight); a constellation is made a beat before they stop at the latest, so every one is warned of.
         // The bullets are looked at as they fly (Takes, which takes nothing): where each will be when they stop. They are joined a beat at a time - first what is on the screen when the preview begins, then what
         // was fired in each beat after it - each time in the order the rings come in the map, so the same bullets always make the same constellations (a replay and a seek show the same).
+        // What a constellation lets go may be in the next one (2026-11-24, "double the constellations amount"): it is let go as the next preview begins, so it flies four beats and stands four again; its
+        // stop is put on its legs as the constellation is made.
         // ======================================================================================================================================================
 
         private sealed class ConstellationAct : StageAct
@@ -28,6 +30,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public double Fired;
                 public int Ring; // (the ring's place in the map's list: the order they are joined in)
                 public int Bullet;
+                public int Own; // (-1: a ring's bullet; else one of the act's own, let go by an earlier constellation: its place in Bullets)
             }
 
             private sealed class Mark
@@ -57,6 +60,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly List<Vector2> line = new List<Vector2>();
             private readonly Dictionary<long, List<int>> cells = new Dictionary<long, List<int>>();
             private double resetTime = double.NegativeInfinity;
+            private readonly List<(int Ring, int Bullet)> ownOf = new List<(int, int)>(); // (the ring's bullet each of Bullets was: the order they are joined in)
 
             public ConstellationAct(BulletField f, BossPeriod period, List<double> times)
             {
@@ -93,18 +97,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 for (int i = 0; i < marks.Length; i++)
                 {
-                    double from = marks[i].Time - previewMs;
-
-                    if (t < from || t > marks[i].Time + look_ms)
-                        continue;
-
-                    double intoBeat = (t - from) % beat;
-
-                    if (intoBeat <= look_ms)
+                    if (looks(i, t))
                         return i;
                 }
 
                 return -1;
+            }
+
+            /// <summary>Does mark <paramref name="i"/> look at the bullets at <paramref name="t"/> (a moment at every beat of its preview, and as they stop)?</summary>
+            private bool looks(int i, double t)
+            {
+                double from = marks[i].Time - previewMs;
+
+                if (t < from || t > marks[i].Time + look_ms)
+                    return false;
+
+                return (t - from) % beat <= look_ms;
             }
 
             public override bool Absorbs(double t) => markAt(t) >= 0;
@@ -148,6 +156,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 ClearBullets();
+                ownOf.Clear();
                 resetTime = time;
             }
 
@@ -157,24 +166,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || emitter.Homing || emitter.Sharp || emitter.Shape == BulletShape.Train)
                     return false;
 
-                int index = markAt(t);
+                // (every mark looking then: since 2026-11-24 one comes every four beats, and the preview of the next begins as one stops)
+                for (int index = 0; index < marks.Length; index++)
+                {
+                    if (!looks(index, t))
+                        continue;
 
-                if (index < 0)
-                    return false;
+                    var mark = marks[index];
 
-                var mark = marks[index];
+                    if (mark.Batches >= (int)Math.Round(DanmakusuBalance.EIRIN_PREVIEW_BEATS) || emitter.Time >= mark.Time || !mark.Known.Add((emitter, bullet)))
+                        continue;
 
-                if (emitter.Time >= mark.Time || !mark.Known.Add((emitter, bullet)))
-                    return false;
+                    // (where its flight puts it when they stop: from then on it stands there)
+                    double own = emitter.WithoutFrozenTime(f.effects.Effective(emitter, mark.Time));
+                    emitter.Evaluate(bullet, own, out Vector2 at, out _, out bool alive);
 
-                // (where its flight puts it when they stop: from then on it stands there)
-                double own = emitter.WithoutFrozenTime(f.effects.Effective(emitter, mark.Time));
-                emitter.Evaluate(bullet, own, out Vector2 at, out _, out bool alive);
+                    if (!alive || at.X < f.stageMin.X || at.X > f.stageMax.X || at.Y < f.stageMin.Y || at.Y > f.stageMax.Y)
+                        continue;
 
-                if (!alive || at.X < f.stageMin.X || at.X > f.stageMax.X || at.Y < f.stageMin.Y || at.Y > f.stageMax.Y)
-                    return false;
+                    mark.Waiting.Add(new Star { At = at, Fired = emitter.Time, Ring = ringOrder.TryGetValue(emitter, out int order) ? order : int.MaxValue, Bullet = bullet, Own = -1 });
+                }
 
-                mark.Waiting.Add(new Star { At = at, Fired = emitter.Time, Ring = ringOrder.TryGetValue(emitter, out int order) ? order : int.MaxValue, Bullet = bullet });
                 return false;
             }
 
@@ -197,7 +209,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (now < boundary)
                             break;
 
-                        join(mark, boundary);
+                        join(f, mark, boundary);
                         mark.Batches++;
                     }
 
@@ -229,7 +241,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     foreach (var star in members)
                     {
-                        if (star.Ring < 0 || star.Ring >= f.emitters.Length)
+                        // (one of hers that flies again: its stop was put on its legs as the constellation was made)
+                        if (star.Own >= 0 || star.Ring < 0 || star.Ring >= f.emitters.Length)
                             continue;
 
                         var emitter = f.emitters[star.Ring];
@@ -258,15 +271,62 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         b.Tint2Amount = DanmakusuBalance.EIRIN_STOPPED_LIGHTER;
                         b.Tint2Over = 150;
                         b.Until = release + f.stageLife(velocity);
+                        int had = Bullets.Count;
                         AddBullet(b);
+
+                        if (Bullets.Count > had)
+                            ownOf.Add((star.Ring, star.Bullet));
                     }
                 }
+            }
+
+            /// <summary>One of hers that flies again, joined into a constellation: it stops where it will be at the mark, for as long, then flies on as it went (put on its legs now, so what foresees it knows).</summary>
+            private void standAgain(BulletField f, Mark mark, Star star)
+            {
+                var b = Bullets[star.Own];
+
+                if (b.Legs == null)
+                    return;
+
+                double release = mark.Time + holdMs;
+                Vector2 velocity = b.Legs[^1].V;
+                var legs = new StageLeg[b.Legs.Length + 2];
+                Array.Copy(b.Legs, legs, b.Legs.Length);
+                legs[^2] = new StageLeg { T = mark.Time, P = star.At, V = Vector2.Zero };
+                legs[^1] = new StageLeg { T = release, P = star.At, V = velocity };
+                b.Legs = legs;
+                b.Until = release + f.stageLife(velocity);
+
+                // (nothing stays longer than 64 beats: as AddBullet does)
+                double most = b.T0 + DanmakusuBalance.LIFE_MOST_BEATS * beat;
+
+                if (b.Until > most)
+                {
+                    b.Until = most;
+                    b.AlphaFrom = most - DanmakusuBalance.LIFE_FADE_MS;
+                    b.AlphaOver = DanmakusuBalance.LIFE_FADE_MS;
+                }
+
+                Bullets[star.Own] = b;
+                LastUntil = Math.Max(LastUntil, b.Until);
+            }
+
+            private static bool stoppedBefore(BulletField f, Star star)
+            {
+                if (star.Own >= 0)
+                    return false;
+
+                if (star.Ring < 0 || star.Ring >= f.emitters.Length || star.Bullet >= 64)
+                    return false;
+
+                var emitter = f.emitters[star.Ring];
+                return ((emitter.ConsumedMask | emitter.AbsorbedMask | emitter.HiddenMask) & (1UL << star.Bullet)) != 0;
             }
 
             private static long cellOf(Vector2 at) => ((long)MathF.Floor(at.X / cell_size) << 32) ^ (uint)(int)MathF.Floor(at.Y / cell_size);
 
             /// <summary>Joins what has been seen and was fired by <paramref name="boundary"/> (and what was left over before) into constellations of four: each, in the order of the map, with its three nearest.</summary>
-            private void join(Mark mark, double boundary)
+            private void join(BulletField f, Mark mark, double boundary)
             {
                 var pool = new List<Star>(mark.Left);
 
@@ -274,8 +334,31 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     if (mark.Waiting[i].Fired <= boundary)
                     {
-                        pool.Add(mark.Waiting[i]);
+                        // (not one the mark before has just stopped: it stands in that constellation, taken out of its ring, as this preview begins)
+                        if (!stoppedBefore(f, mark.Waiting[i]))
+                            pool.Add(mark.Waiting[i]);
+
                         mark.Waiting.RemoveAt(i);
+                    }
+                }
+
+                // (as its preview begins: what earlier constellations have let go and still flies, where it will be when they stop - since 2026-11-24, "double the constellations amount": each bullet
+                // was in one at most, and a mark every four beats made no more of them in eight beats than one every eight; now twice as many, about 105 a mark on Zenithfall against 50)
+                if (mark.Batches == 0)
+                {
+                    for (int i = 0; i < Bullets.Count && i < ownOf.Count; i++)
+                    {
+                        var b = Bullets[i];
+
+                        if (b.Until <= boundary || b.Until <= mark.Time || b.Legs == null || b.Legs[^1].T > boundary + 1)
+                            continue;
+
+                        Vector2 at = legPoint(b.Legs, b.P0, mark.Time, out _);
+
+                        if (at.X < f.stageMin.X || at.X > f.stageMax.X || at.Y < f.stageMin.Y || at.Y > f.stageMax.Y)
+                            continue;
+
+                        pool.Add(new Star { At = at, Fired = boundary, Ring = ownOf[i].Ring, Bullet = ownOf[i].Bullet, Own = i });
                     }
                 }
 
@@ -373,6 +456,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     mark.Members.Add(members);
                     mark.GroupFrom.Add(boundary);
                     placeGroup(mark, mark.Groups.Count - 1);
+
+                    foreach (var star in members)
+                    {
+                        if (star.Own >= 0)
+                            standAgain(f, mark, star);
+                    }
                 }
 
                 for (int i = 0; i < pool.Count; i++)
@@ -380,6 +469,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!used[i])
                         mark.Left.Add(pool[i]);
                 }
+
+                ConstellationProbe?.Invoke(mark.Groups.Count, mark.Left.Count, pool.Count);
             }
 
             /// <summary>

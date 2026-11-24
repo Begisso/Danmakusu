@@ -40,7 +40,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         {
             BossMechanic.None, BossMechanic.Density, BossMechanic.Distance, // (Dolls: Alice's, built 2026-11-20)
             BossMechanic.Elixir, BossMechanic.Illusions, // (Frog: Suwako's, built 2026-11-21)
-            BossMechanic.Poison, BossMechanic.Psychokinesis, BossMechanic.Thunder, // (Onbashira: Kanako's, built 2026-11-20)
+            BossMechanic.Poison, BossMechanic.Psychokinesis, // (Onbashira: Kanako's, built 2026-11-20; Thunder: Iku's, built 2026-11-24)
         };
 
         /// <summary>True when the boss has a mechanic of his own (modified); false when he is still a placeholder (only the placeholder attack).</summary>

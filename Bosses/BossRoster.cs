@@ -93,7 +93,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(63, "mayumi_joutouguu", "Mayumi Joutouguu", 2, BossMechanic.None, (232, 176, 48, 0.2f), (240, 192, 64, 0.3f), (232, 128, 31, 0.3f), (216, 208, 192, 0.2f)),
             make(64, "medicine_melancholy", "Medicine Melancholy", 3, BossMechanic.Poison, (90, 106, 216, 0.2f), (240, 200, 96, 0.3f), (216, 40, 58, 0.3f), (63, 42, 42, 0.2f)),
             make(65, "megumu_iizunamaru", "Megumu Iizunamaru", 4, BossMechanic.Galaxy, (216, 64, 58, 0.2f), (30, 42, 88, 0.3f), (42, 90, 144, 0.3f), (232, 184, 48, 0.2f)),
-            make(66, "meira", "Meira", 5, BossMechanic.None, (160, 74, 200, 0.2f), (138, 88, 208, 0.3f), (200, 48, 56, 0.3f), (58, 54, 64, 0.2f)),
+            make(66, "meira", "Meira", 5, BossMechanic.Sword, (160, 74, 200, 0.2f), (138, 88, 208, 0.3f), (200, 48, 56, 0.3f), (58, 54, 64, 0.2f)),
             make(67, "merlin_prismriver", "Merlin Prismriver", 1, BossMechanic.Trumpet, (74, 106, 200, 0.2f), (192, 208, 240, 0.3f), (244, 216, 224, 0.3f), (240, 200, 48, 0.2f)),
             make(68, "mike_goutokuji", "Mike Goutokuji", 2, BossMechanic.None, (216, 128, 58, 0.2f), (248, 232, 232, 0.3f), (232, 106, 56, 0.3f), (248, 216, 208, 0.2f)),
             make(69, "mima", "Mima", 3, BossMechanic.HalfMoon, (74, 154, 88, 0.2f), (58, 168, 72, 0.3f), (42, 58, 168, 0.3f), (240, 216, 64, 0.2f)),
@@ -106,7 +106,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(76, "mugetsu", "Mugetsu", 5, BossMechanic.Crescent, (216, 160, 48, 0.2f), (240, 208, 64, 0.3f), (63, 90, 200, 0.3f), (244, 240, 240, 0.2f)),
             make(77, "mystia_lorelei", "Mystia Lorelei", 1, BossMechanic.Blindness, (216, 64, 58, 0.2f), (240, 120, 144, 0.3f), (240, 160, 176, 0.3f), (192, 106, 160, 0.2f)),
             make(78, "nareko_michigami", "Nareko Michigami", 4, BossMechanic.None, (58, 90, 200, 0.2f), (40, 56, 150, 0.3f), (130, 104, 56, 0.3f), (240, 200, 40, 0.2f)), // (Touhou 20, 2026-11-22: a placeholder)
-            make(79, "narumi_yatadera", "Narumi Yatadera", 2, BossMechanic.None, (176, 74, 74, 0.2f), (46, 32, 40, 0.3f), (154, 154, 160, 0.3f), (216, 56, 58, 0.2f)),
+            make(79, "narumi_yatadera", "Narumi Yatadera", 2, BossMechanic.Statue, (176, 74, 74, 0.2f), (46, 32, 40, 0.3f), (154, 154, 160, 0.3f), (216, 56, 58, 0.2f)),
             make(80, "nazrin", "Nazrin", 3, BossMechanic.Dowsing, (216, 64, 58, 0.2f), (154, 152, 176, 0.3f), (58, 54, 64, 0.3f), (184, 180, 212, 0.2f)),
             make(81, "nemuno_sakata", "Nemuno Sakata", 4, BossMechanic.Blades, (216, 58, 58, 0.2f), (200, 208, 224, 0.3f), (232, 138, 40, 0.3f), (216, 72, 58, 0.2f)),
             make(82, "nina_watari", "Nina Watari", 3, BossMechanic.Mirage, (216, 138, 40, 0.2f), (240, 208, 100, 0.3f), (244, 238, 240, 0.3f), (200, 72, 200, 0.2f)), // (Touhou 20, 2026-11-22; her mechanic the same day)
@@ -115,7 +115,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             make(85, "nue_houjuu", "Nue Houjuu", 2, BossMechanic.Unknown, (216, 58, 58, 0.2f), (42, 38, 48, 0.3f), (216, 64, 63, 0.3f), (63, 111, 216, 0.2f)),
             make(86, "okina_matara", "Okina Matara", 3, BossMechanic.Doors, (216, 160, 48, 0.2f), (232, 192, 64, 0.3f), (232, 154, 42, 0.3f), (42, 42, 48, 0.2f)),
             make(87, "orange", "Orange", 4, BossMechanic.None, (58, 154, 88, 0.2f), (216, 58, 47, 0.3f), (74, 154, 72, 0.3f), (240, 216, 88, 0.2f)),
-            make(88, "parsee_mizuhashi", "Parsee Mizuhashi", 5, BossMechanic.None, (58, 176, 88, 0.2f), (240, 208, 96, 0.3f), (232, 168, 64, 0.3f), (74, 58, 152, 0.2f)),
+            make(88, "parsee_mizuhashi", "Parsee Mizuhashi", 5, BossMechanic.Jealousy, (58, 176, 88, 0.2f), (240, 208, 96, 0.3f), (232, 168, 64, 0.3f), (74, 58, 152, 0.2f)),
             make(89, "patchouli_knowledge", "Patchouli Knowledge", 1, BossMechanic.SevenElements, (160, 88, 200, 0.2f), (154, 88, 208, 0.3f), (224, 192, 240, 0.3f), (240, 208, 64, 0.2f)),
             make(90, "raiko_horikawa", "Raiko Horikawa", 2, BossMechanic.Taiko, (200, 58, 72, 0.2f), (216, 48, 58, 0.3f), (58, 42, 56, 0.3f), (200, 64, 63, 0.2f)),
             make(91, "ran_yakumo", "Ran Yakumo", 3, BossMechanic.Foxes, (216, 160, 48, 0.2f), (240, 192, 96, 0.3f), (244, 236, 244, 0.3f), (58, 74, 160, 0.2f)),

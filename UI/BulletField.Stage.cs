@@ -2059,6 +2059,41 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Staff:
+                        // Son Biten: the arrows of her spinning beams (the beams are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new StaffAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Thunder:
+                        // Iku: the beams behind her bullets and between the tied ones (the rings and their ties are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new ThunderAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Sword:
+                        // Meira: her slides and the beams behind her (her fans are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new SwordAct(period));
+
+                        break;
+
+                    case BossMechanic.Statue:
+                        // Narumi: her waves and her homing balls (that everything starts at half speed is the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new StatueAct(this, period));
+
+                        break;
+
+                    case BossMechanic.Jealousy:
+                        // Parsee: her balls and their flowers, her clone and its arrowheads' fans (the arrowheads are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new JealousyAct(this, period));
+
+                        break;
+
                     case BossMechanic.Curse:
                         // Noroiko: her curses, and the sliders' (that the sliders' beams are gone is the planner's)
                         if (period.End > period.ShootStart)
@@ -2198,7 +2233,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         }
 
                         if (swirl != null)
+                        {
+                            // (since 2026-11-24 everything flies half as fast in her attacks, by the bullets' clock: the vortex goes by it too)
+                            swirl.Clock = effects;
                             registerStage(new SwirlAct(period, swirl));
+                        }
 
                         break;
                     }
