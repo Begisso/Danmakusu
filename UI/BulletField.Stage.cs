@@ -231,6 +231,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>When above 0 a bullet that goes round a hub stops going round it from this moment on (it stays where it is on its circle, and stops turning: Kanako's, 2026-11-21).</summary>
             public double OrbitUntil;
 
+            /// <summary>When above 0 the circle it goes round its hub on grows from nothing to <see cref="Orbit"/> over this long (ms) from <see cref="T0"/> (Kanako's, 2026-11-24: her circles come out of her magic circle's edge).</summary>
+            public double OrbitGrow;
+
             /// <summary>When above 0 the bullet wanders round its straight line, about this many px to each side, as a firefly does; <see cref="WanderPhase"/> makes it its own (Wriggle's).</summary>
             public float Wander;
 
@@ -1670,7 +1673,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             boatThrows.Add(start);
 
                         if (boatThrows.Count > 0)
-                            registerStage(new BoatAct(period, boatThrows));
+                        {
+                            var boatAct = new BoatAct(period, boatThrows);
+                            registerStage(boatAct);
+                            boatAct.Prepare(this);
+
+                            // (the slices of the beams that fly while her boats can be there are pushed out of them: 2026-11-24)
+                            foreach (var laser in lasers)
+                            {
+                                if (laser.Immune || laser.StartTime > period.End || laser.StartTime + laser.Lifetime < boatThrows[0])
+                                    continue;
+
+                                laser.Pusher = laser.Pusher == null ? boatAct : new BeamPushers(laser.Pusher, boatAct);
+                            }
+                        }
 
                         break;
                     }
@@ -2610,6 +2626,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             sukunaLevel = 0f;
             sukunaShaking = false;
             seijaCloneLevel = 0f;
+            sakiWarnLevel = 0f;
             lunaLevel = 0f;
             lensOn = false;
             lensRadius = 0f;
@@ -3233,7 +3250,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private static Vector2 orbitingPoint(in StageBullet b, double t)
         {
             float angle = b.OrbitPhase + b.OrbitOmega * (float)(orbitClock(b, t) - b.T0);
-            return hubPoint(b, t) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * b.Orbit;
+            float radius = b.OrbitGrow > 0 ? b.Orbit * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
+            return hubPoint(b, t) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
         }
 
         /// <summary>The moment a bullet that goes round a hub has turned up to at <paramref name="t"/> (it stops turning at <see cref="StageBullet.OrbitUntil"/>).</summary>
@@ -3417,6 +3435,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             double slack = stageSlack;
             double allFreezes = freezeSpan(double.NegativeInfinity, double.PositiveInfinity);
+            float stageTan = failed || hasteWindows.Count == 0 ? 0f : hasteLevel(drawTime) * DanmakusuBalance.GENGETSU_TAN; // (Gengetsu's gold-brown, as the rings' - 2026-11-24)
 
             foreach (var act in stageActs)
             {
@@ -3530,8 +3549,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Rimmed = bullet.Rimmed,
                         Shape = look?.Shape ?? bullet.Shape,
                         Speed = velocity.Length,
-                        Overlay = look is { Overlay: > 0 } ? look.Overlay : stageTint(bullet, drawTime),
-                        OverlayAmount = look is { Overlay: > 0 } ? look.OverlayAmount : stageTintAmount(bullet, drawTime),
+                        Overlay = look is { Overlay: > 0 } ? look.Overlay : stageTint(bullet, drawTime) is int ownTint and > 0 ? ownTint : stageTan > 0.002f && !bullet.Harmless ? BulletRenderer.TINT_TAN : 0,
+                        OverlayAmount = look is { Overlay: > 0 } ? look.OverlayAmount : stageTint(bullet, drawTime) > 0 ? stageTintAmount(bullet, drawTime) : stageTan,
                         Fade = Math.Max(Math.Max(Math.Max(look is { Alpha: < 1f } ? 1f - look.Alpha : 0f, bullet.AlphaOver > 0 ? smoothStep((drawTime - bullet.AlphaFrom) / bullet.AlphaOver) : 0f),
                             drawTime < bullet.GhostUntil ? 1f - bullet.GhostVisible : drawTime < bullet.GhostUntil + 200 ? (1f - bullet.GhostVisible) * (1f - smoothStep((drawTime - bullet.GhostUntil) / 200.0)) : 0f),
                             bullet.AppearOver > 0 ? 1f - smoothStep((drawTime - bullet.T0) / bullet.AppearOver) : 0f),
@@ -4256,6 +4275,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             stageMeshes.Clear();
             drawImpactFrame(t);
             drawShionArrows(t);
+            drawSakiArrows(t);
             drawKokoroArrows(t);
             drawSwellWarnings();
             drawGoArrows();

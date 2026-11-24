@@ -353,7 +353,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 float half = halfWidth(f);
                 var ice = new Color4(0.84f, 0.94f, 1f, 1f);
-                var border = DanmakusuBalance.BorderColour(new Color4(0.45f, 0.7f, 0.95f, 1f));
+                var border = new Color4(0.15f, 0.42f, 1f, 1f); // (a blue outline, 2026-11-24: "It has blue outlines" - it was the ice's darkened, nearly black)
 
                 // (the preview: see-through and harmless, a little thinner, growing ahead of the snowflake from where it has got to - 2026-11-14, "warn about snowflake branches with a preview that grows beforehand")
                 int ghost = ++f.beamPieces;

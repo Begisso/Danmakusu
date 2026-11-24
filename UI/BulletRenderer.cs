@@ -259,6 +259,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             new Color4(0.2f, 0.16f, 0.3f, 1f),
             new Color4(0.08f, 0.32f, 0.16f, 1f), // (the dark green of Wakasagihime's seaweed)
             new Color4(0.42f, 0.96f, 0.80f, 1f), // (aquamarine: what Eternity Larva swells)
+            new Color4(0.80f, 0.60f, 0.30f, 1f), // (gold-brown tan: Gengetsu's attacks, 2026-11-24)
         };
 
         public const int TINT_RED = 1;
@@ -277,6 +278,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public const int TINT_HISAMI_HAIR = 14; // (black with a violet sheen: the copies Hisami records)
         public const int TINT_SEAWEED = 15; // (the dark green of Wakasagihime's seaweed: the petals on it, Yuuka's leaves)
         public const int TINT_AQUAMARINE = 16; // (what Eternity Larva is about to swell, and swells)
+        public const int TINT_TAN = 17; // (gold-brown tan: everything in Gengetsu's attacks, more and more)
 
         // layout of the sheet: one row per palette colour, a disc cell, an arrowhead cell and a star cell per row, with gaps so mipmaps never mix cells.
         private const int max_styles = 40;

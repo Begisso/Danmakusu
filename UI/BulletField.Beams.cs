@@ -409,6 +409,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            // Gengetsu's attacks: the beams turn gold-brown too, more and more (2026-11-24)
+            float tanLevel = failed || hasteWindows.Count == 0 ? 0f : hasteLevel(drawTime) * DanmakusuBalance.GENGETSU_TAN;
+
+            if (tanLevel > 0.002f)
+            {
+                var tan = BulletRenderer.SpecialBodies[BulletRenderer.TINT_TAN - 1];
+
+                for (int i = 0; i < beams; i++)
+                {
+                    if (!laserInstances[i].Wood && !laserInstances[i].Immune)
+                        laserInstances[i].Colour = BossHud.Interpolate(laserInstances[i].Colour, tan, tanLevel);
+                }
+            }
+
             impactBeams(drawTime, beams);
 
             // Remilia's attack: the beams glow as much as the bullets

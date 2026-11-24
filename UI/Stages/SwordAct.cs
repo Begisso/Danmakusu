@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // thick beam (MEIRA_TRACE_WIDTH circle radii each side) stays where she went, hurting like a slider body. In the rest of the round she stands and shoots streams of fans at the player (the planner's).
         // When the next round begins (or her section ends) the beams of the round go: every MEIRA_SLICE_CIRCLES circle radii along them a ring of MEIRA_SLICE_BULLETS basic bullets, MEIRA_SLICE_SIZE as big as
         // a plain one, flies out from there.
+        // Since 2026-11-24 each slide goes only MEIRA_SLIDE_SHARE of the way to where Elly would stop (as it starts: "trace laserbeam length halved"), and every one is heard (Kagerou's swing).
         // Where she slides depends on where the player is, so it is followed step by step (MEIRA_STEP_MS) and kept: going back in time takes the steps back.
         // ======================================================================================================================================================
 
@@ -25,6 +26,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public double Until;
                 public readonly List<Vector2> Steps = new List<Vector2>(); // (a place every MEIRA_STEP_MS from its start)
                 public bool Stopped; // (she got near enough: the rest of it she stands)
+                public float Budget = float.PositiveInfinity; // (how far it may go: MEIRA_SLIDE_SHARE of the way to where Elly would stop, as it starts)
             }
 
             private readonly double beat;
@@ -34,6 +36,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly List<Vector2> line = new List<Vector2>();
             private Vector2 standing;
             private bool known;
+            private double resetTime = double.NegativeInfinity;
             private int dissolved; // (how many rounds' beams have gone into rings)
 
             public SwordAct(BossPeriod period)
@@ -96,6 +99,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 ClearBullets();
                 dissolved = 0;
+                resetTime = time;
             }
 
             public override void Update(BulletField f, double now)
@@ -118,8 +122,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     int index = slides.Count;
                     var slide = new Slide { Start = slideStarts[index], Until = slideEnds[index] };
                     slide.Steps.Add(slides.Count > 0 ? slides[^1].Steps[^1] : standing);
+
+                    // (half the way she would go, as it starts: 2026-11-24, "trace laserbeam length halved")
+                    float wanted = Vector2.Distance(f.characterPosition, slide.Steps[0]) - near(f);
+                    slide.Budget = Math.Max(wanted, 0f) * DanmakusuBalance.MEIRA_SLIDE_SHARE;
+
                     slides.Add(slide);
                     extend(f, slide, now);
+
+                    // (every dash is heard: one of Kagerou's swings, as Aya's are - 2026-11-24)
+                    if (now - slide.Start < 250 && slide.Start > resetTime)
+                        f.playStageSound($"kagerou_swing_{index % 10}");
                 }
 
                 if (slides.Count > 0)
@@ -140,19 +153,26 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 double until = Math.Min(now, slide.Until);
                 float reach = near(f);
 
+                float gone = 0f;
+
+                for (int i = 1; i < slide.Steps.Count; i++)
+                    gone += Vector2.Distance(slide.Steps[i - 1], slide.Steps[i]);
+
                 while (!slide.Stopped && slide.Start + slide.Steps.Count * step <= until)
                 {
                     Vector2 at = slide.Steps[^1];
                     Vector2 toPlayer = f.characterPosition - at;
                     float away = toPlayer.Length;
 
-                    if (away <= reach)
+                    if (away <= reach || gone >= slide.Budget - 0.01f)
                     {
                         slide.Stopped = true;
                         break;
                     }
 
-                    Vector2 next = at + toPlayer * (Math.Min(speed * (float)step, away - reach) / away);
+                    float move = Math.Min(Math.Min(speed * (float)step, away - reach), slide.Budget - gone);
+                    gone += move;
+                    Vector2 next = at + toPlayer * (move / away);
                     slide.Steps.Add(Vector2.Clamp(next, f.stageMin, f.stageMax));
                 }
             }

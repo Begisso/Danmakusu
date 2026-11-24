@@ -88,6 +88,60 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         }
     }
 
+    /// <summary>Something that pushes the slices of beams out of where it is (Futo's boats, 2026-11-24): a slice that would be in it at a moment is out at its edge then - a closed form of time, as it goes.</summary>
+    public interface IBeamPusher
+    {
+        /// <summary>Is a slice that would be at <paramref name="position"/> at <paramref name="time"/> in it? Then it is at <paramref name="pushed"/>, out at its edge.</summary>
+        bool Push(Vector2 position, double time, out Vector2 pushed);
+
+        /// <summary>Can it push anything at <paramref name="time"/>? (False: the beam is drawn from its kept points only.)</summary>
+        bool CanPush(double time);
+    }
+
+    /// <summary>Several pushers at once (a beam that lives through more than one of Futo's sections): a slice is pushed by the first that has it.</summary>
+    public sealed class BeamPushers : IBeamPusher
+    {
+        private readonly IBeamPusher[] all;
+
+        public BeamPushers(IBeamPusher first, IBeamPusher second)
+        {
+            var list = new List<IBeamPusher>();
+
+            foreach (var pusher in new[] { first, second })
+            {
+                if (pusher is BeamPushers many)
+                    list.AddRange(many.all);
+                else
+                    list.Add(pusher);
+            }
+
+            all = list.ToArray();
+        }
+
+        public bool Push(Vector2 position, double time, out Vector2 pushed)
+        {
+            foreach (var pusher in all)
+            {
+                if (pusher.Push(position, time, out pushed))
+                    return true;
+            }
+
+            pushed = position;
+            return false;
+        }
+
+        public bool CanPush(double time)
+        {
+            foreach (var pusher in all)
+            {
+                if (pusher.CanPush(time))
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>Something that carries the slices of a beam through Okina's portals: a slice that flies into the first portal comes out of the second.</summary>
     public interface IBeamPortals
     {
@@ -197,8 +251,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Flandre's eyes, if there are any in the field: they blow slices of the beam up.</summary>
         public IBeamBlasts? Blasts { get; set; }
 
+        /// <summary>What pushes its slices out of where it is (Futo's boats, 2026-11-24); null: nothing.</summary>
+        public IBeamPusher? Pusher { get; set; }
+
         /// <summary>More room in the buffers for the points that the ops, the portals and the explosions add where something changes along the beam.</summary>
-        private int extraPoints => (Ops != null || Portals != null ? 16 : 0) + (Blasts != null ? 32 : 0) + (Freezer != null ? 24 : 0); // (room for the corners where a stopped part meets the rest)
+        private int extraPoints => (Ops != null || Portals != null ? 16 : 0) + (Blasts != null ? 32 : 0) + (Freezer != null || Pusher != null ? 24 : 0); // (room for the corners where a stopped part meets the rest)
 
         /// <summary>Which of the bosses on the screen the beam comes from (see <see cref="BossPeriod.Rank"/>).</summary>
         public int BossRank { get; init; }
@@ -388,10 +445,56 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             return 1f + (HoldGrow - 1f) * (1f - u * u * (3f - 2f * u));
         }
 
+        // (the middles of a held beam that a boss lays out from where she is - Junko's, Son Biten's own, 2026-11-24: one for each beam, as the boss's place and the beams' ways are when it is aimed)
+        private Vector2[]? holdPivots;
+        private Vector2 holdPivotsOrigin;
+        private Vector2 holdPivotsWay;
+
+        /// <summary>The middle a held slice turns round: the slider's path's (a beam laid out from a boss: its own beam's, found by the way the slice flies).</summary>
+        private Vector2 holdMiddleOf(Vector2 velocity)
+        {
+            if (!PathFromOrigin || BallPositions.Length == 0 || Directions.Length == 0)
+                return holdMiddle;
+
+            if (holdPivots == null || holdPivotsOrigin != Origin || holdPivotsWay != Directions[0])
+            {
+                holdPivots = new Vector2[Directions.Length];
+
+                for (int b = 0; b < Directions.Length; b++)
+                {
+                    Vector2 sum = Vector2.Zero;
+
+                    foreach (var point in BallPositions)
+                        sum += place(point, b);
+
+                    holdPivots[b] = sum / BallPositions.Length;
+                }
+
+                holdPivotsOrigin = Origin;
+                holdPivotsWay = Directions[0];
+            }
+
+            int beam = 0;
+            float best = float.NegativeInfinity;
+
+            for (int b = 0; b < Directions.Length; b++)
+            {
+                float along = Vector2.Dot(Directions[b], velocity);
+
+                if (along > best)
+                {
+                    best = along;
+                    beam = b;
+                }
+            }
+
+            return holdPivots[beam];
+        }
+
         /// <summary>Where a slice of a held beam is: standing (as big as the beam is then, round its middle) until the hold is over, then the whole beam flying on its way and turning round its middle.</summary>
         private Vector2 heldPlace(Vector2 start, Vector2 velocity, double time)
         {
-            Vector2 middle = holdMiddle;
+            Vector2 middle = holdMiddleOf(velocity);
             Vector2 from = (start - middle) * holdScale(time);
 
             if (time <= HoldUntil)
@@ -410,7 +513,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float SelfSpin { get; init; }
 
         /// <summary>Does every slice fly straight on its own (so a closed form of a straight line does for it: the portals' quick way)? Not one that is held or spins round its middle.</summary>
-        public bool FliesStraightAlone => HoldUntil <= 0 && SelfSpin == 0f;
+        public bool FliesStraightAlone => HoldUntil <= 0 && SelfSpin == 0f && Pusher == null;
 
         /// <summary>Where a slice of a beam that spins round its own middle is (<see cref="SelfSpin"/>).</summary>
         private Vector2 selfSpun(Vector2 start, Vector2 velocity, double fired, double time)
@@ -460,6 +563,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             HoldGrow = grow,
             HoldSpin = spin,
             HoldEase = ease,
+            AimOffset = AimOffset, // (2026-11-24: what a boss lays out keeps its own way - Son Biten's hold takes those too now)
+            KeepsSize = KeepsSize,
+            Immune = Immune,
+            BouncesOnce = BouncesOnce,
         };
 
         /// <summary>The same slider's beam fired from these places of the ball instead (Kogasa's, 2026-11-23: the slider turns round the middle as it goes).</summary>
@@ -830,7 +937,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         }
 
         /// <summary>Size of the buffer <see cref="GetPoints"/> needs.</summary>
-        public int PointCapacity => (Rotates || Shrinks || Freezer != null ? rotating_point_capacity : BallPositions.Length + 2) + extraPoints;
+        public int PointCapacity => (Rotates || Shrinks || Freezer != null || Pusher != null ? rotating_point_capacity : BallPositions.Length + 2) + extraPoints;
 
         /// <summary>How long this laser can matter at all, from its start.</summary>
         public double Span => EndTime - StartTime + Lifetime;
@@ -862,7 +969,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             BeamGoneAt = null;
 
-            if (Ops == null || OpsArea == null || Freezer != null || Portals != null || Blasts != null || Clock != null || BallPositions.Length == 0 || Rotates)
+            if (Ops == null || OpsArea == null || Freezer != null || Pusher != null || Portals != null || Blasts != null || Clock != null || BallPositions.Length == 0 || Rotates)
                 return;
 
             foreach (var op in Ops)
@@ -1147,6 +1254,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             }
 
             // (a slice that an explosion has taken stays gone, wherever else it has been; so does one that had left the screen when something would have brought it back)
+            // (Futo's boats push it out of where they are: 2026-11-24)
+            if (Pusher != null && !stopped && Pusher.Push(position, time, out Vector2 pushed))
+                position = pushed;
+
             if ((Blasts != null && Blasts.Blasted(start, velocity, fired, time)) || leftTheScreen(start, velocity, fired, time))
                 look = BulletLook.Blasted(look);
         }
@@ -1508,7 +1619,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 TraceSlice(ballAt(half, beam), velocity, half, now, out middle, out _);
             }
             else
-                TraceSlice(holdMiddle, velocity, StartTime, now, out middle, out _);
+                TraceSlice(holdMiddleOf(velocity), velocity, StartTime, now, out middle, out _);
 
             return true;
         }
@@ -1568,7 +1679,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             count = refineBends(time, beam, buffer, widths, distances, flags, count);
             // (only what the bosses can move can have a point that is not a number, or two neighbours that went wholly different ways)
-            if (!Rigid && ((Ops != null && OpsArea != null) || Freezer != null || Portals != null))
+            if (!Rigid && ((Ops != null && OpsArea != null) || Freezer != null || Pusher != null || Portals != null))
             {
                 cutStretched(time, beam, buffer, flags, count);
                 cutNotNumbers(buffer, flags, count);
@@ -1619,14 +1730,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// </summary>
         private int refineBends(double time, int beam, Vector2[] buffer, float[]? widths, float[]? distances, BulletLook?[] looks, int count)
         {
-            if (count < 2 || Rigid || KeepBends || ((Ops == null || OpsArea == null) && Freezer == null && Portals == null))
+            if (count < 2 || Rigid || KeepBends || ((Ops == null || OpsArea == null) && Freezer == null && Pusher == null && Portals == null))
                 return count;
 
-            if (bounceOnly && Freezer == null && Portals == null && Blasts == null && !Rotates)
+            if (bounceOnly && Freezer == null && Pusher == null && Portals == null && Blasts == null && !Rotates)
                 return bounceCorners(time, beam, buffer, widths, distances, looks, count);
 
             // (only while something can have steered its slices: an op that has begun by now and does not end before the beam began; portals and ripples always)
-            if (Freezer == null && Portals == null)
+            if (Freezer == null && Pusher == null && Portals == null)
             {
                 bool steered = false;
 
@@ -1692,7 +1803,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// Nothing touches the beam but its own one bounce, so it is let go as soon as its beams have left the screen (<see cref="BeamGoneAt"/>): it may live as long as it takes to cross the screen twice, past the 64
         /// beats everything else gets (2026-11-21: Suwako's slow beams vanished on the screen when their time was up).
         /// </summary>
-        public bool OnlyBouncesOnce => bounceOnly && Freezer == null && Portals == null && Blasts == null && Clock == null && !Rotates;
+        public bool OnlyBouncesOnce => bounceOnly && Freezer == null && Pusher == null && Portals == null && Blasts == null && Clock == null && !Rotates;
 
         /// <summary>
         /// (a beam whose only op is its own one bounce, 2026-11-21) Its slices all fly the same way at the same speed, so the beam bends only where the line they would have flown without the bounce crosses a wall
@@ -1973,7 +2084,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 return 0;
 
             // (a beam that Zanmu's ripples go over is sampled slice by slice too: the front of a ripple can be across the middle of a straight beam and be at neither of its ends)
-            if (Shrinks || (Freezer != null && Freezer.CanHaveStopped(StartTime, time)))
+            if (Shrinks || (Freezer != null && Freezer.CanHaveStopped(StartTime, time)) || (Pusher != null && Pusher.CanPush(time)))
                 return getShrinkingPoints(time, buffer, beam, widths, distances, looks);
 
             BulletLook?[] flags = looksFor(looks, buffer.Length);

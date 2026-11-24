@@ -13,7 +13,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // does she shoot: rings of bright white bullets, twice as fast as any. While she stays, every beat she claws at the player: three thin arcs side by side round her, as far from her as the player is (they reach anywhere), turned 45 degrees round the player one way and the next claw the other, so that they cross. A claw
         // comes as Mima's moon comes: it grows, faint and harmless, from one tip to the other in half a beat and stays so; two beats after it began it lights up the same way round in a quarter of a beat, hurts like a slider body for a beat and fades out.
         // Elly: the same claw, one big thin arc at half the playfield's height from her, everything twice as slow. She slides after the player until they are within reach, and on the next two beats' mark she stops for a blow: the arc grows as the warning, harmless, from tip to tip as fast as it will light up, and stays so for the rest of the two beats; no scythe is to be seen. The blow itself is the arc lighting up:
-        // her scythe appears, the tip of its blade at the end of what is lit, and goes from tip to tip the way the arc grew, at one speed, and fades. Only then does she go on, and what has lit up stays and hurts like a slider body; the scythe itself is harmless. She shoots bats that do not home (BatAct).
+        // the arc lights up from tip to tip the way it grew, at one speed (her scythe went along with it until 2026-11-24, only to look at: "remove scythe"). Only then does she go on, and what has lit up stays and hurts like a slider body. She shoots bats that do not home (BatAct).
         // When a claw lights up it cuts what is in it at that moment in two, along the arc (see CuttingAct), any bullet, and any beam (but Marisa's).
         // ======================================================================================================================================================
 
@@ -725,8 +725,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 DrawPieces(f, t);
 
-                if (!wolf)
-                    drawScythe(f, t);
+                // (Elly's scythe is no longer drawn: 2026-11-24, "remove scythe (that only served as decoration anyways), her bullets and arc remains" - drawScythe is kept, unused)
             }
 
             private void addArc(BulletField f, Slash slash, int arc, float from, float to, float alpha)

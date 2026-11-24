@@ -252,6 +252,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Parsee (2026-11-24): the arrowheads of her clone - one that leaves the screen fans out basic bullets back in (her act).</summary>
         public bool FansOnLeaving { get; set; }
+
+        /// <summary>Shion (2026-11-24): the mark of hers at which this ring's bullets leave their dark blue copies flying back (NaN: none - a ring is copied once at most).</summary>
+        public double ShionCloneAt { get; set; } = double.NaN;
         /// <summary>All the bullets curl the same way (<see cref="Curl"/>'s sign is the way round): the ring turns as it flies (Kaguya's).</summary>
         public bool CurlsTogether { get; set; }
 

@@ -899,7 +899,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
                 stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo, StageTexture.PhotoFrame) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo, StageTexture.PhotoFrame, StageTexture.PhotoGlass) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
@@ -2771,10 +2771,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // 3) the bullets of the live rings
             int count = 0;
             float redLevel = failed ? 0f : remiliaLevel(drawTime); // (how far Remilia's attack has got: the bullets are that red, and glow that much)
+            float tanLevel = failed || hasteWindows.Count == 0 ? 0f : hasteLevel(drawTime) * DanmakusuBalance.GENGETSU_TAN; // (how far Gengetsu's attack has got: everything is that tanned - 2026-11-24)
             float autumnLevel = failed || autumnWindows.Count == 0 ? 0f : attackLevel(autumnWindows.ToArray(), drawTime);
             float turnLevel = failed || reverseMarks.Count == 0 ? 0f : reverseLevel(drawTime) * reverseFlash(drawTime);
             double shionMark = turnLevel > 0f ? warnedReverse(drawTime) : double.NaN;
             shionArrows.Clear();
+            sakiArrows.Clear();
             kokoroArrows.Clear();
             swellWarnings.Clear();
             goArrows.Clear();
@@ -2989,6 +2991,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         overlayAmount = redLevel * DanmakusuBalance.REMILIA_BULLET_RED;
                     }
 
+                    // (Gengetsu's attacks: gold-brown, more and more as the attack goes on)
+                    if (tanLevel > 0.002f && overlay == 0)
+                    {
+                        overlay = BulletRenderer.TINT_TAN;
+                        overlayAmount = tanLevel;
+                    }
+
                     // (Daiyousei's attacks: everything is green, but what has lost her buff)
                     if (verdantLevel > 0f && overlay == 0 && !plain)
                     {
@@ -3080,6 +3089,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Vector2 back = direction.LengthSquared > 1e-6f ? -direction.Normalized() : new Vector2(0f, 1f);
 
                         shionArrows.Add((position + back * (emitter.VisualRadius + arrow), arrow * 2.2f, MathF.Atan2(back.Y, back.X) * 180f / MathF.PI));
+                    }
+
+                    // (Saki's warning of her stampede: beside every second bullet that can be turned a red arrow, the way it will turn - 2026-11-24)
+                    if (sakiWarnLevel > 0f && !failed && b % DanmakusuBalance.SHION_ARROW_EVERY == 0 && emitter.CanBeDeflected && emitter.Shape != BulletShape.Train)
+                    {
+                        float arrow = emitter.VisualRadius * DanmakusuBalance.SHION_ARROW_SIZE;
+                        sakiArrows.Add((position + sakiWarnWay * (emitter.VisualRadius + arrow), arrow * 2.2f, MathF.Atan2(sakiWarnWay.Y, sakiWarnWay.X) * 180f / MathF.PI));
                     }
 
                     // (Kokoro's warning of her fall: beside every second bullet an orange arrow, the way it will be flying a little into the fall)

@@ -86,7 +86,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Rebirth] = 4, // Mokou
             [BossMechanic.Dango] = 3, // Ringo
             [BossMechanic.Gaps] = 4, // Yukari
-            [BossMechanic.Drift] = 4, // Futo
+            [BossMechanic.Drift] = 5, // Futo (4 until 2026-11-24: five boats twice as fast, pushing beams too)
             [BossMechanic.Misfortune] = 4, // Shion
             [BossMechanic.Earthquake] = 2, // Tenshi
             [BossMechanic.HalfMoon] = 4, // Mima
@@ -118,7 +118,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Masks] = 5, // Hata no Kokoro (her moods aim and pull everything at you, with no pauses)
             [BossMechanic.Dolls] = 4, // Alice Margatroid (twelve fumos shooting streams with beams beside them, at you and to either side of you, no pauses)
             [BossMechanic.Trumpet] = 2, // Merlin Prismriver (the objects send out thick rings instead of bullets; standing on them clears the screen round them; 3 until 2026-11-22: nothing hurts round them and on their follow points)
-            [BossMechanic.Kasha] = 3, // Rin Kaenbyou (what she fires stops and swells to twice its size sixteen beats later, with a flashing warning)
+            [BossMechanic.Kasha] = 4, // Rin Kaenbyou (what she fires stops and swells sixteen beats later, with a flashing warning; 3 until 2026-11-24, when the swell became three times its size, and her pauses' bullets swell too)
             [BossMechanic.Komainu] = 4, // Aunn Komano (curving beams with small loops, fast; every bullet sets off at you again and again - it no longer swells, 2026-11-22)
             [BossMechanic.Patrol] = 4, // Momiji Inubashiri (what leaves the top and the bottom piles up and crashes in the middle, flying off with beams behind it; no pauses)
             [BossMechanic.Starlight] = 4, // Star Sapphire (3 until 2026-11-22, when its stars became twice as dense along its lines; a turning sphere of stars spinning round her (it tumbled until 2026-11-22) as big as the screen, growing and pulled back, one after another; no pauses)

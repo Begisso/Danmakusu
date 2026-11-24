@@ -14,7 +14,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // back over the pause (a window of BossEffects). And they stampede: as with Zanmu's fall, when an attack begins the way of the line that joins her and the player is taken, the same for everything, and every bullet on
         // the screen (also what is fired during the attack) turns that way, at its own speed, once. What falls, homes or has ops of its own keeps its way. Every four beats of an attack (from four beats in) every fourth bullet
         // on the screen shoots two bullets half its size, one to its left and one to its right, as fast as it flies (those do not shoot again). Her own rings of beams are a LunaAct.
+        // For SAKI_WARN_BEATS before each attack a red arrow flashes beside every second bullet that will turn, pointing along the line from her to the player as it is then (2026-11-24, "red arrow warning about
+        // direction change on bullets"; the way is taken again as the attack begins).
         // ======================================================================================================================================================
+
+        // (Saki's warning this frame: how far it has come in, the way the bullets will turn, a beat of her section - set by her act's Update; and the arrows the bullets get from it)
+        private float sakiWarnLevel;
+        private Vector2 sakiWarnWay;
+        private double sakiWarnBeat = 500;
+        private readonly List<(Vector2 At, float Size, float Degrees)> sakiArrows = new List<(Vector2, float, float)>();
+
+        /// <summary>Saki's arrows: red, flashing twice a beat, as Shion's.</summary>
+        private void drawSakiArrows(double t)
+        {
+            if (sakiArrows.Count == 0)
+                return;
+
+            float glow = 0.5f + 0.5f * (0.6f + 0.4f * MathF.Cos((float)(t / (sakiWarnBeat * 0.5) * Math.Tau)));
+            var red = new Color4(glow, 0.1f * glow, 0.12f * glow, 1f);
+
+            foreach (var (at, size, degrees) in sakiArrows)
+                stageRipple.Add(StageTexture.SeijaArrow, at, new Vector2(size), degrees, sakiWarnLevel, red);
+        }
 
         private sealed class StampedeAct : StageAct
         {
@@ -153,6 +174,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Update(BulletField f, double now)
             {
+                // (the warning: for SAKI_WARN_BEATS before each attack a red arrow beside every second bullet, the way it will turn - along the line from her to the player as it is now - 2026-11-24)
+                double warn = Math.Max(Period.BeatLength, 1) * DanmakusuBalance.SAKI_WARN_BEATS;
+
+                for (int k = 0; k < attacks.Count && !f.failed; k++)
+                {
+                    if (attacks[k].End <= attacks[k].Start || now < attacks[k].Start - warn || now >= attacks[k].Start)
+                        continue;
+
+                    Vector2 toPlayer = f.characterPosition - f.bossVisualOf(Period);
+                    float level = smoothStep((now - (attacks[k].Start - warn)) / (warn * 0.25));
+
+                    if (level > f.sakiWarnLevel && toPlayer.LengthSquared > 1e-4f)
+                    {
+                        f.sakiWarnLevel = level;
+                        f.sakiWarnWay = Vector2.Normalize(toPlayer);
+                        f.sakiWarnBeat = Math.Max(Period.BeatLength, 1);
+                    }
+                }
+
                 for (int k = 0; k < attacks.Count; k++)
                 {
                     if (known[k] || now < attacks[k].Start)

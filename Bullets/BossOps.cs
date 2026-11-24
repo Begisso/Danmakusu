@@ -469,11 +469,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     case BossMechanic.Kasha:
                     {
-                        // Rin (2026-11-21): every bullet fired in her attacks stops 16 beats after it was fired, swelling to twice its size (and hurting as big), and flies on as it flew 8 beats later, shrinking back
-                        // (each ring by its own clock: BulletEmitter.ConfigureOps makes the freezes; the field warns of each with a flashing circle)
+                        // Rin (2026-11-21): every bullet fired in her section stops 16 beats after it was fired, swelling to RIN_SWELL times its size (and hurting as big), and flies on as it flew 8 beats later, shrinking
+                        // back (each ring by its own clock: BulletEmitter.ConfigureOps makes the freezes; the field warns of each with a flashing circle). (2026-11-24, "amount of swelling bullets doubled": what
+                        // is fired in her pauses too - only her attacks' before)
                         double beat = Math.Max(period.BeatLength, 1);
 
-                        foreach (var (start, end) in Attacks(period))
+                        foreach (var (start, end) in new[] { (period.ShootStart, period.End) })
                         {
                             if (end <= start)
                                 continue;
@@ -661,12 +662,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         break;
 
                     case BossMechanic.Misfortune:
-                        // Shion: every eight beats everything there is, bullets and beams, turns dark blue and flies back the way it came
+                        // Shion: every eight beats every beam there is turns dark blue and flies back the way it came. (Bullets did too until 2026-11-24; now each leaves a dark blue copy that flies back, and flies
+                        // on itself: the planner's, at the end of Plan)
                         foreach (double mark in ReverseMarks(period))
                         {
                             var turn = new TrajectoryOp { Kind = TrajectoryOpKind.Reverse, Time = mark, End = mark, SkipSharp = true, After = ShionBlue };
 
-                            bullets.Add(turn);
                             beams.Add(turn);
                         }
 

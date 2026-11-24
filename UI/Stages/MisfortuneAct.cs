@@ -9,8 +9,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Shion Yorigami: every eight beats everything there is, bullets and beams, turns dark blue and flies back the way it came (an op, see BossOps). For the four beats before that a small red arrow flashes beside every second bullet, pointing back the way it came:
-        // the way it will go (reverseLevel). Her own talismans fly in hexagons; one that goes out of the screen comes back in the way it came, once: that is here.
+        // Shion Yorigami: every eight beats every beam there is turns dark blue and flies back the way it came (an op, see BossOps); every bullet on the screen that has not been copied before leaves a dark blue copy
+        // of itself flying back the way it came, and flies on (2026-11-24: they turned round themselves; the planner's, at the end of Plan). For the four beats before that a small red arrow flashes beside every
+        // second bullet that will be copied, pointing back the way it came: the way its copy will go (reverseLevel). Her own talismans fly in hexagons; one that goes out of the screen comes back in the
+        // way it came, once: that is here.
         // ======================================================================================================================================================
 
         private sealed class MisfortuneAct : StageAct
@@ -107,11 +109,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// </summary>
         private static bool willReverse(BulletEmitter emitter, int bullet, double ringTime, double now, double mark)
         {
-            if (double.IsNaN(mark) || emitter.Homing || emitter.Ricochet || emitter.Ops == null || emitter.Sharp || emitter.Shape == BulletShape.Train)
+            // (since 2026-11-24: will it leave its copy then - the copy flies back the way it came, where the arrow points)
+            if (double.IsNaN(mark) || double.IsNaN(emitter.ShionCloneAt) || Math.Abs(emitter.ShionCloneAt - mark) > 1)
                 return false;
 
-            emitter.Evaluate(bullet, ringTime + (mark - now) + 1, out _, out _, out bool alive, out var after);
-            return alive && after is { Overlay: BulletRenderer.TINT_DARK_BLUE };
+            emitter.Evaluate(bullet, ringTime + (mark - now), out _, out _, out bool alive);
+            return alive;
         }
 
         // (Shion's arrows of this frame: where each is, how big and which way it points; they are drawn with the stage, as the arrows of Seija's dress)

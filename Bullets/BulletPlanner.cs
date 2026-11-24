@@ -1504,6 +1504,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 float halfWidth = radius * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(whistleVolume); // Junko's beams are as wide as a slider's own // the whistle's volume scales the width like it does for rings (0.5x..1x)
                 int beams = Math.Max(1, DanmakusuBalance.BeamsPerLaser(difficulty.OverallDifficulty)) * (purified ? DanmakusuBalance.JUNKO_BEAM_FACTOR : 1);
 
+                // (Suwako's fan: half as many, 2026-11-24 "halve the amount of fan laserbeams")
+                if (fanned)
+                    beams = Math.Max(1, (beams + 1) / 2);
+
                 if (purified)
                 {
                     halfWidth *= DanmakusuBalance.JUNKO_BEAM_SIZE; // (Junko's beams are half as wide as a slider's)
@@ -1895,6 +1899,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // Son Biten's own (2026-11-23): every SON_RING_EVERY_BEATS a ring of SON_RING_BEAMS straight beams from where she is, as thick as a slider's, each fired for SON_BEAM_BEATS (so that long) and flying out
             // as any beam does, turning round its own middle as it goes (a thrown staff), a whole turn in SON_SPIN_BEATS - every next beam of the ring the other way round; every next ring turned a little further.
             // (2026-11-24, "move normally but also spin around their own centres": they were straight lines from her, turning round her)
+            // (2026-11-24 again, "should affect all slider laserbeams and her own too": each is laid out along a straight path from her as a slider's beam is, held as her sliders' beams are - standing,
+            // twice as big round its middle and as thick, until it is all fired - and then flies out as one piece, turning round its middle: it was fired from one point, flying out at once)
             void addBitenRings(double startTime, double endTime, double beatMs)
             {
                 if (endTime <= startTime)
@@ -1920,16 +1926,19 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             FollowsBoss = true,
                             BossRank = currentRank,
                             PathFromOrigin = true,
-                            BallPositions = new[] { Vector2.Zero, Vector2.Zero },
+                            BallPositions = new[] { Vector2.Zero, new Vector2(speed * (float)length, 0f) }, // (as long as it would be: out from her the way it is aimed)
                             BallTimes = new[] { t, t + length },
                             AimOffset = k * MathF.Tau / beams + ring * MathF.PI / beams, // (beam 0 at the player; every next ring half a gap further round)
+                            HoldUntil = t + Math.Max(length, beatMs * DanmakusuBalance.SON_HOLD_BEATS),
+                            HoldGrow = DanmakusuBalance.SON_HOLD_GROW,
+                            HoldSpin = (k % 2 == 0 ? 1f : -1f) * spin,
+                            HoldEase = beatMs * DanmakusuBalance.SON_HOLD_EASE_BEATS,
                             HalfWidth = halfWidth,
                             HitHalfWidth = halfWidth * DanmakusuBalance.BULLET_HITBOX_SCALE,
                             StartHalfWidth = halfWidth,
                             Speed = speed,
                             BeamCount = 1,
                             Directions = new Vector2[1],
-                            SelfSpin = (k % 2 == 0 ? 1f : -1f) * spin, // (round its own middle)
                             NoShake = true,
                             Silent = k != 0, // (one beam's sound a ring)
                             CutAge = -1,
@@ -1937,7 +1946,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             ShrinkDelay = -1,
                             GrowthPower = 2f,
                             PeakScale = 1f,
-                            Lifetime = reach / speed + length,
+                            Lifetime = reach / speed + length + Math.Max(length, beatMs * DanmakusuBalance.SON_HOLD_BEATS),
                         });
                     }
                 }
@@ -2172,6 +2181,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 if (kinds.Count == 0)
                     kinds.Add((BulletKind.Normal, volumeOf(samples, HitSampleInfo.HIT_NORMAL)));
+                else if (hitObject is Slider)
+                    kinds.Add((BulletKind.Normal, volumeOf(samples, HitSampleInfo.HIT_NORMAL))); // (a slider's start shoots basic bullets too, whatever else it shoots: 2026-11-24, "Sliders overall - start also shoots basic bullets")
 
                 for (int i = 0; i < kinds.Count; i++)
                 {
@@ -3186,29 +3197,63 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         // (after the others, so that what they made of the map's rings is held as well; what a boss shoots, and what comes out of other bullets as the game goes, is not held)
                         case BossMechanic.Fossil when pass == 1:
                         {
+                            // (each once: the stretches follow each other, and what one holds goes out as the next begins - 2026-11-24, it was held again by that one, and again, so nothing came out
+                            // until her last stretch was over: "unfrozen osu and slider objects didn't shoot out bullets again")
+                            var held = new HashSet<object>(ReferenceEqualityComparer.Instance);
+
                             foreach (var (start, end) in BossOps.StoneStretches(period))
                             {
                                 for (int k = 0; k < emitters.Count; k++)
                                 {
                                     var ring = emitters[k];
 
-                                    if (ring.FollowsBoss || ring.OwnShot || ring.Derived || ring.Derive != DeriveKind.None || ring.Time < start || ring.Time >= end)
+                                    if (held.Contains(ring) || ring.FollowsBoss || ring.OwnShot || ring.Derived || ring.Derive != DeriveKind.None || ring.Time < start || ring.Time >= end)
                                         continue;
 
                                     emitters[k] = ring.Delayed(end - ring.Time);
+                                    held.Add(emitters[k]);
                                 }
 
                                 for (int k = 0; k < laserList.Count; k++)
                                 {
                                     var beam = laserList[k];
 
-                                    if (beam.FollowsBoss || beam.SpinnerLike || beam.Immune || beam.StartTime < start || beam.StartTime >= end)
+                                    if (held.Contains(beam) || beam.FollowsBoss || beam.SpinnerLike || beam.Immune || beam.StartTime < start || beam.StartTime >= end)
                                         continue;
 
                                     laserList[k] = beam.Later(end - beam.StartTime);
+                                    held.Add(laserList[k]);
                                 }
                             }
 
+                            break;
+                        }
+
+                        // Raiko (2026-11-24, "additional wave everytime hit-finish happens"): where and when every hit of her section with a finish hitsound is - a circle, a slider's head, repeat or end (TaikoAct)
+                        case BossMechanic.Taiko when pass == 0:
+                        {
+                            foreach (var hitObject in beatmap.HitObjects.OfType<OsuHitObject>())
+                            {
+                                if (hitObject.StartTime < period.ShootStart || hitObject.StartTime >= period.End)
+                                    continue;
+
+                                if (hitObject is Slider slider)
+                                {
+                                    double span = slider.SpanDuration;
+
+                                    for (int node = 0; node < slider.NodeSamples.Count; node++)
+                                    {
+                                        double at = slider.StartTime + node * span;
+
+                                        if (at < period.End && has(slider.NodeSamples[node], HitSampleInfo.HIT_FINISH))
+                                            period.FinishHits.Add((at, slider.StackedPosition + slider.Path.PositionAt(node % 2 == 0 ? 0 : 1)));
+                                    }
+                                }
+                                else if (hitObject is HitCircle && has(hitObject.Samples, HitSampleInfo.HIT_FINISH))
+                                    period.FinishHits.Add((hitObject.StartTime, hitObject.StackedPosition));
+                            }
+
+                            period.FinishHits.Sort((a, b) => a.Time.CompareTo(b.Time));
                             break;
                         }
 
@@ -3590,8 +3635,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         }
 
                         // Son Biten (2026-11-23): every slider's beam of her section stands where it is fired, twice as big and as thick, until SON_HOLD_BEATS after it began (or it is all fired), then flies on as one
-                        // piece, spinning round its middle - every next one the other way round (LaserEmitter.Held)
-                        case BossMechanic.Staff when pass == 0:
+                        // piece, spinning round its middle - every next one the other way round (LaserEmitter.Held). Since 2026-11-24 ("should affect all slider laserbeams") after the other bosses' changes
+                        // (pass 1), also the beams a boss lays out along a slider (Junko's, Suwako's); not one with no path to take (a circle's beams, all from one point: held, it would be a dot)
+                        case BossMechanic.Staff when pass == 1:
                         {
                             double beat = Math.Max(period.BeatLength, 1);
                             float spin = MathF.Tau / (float)(beat * DanmakusuBalance.SON_SLIDER_SPIN_BEATS);
@@ -3601,8 +3647,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             {
                                 var beam = laserList[k];
 
-                                if (beam.SpinnerLike || beam.FollowsBoss || beam.Rotates || beam.HoldUntil > 0 || beam.BallPositions.Length == 0 || beam.StartTime < period.ShootStart - 1 || beam.StartTime >= period.End)
+                                if (beam.SpinnerLike || beam.Rotates || beam.HoldUntil > 0 || beam.BallPositions.Length < 2 || beam.StartTime < period.ShootStart - 1 || beam.StartTime >= period.End)
                                     continue;
+
+                                float extent = 0f;
+
+                                foreach (var point in beam.BallPositions)
+                                    extent = Math.Max(extent, Vector2.Distance(point, beam.BallPositions[0]));
+
+                                if (extent < 2f)
+                                    continue; // (no path: all from one point)
 
                                 double until = Math.Max(beam.StartTime + beat * DanmakusuBalance.SON_HOLD_BEATS, beam.EndTime);
                                 laserList[k] = beam.Held(until, DanmakusuBalance.SON_HOLD_GROW, (held++ % 2 == 0 ? 1f : -1f) * spin, beat * DanmakusuBalance.SON_HOLD_EASE_BEATS);
@@ -3675,7 +3729,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 var hitObject = held[k];
                                 var turn = turns[hitObject];
                                 double over = hitObject.GetEndTime();
-                                int shots = Math.Min(counts[k], DanmakusuBalance.KOGASA_MOST_SHOTS);
+                                int shots = Math.Min(counts[k] * DanmakusuBalance.KOGASA_SHOTS_FACTOR, DanmakusuBalance.KOGASA_MOST_SHOTS); // (twice as many since 2026-11-24)
                                 Vector2 from = hitObject is Slider endsAt ? endsAt.StackedEndPosition : hitObject.StackedPosition;
 
                                 for (int j = 0; j < shots; j++)
@@ -3881,6 +3935,25 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                     copy.Bloom = DanmakusuBalance.DOREMY_COPY_BLOOM;
                                     copies.Add(copy);
                                 }
+                            }
+
+                            // (the five white bullets in each of her copied circles - CloneLayer draws them - come out as it is hit, a slider's at its end from where it ends: 2026-11-24)
+                            int dotted = 0;
+
+                            foreach (var (copied, colour) in UI.CloneLayer.MakeCopies(beatmap, new[] { period }))
+                            {
+                                if (colour != DanmakusuBalance.DOREMY_COPY_COLOUR || copied is not (HitCircle or Slider))
+                                    continue;
+
+                                double at = copied.GetEndTime();
+                                Vector2 from = copied is Slider endsAt ? endsAt.StackedEndPosition : copied.StackedPosition;
+                                var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.DOREMY_DOTS, -MathF.PI / 2f, out _);
+                                var dots = createEmitter(at, from, DanmakusuBalance.BulletRadius(difficulty.CircleSize) * DanmakusuBalance.DOREMY_DOT_SPREAD, speedAt(at), directions, copied.ComboIndexWithOffsets, radius,
+                                    BulletShape.Circle, straight: true);
+                                dots.Tint = UI.BulletRenderer.TINT_WHITE;
+                                dots.KeepCount = true;
+                                copies.Add(dots);
+                                dotted++;
                             }
 
                             emitters.AddRange(copies);
@@ -5359,6 +5432,56 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ring.Speed *= DanmakusuBalance.NARUMI_SLOW;
                     ring.Lifetime /= DanmakusuBalance.NARUMI_SLOW;
                     ring.WaveRestores = true;
+                }
+            }
+
+            // Shion (2026-11-24, "Reversing is now clones reverse blue bullets instead. Original keeps moving but can't create clones again"): at the first mark of hers after a ring is fired, while it is on the
+            // screen, every bullet of it leaves a dark blue copy of itself where it is, flying back the way it came at its speed; the ring flies on as it was, and is not copied again (nor are the copies).
+            // Not what is made out of other bullets, homes, is one of Utsuho's big balls or a train. (The beams still turn round themselves: BossOps.)
+            {
+                var shionMarks = bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Misfortune).SelectMany(BossOps.ReverseMarks).OrderBy(time => time).ToArray();
+
+                if (shionMarks.Length > 0)
+                {
+                    float across = (OsuPlayfield.BASE_SIZE + new Vector2(m * 2, m * 2)).Length;
+                    var copies = new List<BulletEmitter>();
+
+                    foreach (var ring in emitters)
+                    {
+                        if (ring.Count == 0 || ring.Derived || ring.Derive != DeriveKind.None || ring.Sharp || ring.Homing || ring.Shape == BulletShape.Train)
+                            continue;
+
+                        int at = Array.FindIndex(shionMarks, time => time > ring.Time && time < ring.Time + ring.Lifetime);
+
+                        if (at < 0)
+                            continue;
+
+                        ring.ShionCloneAt = shionMarks[at];
+
+                        copies.Add(new BulletEmitter
+                        {
+                            Time = shionMarks[at],
+                            SpawnRadius = 0f,
+                            Speed = ring.Speed,
+                            ComboIndex = ring.ComboIndex,
+                            VisualRadius = ring.VisualRadius,
+                            HitRadius = ring.HitRadius,
+                            Shape = ring.Shape,
+                            Straight = true,
+                            Directions = new Vector2[ring.Count],
+                            Origins = new Vector2[ring.Count],
+                            RadialScales = ring.RadialScales,
+                            MinRadialScale = ring.MinRadialScale,
+                            Derived = true,
+                            Derive = DeriveKind.Explode,
+                            Source = ring,
+                            FanOffset = MathF.PI, // (back the way it came)
+                            Tint = UI.BulletRenderer.TINT_DARK_BLUE,
+                            Lifetime = across / Math.Max(ring.Speed, 1e-3f),
+                        });
+                    }
+
+                    emitters.AddRange(copies);
                 }
             }
 

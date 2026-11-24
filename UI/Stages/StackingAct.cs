@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Eika Ebisu: every four beats of her section every bullet on the screen gets as much speed again, at right angles to the line between it and her: clockwise for a bullet within one circle radius of her, anticlockwise
         // within two, clockwise within three, and so on. In her attacks bullets whose bodies touch (by their shapes, not by a circle round them) stick together, body against body and never on top of each other, up to eight in a clump, and
-        // fly on as one, at the speed the law of impulse gives them: all their momentum, shared by all their mass (a bullet's mass is its area), but never slower than the fastest of them. She shoots ellipses in rings (the planner's). What is looked at is a grid of the bullets of this step, so that only neighbours are compared.
+        // fly on as one, at the speed the law of impulse gives them: all their momentum, shared by all their mass (a bullet's mass is its area), but never slower than the fastest of them; each swells to twice its size as it joins (2026-11-24). She shoots ellipses in rings (the planner's). What is looked at is a grid of the bullets of this step, so that only neighbours are compared.
         // ======================================================================================================================================================
 
         private sealed class StackingAct : StageAct
@@ -203,7 +203,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             continue;
 
                         here = true;
-                        put(new Entry { Position = stageBulletPosition(bullet, t), Velocity = clump.Velocity, Radius = bullet.Radius, Shape = bullet.Shape, Face = bullet.Face, Clump = clump }, size);
+                        put(new Entry { Position = stageBulletPosition(bullet, t), Velocity = clump.Velocity, Radius = bullet.Radius * (bullet.ScaleOver > 0 ? bullet.ScaleTo : 1f), Shape = bullet.Shape, Face = bullet.Face, Clump = clump }, size); // (as big as it swells to)
                     }
 
                     if (!here)
@@ -322,7 +322,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 Vector2 face = velocity.LengthSquared > 1e-10f ? Vector2.Normalize(velocity) : Vector2.UnitX;
 
-                at = beside(clump, at, stored.Shape, stored.Radius * big, face, t);
+                // (it swells to twice its size as it joins - 2026-11-24, "merged bullets swell 2x size" - and lies beside the others as big as that)
+                float swollen = big * DanmakusuBalance.EIKA_MERGED_SIZE;
+                at = beside(clump, at, stored.Shape, stored.Radius * swollen, face, t);
 
                 int index = Bullets.Count;
 
@@ -335,6 +337,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     KeepFace = true, // (it keeps the way it faced, so that the bodies stay against each other whichever way the clump flies)
                     Radius = stored.Radius * big,
                     Hit = stored.Hit * big,
+                    ScaleFrom = t,
+                    ScaleOver = DanmakusuBalance.EIKA_SWELL_MS,
+                    ScaleTo = DanmakusuBalance.EIKA_MERGED_SIZE,
                     Style = stored.Style,
                     Shape = stored.Shape,
                     Tint = stored.Tint,

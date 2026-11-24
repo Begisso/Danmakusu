@@ -52,16 +52,32 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             AddInternal(marks = new Container { RelativeSizeAxes = Axes.Both, Depth = -1 });
         }
 
-        /// <summary>A white bullet (white body, light grey rim) of <see cref="markRadius"/>: what Doremy's copies show instead of their combo numbers.</summary>
-        private Drawable makeMark() => new CircularContainer
+        /// <summary>
+        /// Five white bullets (white bodies, light grey rims) of <see cref="markRadius"/> in a ring, one at the top: what Doremy's copies show instead of their combo numbers (one until 2026-11-24, "now it is
+        /// 5 white bullets staying inside circle and come out once object is finished": as it is, the planner fires five white bullets out from the same places - DOREMY_DOTS, DOREMY_DOT_SPREAD).
+        /// </summary>
+        private Drawable makeMark()
         {
-            Origin = Anchor.Centre,
-            Size = new Vector2(2f * markRadius),
-            Masking = true,
-            BorderThickness = markRadius * 0.35f,
-            BorderColour = new Color4(0.82f, 0.84f, 0.9f, 1f),
-            Child = new Box { RelativeSizeAxes = Axes.Both, Colour = Color4.White },
-        };
+            var ring = new Container { Origin = Anchor.Centre, Size = Vector2.Zero };
+
+            for (int k = 0; k < DanmakusuBalance.DOREMY_DOTS; k++)
+            {
+                float angle = -MathF.PI / 2f + k * MathF.Tau / DanmakusuBalance.DOREMY_DOTS;
+
+                ring.Add(new CircularContainer
+                {
+                    Origin = Anchor.Centre,
+                    Position = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (markRadius * DanmakusuBalance.DOREMY_DOT_SPREAD),
+                    Size = new Vector2(2f * markRadius),
+                    Masking = true,
+                    BorderThickness = markRadius * 0.35f,
+                    BorderColour = new Color4(0.82f, 0.84f, 0.9f, 1f),
+                    Child = new Box { RelativeSizeAxes = Axes.Both, Colour = Color4.White },
+                });
+            }
+
+            return ring;
+        }
 
         /// <summary>
         /// A circle (or slider head) of one of Doremy's copies: its combo number is hidden, and a white bullet sits where the number was, as there and as faded as the circle is.

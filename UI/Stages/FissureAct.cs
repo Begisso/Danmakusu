@@ -21,6 +21,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Since 2026-11-22 every crack is jagged as a crack in the ground (SUIKA_JAG), the stomp's thin ones with branches of their own (SUIKA_THIN_BRANCHES), and drawn as molten rock (the user's second
         // picture): a glow round it, a dark crust along its edges and, inside, a seamless picture of cracked lava (StageLayer.BakeLava) running along it. All the cracks of a frame are drawn layer by
         // layer together, so they run into each other without a seam. Every sound of hers plays twice at once.
+        // 2026-11-24: the jags a little sharper, more and longer branches, each with a twig and the longer ones two; the glow follows the crack's line smoothed (it folded into wedges round the jags' corners);
+        // the impact frame follows only the crack's widest bend, in finer pieces, round at both ends (where its band folded over itself it turned back in jagged slivers), and its stars are on and round the
+        // crack (they were by the edges of the screen); two ellipses at the wall, not four.
         // ======================================================================================================================================================
 
         private sealed class FissureAct : StageAct
@@ -477,9 +480,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     list.Add(new Branch { Along = along, Turn = turn, Length = branchLength, Width = 0.55f, Parent = -1, Seed = k * 1000 + number });
 
-                    // (a twig off the longer ones, halfway along, the other way)
-                    if (branchLength > f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_CIRCLES * 0.9f)
-                        list.Add(new Branch { Along = 0.45f + 0.2f * hash01(k, number, 105), Turn = -side * (35f + 20f * hash01(k, number, 106)) * MathF.PI / 180f, Length = branchLength * 0.45f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 500 });
+                    // (a twig off every one, about halfway along, the other way; the longer ones a second, further out, back the way the branch turned - 2026-11-24, "crack branches longer with subbranches":
+                    // only the longer ones had one)
+                    list.Add(new Branch { Along = 0.35f + 0.2f * hash01(k, number, 105), Turn = -side * (35f + 20f * hash01(k, number, 106)) * MathF.PI / 180f, Length = branchLength * 0.45f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 500 });
+
+                    if (branchLength > f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_CIRCLES * 0.8f)
+                        list.Add(new Branch { Along = 0.65f + 0.15f * hash01(k, number, 108), Turn = side * (30f + 20f * hash01(k, number, 109)) * MathF.PI / 180f, Length = branchLength * 0.35f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 700 });
                 }
             }
 
@@ -954,6 +960,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             continue;
                         }
 
+                        // (the glow: along a smoothed line, 2026-11-24 "blooms seamless like mima moon" - round the jags' sharp corners it folded over itself in wedges)
+                        if (layer == 0)
+                        {
+                            glowRun(f, start, count, heat);
+                            continue;
+                        }
+
                         Color4 near, far;
                         float from, to;
                         bool vein = false;
@@ -1012,6 +1025,103 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bandGlows.Clear();
                 bandRuns.Clear();
             }
+
+            private readonly List<Vector2> glowPoints = new List<Vector2>();
+            private readonly List<Vector2> glowSides = new List<Vector2>();
+            private readonly List<float> glowArc = new List<float>();
+
+            /// <summary>
+            /// The soft glow round one crack (band points <paramref name="start"/> on), as Mima's moon has round it (2026-11-24): over the ground from its middle out to GLOW_OUT of its half width, the
+            /// crack's line smoothed over about its half width on each side first, so that it bends gently where the crack has its jags - nothing of the glow lies over itself, and it has no edge but its
+            /// soft outer one. It is under the crack: the crust and the lava cover its middle.
+            /// </summary>
+            private void glowRun(BulletField f, int start, int count, float heat)
+            {
+                glowPoints.Clear();
+                glowSides.Clear();
+                glowArc.Clear();
+
+                float arc = 0f;
+
+                for (int i = 0; i < count; i++)
+                {
+                    if (i > 0)
+                        arc += Vector2.Distance(bandPoints[start + i], bandPoints[start + i - 1]);
+
+                    glowArc.Add(arc);
+                }
+
+                // (a weighted average of the points within its half width along the crack; the two ends stay where they are, as the round ends do)
+                for (int i = 0; i < count; i++)
+                {
+                    if (i == 0 || i == count - 1)
+                    {
+                        glowPoints.Add(bandPoints[start + i]);
+                        continue;
+                    }
+
+                    float reach = Math.Max(bandWidths[start + i], 1f);
+                    Vector2 sum = Vector2.Zero;
+                    float weights = 0f;
+
+                    for (int j = i; j >= 0 && glowArc[i] - glowArc[j] <= reach; j--)
+                    {
+                        float w = 1f - (glowArc[i] - glowArc[j]) / reach;
+                        sum += bandPoints[start + j] * w;
+                        weights += w;
+                    }
+
+                    for (int j = i + 1; j < count && glowArc[j] - glowArc[i] <= reach; j++)
+                    {
+                        float w = 1f - (glowArc[j] - glowArc[i]) / reach;
+                        sum += bandPoints[start + j] * w;
+                        weights += w;
+                    }
+
+                    glowPoints.Add(weights > 0f ? sum / weights : bandPoints[start + i]);
+                }
+
+                for (int i = 0; i < count; i++)
+                {
+                    Vector2 ahead = glowPoints[Math.Min(i + 1, count - 1)] - glowPoints[Math.Max(i - 1, 0)];
+                    glowSides.Add(ahead.LengthSquared > 1e-8f ? Vector2.Normalize(new Vector2(-ahead.Y, ahead.X)) : bandSides[start + i]);
+                }
+
+                var near = new Color4(1f, 0.36f, 0.06f, 0.42f * heat);
+                var far = new Color4(0.9f, 0.22f, 0.04f, 0f);
+
+                for (int i = 1; i < count; i++)
+                {
+                    float glow = Math.Min(bandGlows[start + i - 1], bandGlows[start + i]);
+
+                    if (glow < 0.01f)
+                        continue;
+
+                    Color4 inner = near;
+                    inner.A *= glow;
+                    Vector2 a = glowPoints[i - 1], b = glowPoints[i];
+                    Vector2 sa = glowSides[i - 1] * bandWidths[start + i - 1], sb = glowSides[i] * bandWidths[start + i];
+
+                    foreach (float sign in new[] { 1f, -1f })
+                    {
+                        f.stageMeshes.Add(new MeshQuad { A = a, B = b, C = a + sa * sign, D = b + sb * sign, Near = inner, Far = inner }); // (under the crack)
+                        f.stageMeshes.Add(new MeshQuad { A = a + sa * sign, B = b + sb * sign, C = a + sa * (sign * glow_out), D = b + sb * (sign * glow_out), Near = inner, Far = far });
+                    }
+                }
+
+                // (round at its ends: the glow goes on round the end in a half circle - not where a crack grows out of another)
+                roundEnd(f, start + count - 1, start + count - 2, 0f, 1f, near, near, false, true);
+                roundEnd(f, start + count - 1, start + count - 2, 1f, glow_out, near, far, false, true);
+
+                if (bandGlows[start] >= 0.999f)
+                {
+                    roundEnd(f, start, start + 1, 0f, 1f, near, near, false, true);
+                    roundEnd(f, start, start + 1, 1f, glow_out, near, far, false, true);
+                }
+            }
+
+            /// <summary>How far out the glow goes, a share of the crack's half width from its middle (1.75 from the edge of its jags until 2026-11-24).</summary>
+            private const float glow_out = 1.9f;
 
             /// <summary>How far in from its edge the lava of a crack goes (a share of its half width): to the crust.</summary>
             private const float lava_share = 0.87f;
@@ -1134,30 +1244,64 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (flash % 2 == 1)
                     return;
 
-                // (its edge follows the crack's smooth line, not its jags: 2026-11-22, "impact frame black white area edge is smooth")
-                const int steps = 48;
-                Vector2 previousPoint = smoothLineAt(k, 0f), previousSide = Vector2.Zero;
+                // (its edge follows a smooth line along the crack, not its jags: 2026-11-22, "impact frame black white area edge is smooth". 2026-11-24, "way smoother edges": the band is so wide that
+                // on the inside of the crack's smaller bends its edge folded over itself, and where pieces lie over each other the frame turns back - jagged slivers. It now follows only the crack's widest
+                // bend (no bend of it is tighter than the band is wide), in finer pieces, as wide everywhere as the crack narrows, and is round at both ends, as the crack is)
+                const int steps = 160;
+                Vector2 previousPoint = bandLineAt(k, 0f), previousSide = Vector2.Zero;
                 float previousWidth = 0f;
+                Vector2 firstSide = Vector2.Zero, lastSide = Vector2.Zero;
 
                 for (int i = 0; i <= steps; i++)
                 {
                     float u = i / (float)steps;
-                    Vector2 point = smoothLineAt(k, u);
-                    Vector2 ahead = smoothLineAt(k, Math.Min(u + 0.5f / steps, 1f)) - smoothLineAt(k, Math.Max(u - 0.5f / steps, 0f));
+                    Vector2 point = bandLineAt(k, u);
+                    Vector2 ahead = bandLineAt(k, Math.Min(u + 0.5f / steps, 1f)) - bandLineAt(k, Math.Max(u - 0.5f / steps, 0f));
                     Vector2 side = ahead.LengthSquared > 1e-6f ? Vector2.Normalize(new Vector2(-ahead.Y, ahead.X)) : new Vector2(-fissureWay[k].Y, fissureWay[k].X);
-                    // (its edges smooth since 2026-11-21: they jumped to jagged places at every flash)
-                    float width = widthAt(f, k, u) * DanmakusuBalance.SUIKA_IMPACT_MARGIN;
+                    float width = bandWidthAt(f, k, u);
 
                     if (i > 0)
                         f.impactStars.AddPiece(previousPoint + previousSide * previousWidth, point + side * width, previousPoint - previousSide * previousWidth, point - side * width);
+                    else
+                        firstSide = side;
 
+                    lastSide = side;
                     previousPoint = point;
                     previousSide = side;
                     previousWidth = width;
                 }
 
+                bandCap(f, bandLineAt(k, 0f), firstSide, bandWidthAt(f, k, 0f), -1f);
+                bandCap(f, bandLineAt(k, 1f), lastSide, bandWidthAt(f, k, 1f), 1f);
+
                 impactStarsOf(f, k, flash);
                 f.impactStars.ShapesDone();
+            }
+
+            /// <summary>The line the impact frame follows (2026-11-24): the crack's widest bend only, gentle enough for the band round it not to fold over itself.</summary>
+            private Vector2 bandLineAt(int k, float u)
+            {
+                Vector2 side = new Vector2(-fissureWay[k].Y, fissureWay[k].X);
+                float length = fissureLength[k];
+                static float wide(float v) => 0.035f * 0.5f * MathF.Sin(MathF.Tau * 1.3f * v + 0.7f);
+                return fissureFrom[k] + fissureWay[k] * (length * u) + side * (length * 0.5f * (wide(u) - wide(0f)) * smoothStep(u / 0.05f));
+            }
+
+            /// <summary>How wide the impact frame's band is on each side at <paramref name="u"/>: as the crack narrows, without the kink of its first few px.</summary>
+            private float bandWidthAt(BulletField f, int k, float u) => fissureHalf(f) * (1.15f - 0.6f * u) * DanmakusuBalance.SUIKA_IMPACT_MARGIN;
+
+            /// <summary>A round end of the impact frame's band: a half circle beyond <paramref name="at"/>, the way <paramref name="forward"/> says (-1 back, 1 on), in pieces that do not lie over each other.</summary>
+            private static void bandCap(BulletField f, Vector2 at, Vector2 side, float width, float forward)
+            {
+                const int segments = 24;
+                Vector2 ahead = new Vector2(side.Y, -side.X) * forward; // (the band's way, from its side)
+
+                for (int j = 0; j < segments; j++)
+                {
+                    float a0 = MathF.PI * j / segments, a1 = MathF.PI * (j + 1) / segments;
+                    Vector2 d0 = side * MathF.Cos(a0) + ahead * MathF.Sin(a0), d1 = side * MathF.Cos(a1) + ahead * MathF.Sin(a1);
+                    f.impactStars.AddPiece(at, at + d0 * width, at, at + d1 * width); // (a triangle: the first and the third corner are the same)
+                }
             }
 
             /// <summary>The stars of the impact frame, as the World's Ender's: beside the crack, to one side and then the other, each in a place of its own at every flash (2026-11-21).</summary>
@@ -1168,9 +1312,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float u = (s + 0.3f + 0.4f * hash01(k * 17 + s, flash, 121)) / DanmakusuBalance.SUIKA_IMPACT_STARS;
                     Vector2 ahead = smoothLineAt(k, Math.Min(u + 0.01f, 1f)) - smoothLineAt(k, Math.Max(u - 0.01f, 0f));
                     Vector2 side = ahead.LengthSquared > 1e-6f ? Vector2.Normalize(new Vector2(-ahead.Y, ahead.X)) : new Vector2(-fissureWay[k].Y, fissureWay[k].X);
-                    float band = widthAt(f, k, u) * DanmakusuBalance.SUIKA_IMPACT_MARGIN;
-                    float size = band * (1.2f + 0.8f * hash01(k * 17 + s, flash, 122));
-                    Vector2 at = smoothLineAt(k, u) + side * ((s % 2 == 0 ? 1f : -1f) * (band + size * 0.6f));
+                    // (on the crack or close round it, 2026-11-24: "impact frame stars should be on cracks or around, not on playfield edges" - they were beyond the band, by the edges of the screen)
+                    float crackWidth = widthAt(f, k, u);
+                    float size = crackWidth * (1.6f + 1.2f * hash01(k * 17 + s, flash, 122));
+                    Vector2 at = lineAt(k, u) + side * ((s % 2 == 0 ? 1f : -1f) * crackWidth * 2.2f * hash01(k * 17 + s, flash, 124));
 
                     f.addImpactStar(at, new Vector2(size, size * (0.8f + 0.4f * hash01(k * 17 + s, flash, 123))), k * 64 + s, flash);
                 }

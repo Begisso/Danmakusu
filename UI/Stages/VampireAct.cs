@@ -146,7 +146,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>A fan of basic bullets back into the screen from <paramref name="at"/>, round <paramref name="inward"/>, from <paramref name="t"/> on.</summary>
             private void fan(BulletField f, Vector2 at, Vector2 inward, double t, int style)
             {
-                float radius = f.stageBaseRadius(Period);
+                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.KURUMI_FAN_SIZE; // (half a plain one since 2026-11-24)
                 float speed = stageBulletSpeed(Period);
                 float spread = DanmakusuBalance.KURUMI_FAN_DEGREES * MathF.PI / 180f;
                 float centre = MathF.Atan2(inward.Y, inward.X);

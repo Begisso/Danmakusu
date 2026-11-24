@@ -10,6 +10,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Raiko: during an attack five taikos turn round her and are beaten in turn, one slam a beat. Every slam sends out a ripple (a circle that grows from the drum) that does not hurt, but
+        // (and since 2026-11-24 every hit of the map with a finish hitsound in her attacks sends one out too, from where it is hit: BossPeriod.FinishHits)
         // makes every bullet and every beam it goes over twice as big (to look at and to touch) for a very short time; while a bullet is swollen (at least half way) it hurts like a slider body and is not used up by a hit
         // (BulletField.collideRing). Every slam shakes the screen for a moment.
         // ======================================================================================================================================================
@@ -235,6 +236,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
 
                     f.addRipple(centres[k], slammed);
+                }
+
+                // (and one from every hit with a finish hitsound in it, where it is hit: 2026-11-24)
+                foreach (var (time, at) in Period.FinishHits)
+                {
+                    if (time < Start || time > End || now < time)
+                        continue;
+
+                    if (now <= time + life)
+                        f.addRipple(at, time);
                 }
 
                 // where Raiko is when a stick is struck is where it pushes from (taken in the first frame after the hit)

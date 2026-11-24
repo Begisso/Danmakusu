@@ -326,8 +326,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Kogasa's umbrella (Resources/Textures/kogasa_umbrella.png, the user's photo of a purple paper umbrella with an eye and a tongue, unwrapped round its knob into a circle with Tools/Bake `umbrella`): 512 x 512.</summary>
         KogasaUmbrella,
 
-        /// <summary>Hatate's photo frame (2026-11-22, drawn here after the user's screenshot): a see-through grey rectangle 3 : 2 with a light rim and a white cross in its middle.</summary>
+        /// <summary>Hatate's photo frame (2026-11-22, drawn here after the user's screenshot): a light rim, 3 : 2, with a white cross in its middle; since 2026-11-24 without its glass (<see cref="PhotoGlass"/>).</summary>
         PhotoFrame,
+
+        /// <summary>The see-through grey glass of Hatate's photo frame (2026-11-24: "frame transparent gray body does not exist until flash happens"), shown as the picture is taken.</summary>
+        PhotoGlass,
 
         /// <summary>
         /// Shinki's wings (2026-11-22, drawn here: white, pink towards the scalloped lower edge, the tip curling up), cut into <see cref="StageLayer.SHINKI_WING_STRIPS"/> strips from the root out, each a little wider than its share so
@@ -569,7 +572,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
                     StageTexture.KogasaUmbrella => BossCharacter.LoadResource(renderer, "Textures.kogasa_umbrella.png"),
-                    StageTexture.PhotoFrame => bake(renderer, makePhotoFrame()),
+                    StageTexture.PhotoFrame => bake(renderer, makePhotoFrame(false)),
+                    StageTexture.PhotoGlass => bake(renderer, makePhotoFrame(true)),
                     StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
                     StageTexture.LitArc0 => bake(renderer, makeLitArc(1f - (0 + 0.5f) / LIT_ARCS)),
                     StageTexture.LitArc1 => bake(renderer, makeLitArc(1f - (1 + 0.5f) / LIT_ARCS)),
@@ -1095,9 +1099,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>
         /// Hatate's photo frame (2026-11-22, after the user's screenshot of her spell, made solid and sharp): a rectangle three wide to two tall, see-through grey, a light rim round it with a thin dark line outside
-        /// that, and a white cross in its middle, as a viewfinder's.
+        /// that, and a white cross in its middle, as a viewfinder's. <paramref name="glass"/>: only the grey glass inside the rim (2026-11-24, shown as the picture is taken); otherwise all but the glass.
         /// </summary>
-        private static Image<Rgba32> makePhotoFrame()
+        private static Image<Rgba32> makePhotoFrame(bool glass)
         {
             const int width = 768, height = 512;
             const float rim = 7f, outline = 2.5f, crossArm = 46f, crossHalf = 3.5f;
@@ -1113,8 +1117,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bool cross = (dx <= crossArm && dy <= crossHalf) || (dy <= crossArm && dx <= crossHalf);
 
                     Rgba32 colour;
+                    bool inside = edge >= outline + rim && !cross;
 
-                    if (edge < outline)
+                    if (glass != inside)
+                        colour = new Rgba32(0, 0, 0, 0); // (the other part)
+                    else if (edge < outline)
                         colour = new Rgba32(40, 40, 46, 230); // (the thin dark line outside the rim)
                     else if (edge < outline + rim)
                         colour = new Rgba32(236, 236, 240, 240); // (the light rim)

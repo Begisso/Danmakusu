@@ -11,7 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Kanako Yasaka (2026-11-20): when each of her attacks begins and every eight beats in it she throws five big circles of talismans round her (each KANAKO_CIRCLE_RADII circle radii wide, their middles
         // evenly round her): the talismans lie end to end all round each circle, every fourth one left out. The circles fly at once (2026-11-21; they turned round her for two beats first)
         // straight away from her, the talismans still going round each moving circle (the circles themselves are not seen), until eight beats later the circle stops turning and flies on as it is
-        // (2026-11-21). She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
+        // (2026-11-21). Since 2026-11-24 each comes out of the edge of her magic circle, growing to its size over KANAKO_GROW_BEATS, and its talismans are twice as big (KANAKO_TALISMAN_SIZE).
+        // She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
         // Like every act's bullets they are a function of time (StageBullet.Orbit).
         // ======================================================================================================================================================
@@ -78,13 +79,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private void throwVolley(BulletField f, int k, double t, Vector2 centre, float aim)
             {
                 float ring = f.circleRadius * DanmakusuBalance.KANAKO_CIRCLE_RADII;
-                float hubOut = ring * DanmakusuBalance.KANAKO_HUB_OUT;
+                float hubOut = DanmakusuBalance.MAGIC_CIRCLE_RADIUS; // (2026-11-24: the circles come out of the edge of her magic circle, growing - they were ring x KANAKO_HUB_OUT out, as big as they get)
                 float turn = k % 2 == 0 ? 1f : -1f;
                 float hubOmega = turn * (float)(Math.Tau / (beat * DanmakusuBalance.KANAKO_HUB_TURN_BEATS));
                 float ringOmega = turn * (float)(Math.Tau / (beat * DanmakusuBalance.KANAKO_RING_TURN_BEATS));
                 double spinUntil = t + beat * DanmakusuBalance.KANAKO_SPIN_BEATS;
                 float speed = stageBulletSpeed(Period) * DanmakusuBalance.KANAKO_SPEED;
-                float radius = f.stageBaseRadius(Period);
+                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.KANAKO_TALISMAN_SIZE; // (twice as big since 2026-11-24)
                 float length = radius * DanmakusuBalance.TALISMAN_LENGTH_FACTOR * 2f; // (a talisman from end to end)
                 int around = Math.Max(8, (int)MathF.Floor(MathF.Tau * ring / Math.Max(length, 1f)));
 
@@ -131,6 +132,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             HubV = velocity,
                             HubBackAt = outAt,
                             OrbitUntil = spinUntil + beat * DanmakusuBalance.KANAKO_STOP_TURNING_BEATS, // (8 beats after the circle flies out it stops turning: 2026-11-21)
+                            OrbitGrow = beat * DanmakusuBalance.KANAKO_GROW_BEATS,
                             Spin = ringOmega, // (each lies along its circle: end to end with the next)
                             SpinPhase = phase + turn * MathF.PI / 2f,
                             Tint2At = outAt,

@@ -78,6 +78,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Nemuno: the slider beams of her section that she takes (every tenth): each stops when its slider ends, turns to the player and falls as five (filled by the planner).</summary>
         public System.Collections.Generic.List<LaserEmitter> TakenBeams { get; } = new System.Collections.Generic.List<LaserEmitter>();
 
+        /// <summary>Raiko (2026-11-24): every hit of her section with a finish hitsound - a circle's, a slider's head, repeat or end - when and where it is (filled by the planner): each sends out a ripple too.</summary>
+        public System.Collections.Generic.List<(double Time, osuTK.Vector2 Position)> FinishHits { get; } = new System.Collections.Generic.List<(double, osuTK.Vector2)>();
+
         /// <summary>When the last of the boss's mechanics of this section is over, if that is after <see cref="End"/> (Miko's rays, Mima's moon): she stays until then, where she stood (set by the field from its acts).</summary>
         public double MechanicsEnd { get; set; }
 

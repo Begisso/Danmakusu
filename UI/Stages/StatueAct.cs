@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // went (a push, once). It does not hurt.
         // Every NARUMI_BALL_EVERY_BEATS she throws a big ball (NARUMI_BALL_CIRCLES circle radii) at the player that for NARUMI_HOMING_BEATS turns towards them (NARUMI_TURN_DEGREES a beat at most), then
         // flies straight on out; every NARUMI_RING_EVERY_BEATS of its homing it shoots a ring of NARUMI_RING_BULLETS basic bullets, which start at her half speed too and get theirs back from her waves.
+        // (2026-11-24: the bullets start at a quarter of their speed, a wave every four beats, twice as fast, and what it goes over flies at NARUMI_BOOST times its own speed - its own before.)
         // Where a ball goes depends on where the player has been: it is followed step by step (NARUMI_STEP_MS) and kept; going back in time takes the steps back. Where a wave starts is taken when it is sent.
         // ======================================================================================================================================================
 
@@ -244,7 +245,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 there = b.P0 + b.V * (float)(best - b.T0);
-                    Vector2 v = b.V / DanmakusuBalance.NARUMI_SLOW;
+                    Vector2 v = b.V / DanmakusuBalance.NARUMI_SLOW * DanmakusuBalance.NARUMI_BOOST;
                     b.Legs = new[] { new StageLeg { T = b.T0, P = b.P0, V = b.V }, new StageLeg { T = best, P = there, V = v } }; // (before its first leg a bullet stands: the slow one is a leg too)
                     b.Until = best + f.stageLife(v);
                     Bullets[own[i]] = b;
@@ -362,7 +363,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     Vector2 way = to - from;
                     direction = way.LengthSquared > 1e-8f ? Vector2.Normalize(way) : emitter.Directions[bullet].LengthSquared > 1e-8f ? Vector2.Normalize(emitter.Directions[bullet]) : Vector2.UnitX;
-                    speed = emitter.SpeedOf(bullet) / DanmakusuBalance.NARUMI_SLOW;
+                    speed = emitter.SpeedOf(bullet) / DanmakusuBalance.NARUMI_SLOW * DanmakusuBalance.NARUMI_BOOST; // (twice its own speed since 2026-11-24)
                     restored[(emitter, bullet)] = t;
                     return true;
                 }

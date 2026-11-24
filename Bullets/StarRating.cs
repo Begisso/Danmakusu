@@ -18,7 +18,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// The version of the ratings that song select keeps (<see cref="Stars.DanmakusuStars"/>, danmakusu_stars.csv in osu!'s data folder): raise it whenever the stars come out differently (the formula, its
         /// numbers, or what the planner makes of a map without bosses), and every map is rated again in the background.
         /// </summary>
-        public const int STORE_VERSION = 4; // (2: the counts of bullets and beams and the most bosses are kept with the stars; 3: the rating reworked for dodging, 2026-11-14; 4: rolled back to 2's rating, 2026-11-15)
+        public const int STORE_VERSION = 5; // (2: the counts of bullets and beams and the most bosses are kept with the stars; 3: the rating reworked for dodging, 2026-11-14; 4: rolled back to 2's rating, 2026-11-15; 5: every slider's start shoots basic bullets too, 2026-11-24)
 
         public sealed class Result
         {

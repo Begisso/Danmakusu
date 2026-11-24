@@ -156,6 +156,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int GENGETSU_THICK_EVERY = 4;
         public const float GENGETSU_THICK = 2f;
 
+        /// <summary>Gengetsu (2026-11-24, "bullets and laserbeams gradually get gold-brown tan"): how gold-brown everything is at the end of an attack (it comes in evenly as the attack goes on, as her speed-up).</summary>
+        public const float GENGETSU_TAN = 0.8f;
+
         /// <summary>Mugetsu: her own rings of this many arrowheads (flying straight) every this many beats; in her attacks every this many-th ring is this many times as dense (and every bullet goes round her: see <see cref="MUGETSU_SWIRL"/>).</summary>
         /// <summary>
         /// A beam that the bosses steer gets a point between two of its points wherever the slice halfway between them is more than this many px off the line between them, or the two are further apart than this many times as
@@ -389,6 +392,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>A clump flies this many times as fast as the law of impulse gives it.</summary>
         public const float EIKA_CLUMP_SPEED = 1.5f;
 
+        /// <summary>Eika (2026-11-24, "merged bullets swell 2x size"): a bullet that joins a clump swells to this many times its size (to look at and to hit) over this long (ms).</summary>
+        public const float EIKA_MERGED_SIZE = 2f;
+
+        public const double EIKA_SWELL_MS = 150;
+
         /// <summary>
         /// Ran: this many spiral beams, growing at this many times a bullet's speed, a point of the beam every this many px; rings of this many talismans every this many beats, at this many times their speed where they start and this
         /// many a playfield's length out.
@@ -411,7 +419,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float FUTO_SPEED_AT_WALL = 0.3f;
 
         public const float FUTO_BOAT_CIRCLES = 5f; // (half its length: twice the 5 it was; 10 until 2026-11-22: half as big again)
-        public const float FUTO_BOAT_SPEED = 1.5f;
+        public const float FUTO_BOAT_SPEED = 3f; // (1.5 until 2026-11-24: "double the speed")
 
         /// <summary>Two more boats follow each (2026-11-22), one to either side of it, this many boat widths aside and this many boat lengths behind (from its middle to theirs).</summary>
         public const float FUTO_FOLLOW_ASIDE = 1.3f;
@@ -576,6 +584,9 @@ namespace osu.Game.Rulesets.Danmakusu
         /// and the horse's head is this many screen heights big and this visible.
         /// </summary>
         public const float SAKI_SPEED_UP = 1.2f;
+
+        /// <summary>Saki (2026-11-24): her warning of the turn shows this many beats before each attack.</summary>
+        public const double SAKI_WARN_BEATS = 2;
 
         /// <summary>Every this many beats of her attacks every this many-th bullet on the screen shoots two bullets this many times its size, one to its left and one to its right.</summary>
         public const double SAKI_SIDE_EVERY_BEATS = 4;
@@ -776,7 +787,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_MAGMA_BLOOM = 0.6f;
         public const double SUIKA_TAIL_BEATS = 2;
         public const float SUIKA_TAIL_WIDTH = 0.45f;
-        public const int SUIKA_WALL_PIECES = 4;
+        public const int SUIKA_WALL_PIECES = 2; // (4 until 2026-11-24: "halve the fan bullets amount that return from playfield")
         public const float SUIKA_WALL_PIECE_SIZE = 0.5f;
         public const float SUIKA_WALL_SPREAD_DEGREES = 90f;
         public const double SUIKA_STOMP_HURT_MS = 150;
@@ -796,21 +807,21 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Suika's big crack (2026-11-14): a branch every this many circle radii along it or so, to one side and then the other, each about this many circle radii long (the longer ones with a twig); when it
         /// explodes, the impact frame turns it and a band round it this many of its half widths wide inside out, in flashes this many ms long (and gaps as long), for this many ms.
         /// </summary>
-        public const float SUIKA_BRANCH_EVERY_CIRCLES = 1.6f; // (2.5 until 2026-11-22: more branches, the cracks "more aggressive")
+        public const float SUIKA_BRANCH_EVERY_CIRCLES = 1.1f; // (2.5 until 2026-11-22: more branches, the cracks "more aggressive"; 1.6 until 2026-11-24: "more crack branches overall")
 
         /// <summary>
         /// Her cracks are jagged as cracks in the ground (2026-11-22): the big one this share of its length to either side of its line, a corner every SUIKA_JAG_EVERY of it; the stomp's cracks this share of the
         /// stomp's reach, a corner every SUIKA_THIN_JAG_EVERY of them, each with this many branches. The impact frame's stars come round the big one over its last SUIKA_STARS_BEFORE_BEATS before it explodes.
         /// </summary>
-        public const float SUIKA_JAG = 0.022f;
+        public const float SUIKA_JAG = 0.03f; // (0.022 until 2026-11-24: "slightly more aggressive")
 
         public const float SUIKA_JAG_EVERY = 0.035f;
-        public const float SUIKA_THIN_JAG = 0.05f;
+        public const float SUIKA_THIN_JAG = 0.065f; // (0.05 until 2026-11-24, with the big one)
         public const float SUIKA_THIN_JAG_EVERY = 0.12f;
         public const int SUIKA_THIN_BRANCHES = 2;
         public const double SUIKA_STARS_BEFORE_BEATS = 2;
 
-        public const float SUIKA_BRANCH_CIRCLES = 3f;
+        public const float SUIKA_BRANCH_CIRCLES = 4.5f; // (3 until 2026-11-24: "crack branches longer with subbranches")
         public const float SUIKA_IMPACT_MARGIN = 3.2f; // (1.6 until 2026-11-21: "double the impact frames radius")
         public const double SUIKA_IMPACT_FLASH_MS = 60;
         public const double SUIKA_IMPACT_MS = 840; // (420 until 2026-11-21: "impact frames duration doubled")
@@ -837,7 +848,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float YUKI_BEAM_WIDER = 2f;
         public const double YUKI_SLICE_MS = 30;
         public const int YUKI_SCORCH_EVERY = 3;
-        public const double YUKI_SCORCH_BEATS = 8;
+        public const double YUKI_SCORCH_BEATS = 16; // (8 until 2026-11-24: "double the scorch duration")
 
         /// <summary>Yuki's scorch marks look like her beam (2026-11-14; they were charred discs with a glowing edge): its colour this share of the radius, its white core this share (a glowing beam's layers).</summary>
         public const float YUKI_SCORCH_BODY = 0.84f;
@@ -1004,10 +1015,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double NITORI_GROW_BEATS = 8;
         public const double NITORI_FADE_IN_BEATS = 1;
         public const double NITORI_FADE_OUT_MS = 150;
-        public const double NITORI_SPIN_SECONDS = 16.64; // (8.32 until 2026-11-21: "spin speed both around centre and around its own axis - halved")
+        public const double NITORI_SPIN_SECONDS = 33.28; // (8.32 until 2026-11-21: "spin speed both around centre and around its own axis - halved"; 16.64 until 2026-11-24, halved again: "Ikosahedron spin speed halved, both")
 
         /// <summary>Nitori's icosahedron also turns round its middle in the plane of the screen once in this many seconds (2026-11-14).</summary>
-        public const double NITORI_ROLL_SECONDS = 24; // (12 until 2026-11-21, halved as the spin)
+        public const double NITORI_ROLL_SECONDS = 48; // (12 until 2026-11-21, halved as the spin; 24 until 2026-11-24, halved again)
         public const float NITORI_TILT_DEGREES = 5f;
         public const float NITORI_BEAM_WIDTH = 1f;
         public const float NITORI_BULLET_SIZE = 0.5f;
@@ -1022,7 +1033,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Mai (2026-11-13): her snowflakes' arms are this share of the playfield's width long; one grows over this many beats and goes again over this many, coming apart into plain bullets this share of their
         /// size, one every this many circle radii along its beams, flying out at this share of her plain bullets' speed. A beam's sharp tip is this many of its half widths long.
         /// </summary>
-        public const float MAI_ARM_SIZE = 1.2f; // (0.6 until 2026-11-14: "Snowflake radius doubled")
+        public const float MAI_ARM_SIZE = 2.4f; // (0.6 until 2026-11-14: "Snowflake radius doubled"; 1.2 until 2026-11-24: "overall snowflake size - doubled (including thickness)")
 
         public const double MAI_GROW_BEATS = 8;
         public const double MAI_OUT_BEATS = 8;
@@ -1042,13 +1053,13 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float MAI_TWIG_STEP = 0.05f;
         public const float MAI_THINNING = 2.5f;
         public const float MAI_BRANCH_LONGEST = 0.17f; // (0.34 until 2026-11-22: "halve subbranches size" - their twigs with them)
-        public const float MAI_ARM_WIDTH = 2f; // (since 2026-11-21 every beam of the snowflake, not only the arms: this many slider widths at its root, MAI_ARM_TIP_WIDTH at its tip)
-        public const float MAI_ARM_TIP_WIDTH = 0.5f; // (0.6 until 2026-11-21: "twice less thick at end")
+        public const float MAI_ARM_WIDTH = 4f; // (2 until 2026-11-24, doubled with the size) // (since 2026-11-21 every beam of the snowflake, not only the arms: this many slider widths at its root, MAI_ARM_TIP_WIDTH at its tip)
+        public const float MAI_ARM_TIP_WIDTH = 1f; // (0.6 until 2026-11-21: "twice less thick at end"; 0.5 until 2026-11-24, doubled with the size)
 
         /// <summary>The six arms (the main branches) only: this many slider widths at their root and this many at their tip, evenly between (2026-11-22: twice and half what the rest have).</summary>
-        public const float MAI_MAIN_ROOT_WIDTH = 4f;
+        public const float MAI_MAIN_ROOT_WIDTH = 8f; // (4 until 2026-11-24, doubled with the size)
 
-        public const float MAI_MAIN_TIP_WIDTH = 0.25f;
+        public const float MAI_MAIN_TIP_WIDTH = 0.5f; // (0.25 until 2026-11-24, doubled with the size)
         public const double MAI_PREVIEW_BEATS = 2;
         public const float MAI_PREVIEW_ALPHA = 0.25f;
 
@@ -1101,6 +1112,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>Kanako's talismans stop going round their circle this many beats after the circles fly out (2026-11-21): the circle flies on as it is, no longer turning.</summary>
         public const double KANAKO_STOP_TURNING_BEATS = 8;
 
+        /// <summary>Kanako (2026-11-24): her talismans are this many times as big as a plain bullet ("double the talismans size"), and each circle grows from nothing at the edge of her magic circle to its size over this many beats.</summary>
+        public const float KANAKO_TALISMAN_SIZE = 2f;
+
+        public const double KANAKO_GROW_BEATS = 2;
+
         /// <summary>
         /// Kokoro (2026-11-20): her mood changes every this many beats (purple, blue, aquamarine, orange). In blue everything is pulled at the player this many times as hard as Nazrin's ellipses; in aquamarine it
         /// bounces off the border this many times; in orange it falls with this pull (a quarter of the fall when the player fails). What a mood changes glows this much. The arrows that warn of the fall show
@@ -1140,12 +1156,15 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>Merlin (2026-11-20, "staying on osu objects makes circles double transparent and harmless"): the ring of an object the player is on when it sends it out is this share as solid, and harmless.</summary>
         public const float MERLIN_FAINT = 0.5f;
 
+        /// <summary>Merlin (2026-11-24): the bullets in her safe places are this much darker (0..1).</summary>
+        public const float MERLIN_SAFE_DIM = 0.85f;
+
         /// <summary>Merlin (2026-11-21): round each of her circles and sliders, this many of its radii out, a green gradient circle where her rings do not hurt.</summary>
         public const float MERLIN_SAFE_RADII = 2f; // (1.6 until 2026-11-21: "immortal as long as 1x additional osu radius around osu objects")
-        public const float MERLIN_FOLLOW_WIDTH = 1f; // (the follow points from one to the next: as many circle radii to each side of their line - "one circle thick"; nothing hurts on them)
+        public const float MERLIN_FOLLOW_WIDTH = 2f; // (1 until 2026-11-24: "1x osu circle to left and right side of Followpoints are also safe") // (the follow points from one to the next: as many circle radii to each side of their line - "one circle thick"; nothing hurts on them)
         public const float MERLIN_FOLLOW_ALPHA = 0.3f; // (and their beams this see-through)
         public const float MERLIN_FOLLOW_ARROW_SPEED = 0.15f; // (and their green arrows run along them at this many px per ms)
-        public const float MERLIN_RING_GREEN = 0.4f; // (each of the three green arcs over a ring where it goes over a safe place is this solid)
+        public const float MERLIN_RING_GREEN = 0.9f; // (0.4 until 2026-11-24, when the green became a strong dim) // (each of the three green arcs over a ring where it goes over a safe place is this solid)
 
         /// <summary>
         /// Merlin (2026-11-21, "attack duration doubled. Circles and bg flashes red before attack ends"): her attacks are this many times as long as a boss's; over the last this many beats of each her rings
@@ -1194,7 +1213,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double RIN_FREEZE_AFTER_BEATS = 16;
 
         public const double RIN_FREEZE_BEATS = 8;
-        public const float RIN_SWELL = 2f;
+        public const float RIN_SWELL = 3f; // (2 until 2026-11-24: "swell radius tripled" - read as three times a bullet's size; six times the bullet, three times what it swelled to, was tried: with her pauses' bullets swelling too it covered the screen, the autoplay hit 201 times in 25 s against 16)
         public const double RIN_SWELL_BEATS = 1;
         public const double RIN_WARN_BEATS = 2;
         public const int RIN_WARN_FLASHES = 4;
@@ -1341,11 +1360,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// HATATE_FRAME_END as it gets there, HATATE_FLY_BEATS later, HATATE_FRAME_ASPECT as wide as tall. Then she takes the picture: everything flying turns to fly the way from the frame to the player,
         /// HATATE_SLOW times as fast; a player in the frame is hit once and for HATATE_DELAY_BEATS the character follows where the mouse was HATATE_DELAY_BEATS before.
         /// </summary>
-        public const double HATATE_EVERY_BEATS = 8;
+        public const double HATATE_EVERY_BEATS = 4; // (8 until 2026-11-24: "double the frequency")
 
         public const double HATATE_FLY_BEATS = 4; // (2 until 2026-11-22, the same day: "halve the movement speed of photo frame" - as far, twice as long)
-        public const float HATATE_FRAME_START = 8f; // (4 until 2026-11-22, the same day: twice as big)
-        public const float HATATE_FRAME_END = 4f; // (2 until 2026-11-22, the same day)
+        public const float HATATE_FRAME_START = 4f; // (4 until 2026-11-22, the same day: twice as big; 8 until 2026-11-24: "frame half the size")
+        public const float HATATE_FRAME_END = 2f; // (2 until 2026-11-22, the same day; 4 until 2026-11-24, halved with it)
         public const float HATATE_FRAME_ASPECT = 1.5f;
         public const float HATATE_SLOW = 0.5f;
         public const double HATATE_DELAY_BEATS = 4;
@@ -1434,9 +1453,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float BENBEN_NOTE_SIZE = 2f;
 
         /// <summary>Her notes are this much lightened towards white and glow this much (2026-11-22: "notes are brighter"); Byakuren's beam sound comes every this many beats while her beams fire.</summary>
-        public const float BENBEN_NOTE_LIGHTER = 0.35f;
+        public const float BENBEN_NOTE_LIGHTER = 0.75f; // (0.35 until 2026-11-24: "note bodies are way brighter")
 
-        public const float BENBEN_NOTE_BLOOM = 0.8f;
+        public const float BENBEN_NOTE_BLOOM = 1f; // (0.8 until 2026-11-24, with it)
         public const double BENBEN_STRIKE_EVERY_BEATS = 8;
         public const float BENBEN_NOTE_PULSE_LOW = 0.5f;
         public const float BENBEN_NOTE_PULSE_HIGH = 2f;
@@ -2795,7 +2814,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MOON_ORBIT_BEATS = 32;
 
         /// <summary>The moon's laser has this many beams, spread evenly; they turn as fast as the moon circles.</summary>
-        public const int MOON_BEAM_COUNT = 3;
+        public const int MOON_BEAM_COUNT = 6; // (3 until 2026-11-24: "six star streams instead of 3")
 
         /// <summary>The lines of stars of the moon's laser source fly this much faster than other bullets.</summary>
         public const float MOON_STREAM_SPEED_FACTOR = 2f;
@@ -3564,6 +3583,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>The copied bullets are white and blue in turn and glow this much (0..1).</summary>
         public const float DOREMY_COPY_BLOOM = 0.8f;
 
+        /// <summary>Doremy (2026-11-24): every copied circle holds this many white bullets in a ring this many bullet radii out from its middle (drawn by CloneLayer), which fly out as it is hit.</summary>
+        public const int DOREMY_DOTS = 5;
+
+        public const float DOREMY_DOT_SPREAD = 2.2f;
+
         /// <summary>Doremy's mirrored circles and sliders have this combo colour.</summary>
         public static readonly osuTK.Graphics.Color4 DOREMY_COPY_COLOUR = new osuTK.Graphics.Color4(0.1f, 0.16f, 0.6f, 1f);
 
@@ -4236,8 +4260,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int KURUMI_CIRCLE_BEAMS = 6;
 
         public const double KURUMI_BEAM_BEATS = 4;
-        public const int KURUMI_FAN_BULLETS = 7;
+        public const int KURUMI_FAN_BULLETS = 4; // (7 until 2026-11-24: "fan bullets from playfield amount halved, size too")
         public const float KURUMI_FAN_DEGREES = 120f;
+
+        /// <summary>Kurumi's fan bullets are this many times as big as a plain bullet (2026-11-24: "size too"; 1 before).</summary>
+        public const float KURUMI_FAN_SIZE = 0.5f;
 
         /// <summary>
         /// Son Biten: every slider's beam of her section stands, this many times as big and as thick, until this many beats after it began (or it is all fired), then flies on as one piece, spinning round
@@ -4280,12 +4307,15 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float KOGASA_ORBIT_DEGREES = 15f;
 
         public const double KOGASA_HOLD_BEATS = 8;
-        public const int KOGASA_MOST_SHOTS = 48;
+        public const int KOGASA_MOST_SHOTS = 96; // (48 until 2026-11-24, doubled with the shots)
+
+        /// <summary>Kogasa (2026-11-24, "double the bullets amount coming out of spinning objects"): each of hers shoots this many times as many bullets over its stay as it had (1 before).</summary>
+        public const int KOGASA_SHOTS_FACTOR = 2;
         public static readonly osuTK.Graphics.Color4 KOGASA_RED = new osuTK.Graphics.Color4(0.9f, 0.18f, 0.22f, 1f);
         public static readonly osuTK.Graphics.Color4 KOGASA_BLUE = new osuTK.Graphics.Color4(0.22f, 0.42f, 0.95f, 1f);
 
         /// <summary>Kogasa's umbrella (2026-11-24) in the middle of the playfield: this many px across (playfield px; the playfield is 384 tall), this opaque.</summary>
-        public const float KOGASA_UMBRELLA_SIZE = 240f;
+        public const float KOGASA_UMBRELLA_SIZE = 120f; // (240 until 2026-11-24: "halve the umbrella size")
 
         public const float KOGASA_UMBRELLA_ALPHA = 0.9f;
 
@@ -4341,6 +4371,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MEIRA_SLIDING_BEATS = 8;
         public const double MEIRA_SLIDE_LONGEST_BEATS = 2;
         public const float MEIRA_SLIDE_SPEED = 6f;
+
+        /// <summary>Meira (2026-11-24, "trace laserbeam length halved"): each slide goes this share of the way from where she is to where Elly would stop, as it starts.</summary>
+        public const float MEIRA_SLIDE_SHARE = 0.5f;
         public const double MEIRA_STEP_MS = 10;
         public const float MEIRA_TRACE_WIDTH = 1f;
         public const float MEIRA_SLICE_CIRCLES = 1f;
@@ -4357,10 +4390,13 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Narumi Yatadera: every bullet of her section flies this share of its speed until one of her waves goes over it. A wave every this many beats from where she is, this many times as fast as a plain
         /// bullet, drawn this many circle radii thick.
         /// </summary>
-        public const float NARUMI_SLOW = 0.5f;
+        public const float NARUMI_SLOW = 0.25f; // (0.5 until 2026-11-24: "Initial bullets speed is 0.25x now")
 
-        public const double NARUMI_WAVE_EVERY_BEATS = 2;
-        public const float NARUMI_WAVE_SPEED = 1.5f;
+        /// <summary>Narumi (2026-11-24, "Wave boosts to 2x"): a bullet her wave goes over flies this many times its own speed from then on (1 before: its own speed back).</summary>
+        public const float NARUMI_BOOST = 2f;
+
+        public const double NARUMI_WAVE_EVERY_BEATS = 4; // (2 until 2026-11-24: "halve the wave frequency")
+        public const float NARUMI_WAVE_SPEED = 3f; // (1.5 until 2026-11-24: "double the speed")
         public const float NARUMI_WAVE_WIDTH = 0.15f;
 
         /// <summary>
@@ -4388,8 +4424,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float PARSEE_BALL_CIRCLES = 1.5f;
         public const float PARSEE_FAN_DEGREES = 60f;
         public const float PARSEE_BALL_SPEED = 0.8f;
-        public const double PARSEE_FLOWER_EVERY_BEATS = 0.5;
-        public const float PARSEE_PETAL_SIZE = 1.6f;
+        public const double PARSEE_FLOWER_EVERY_BEATS = 0.25; // (0.5 until 2026-11-24: "more packed")
+
+        /// <summary>Parsee (2026-11-24, "random"): her flowers come out up to this many of her ball's radii to either side of its way.</summary>
+        public const float PARSEE_FLOWER_SCATTER = 1.5f;
+        public const float PARSEE_PETAL_SIZE = 1.6f; // (not used since 2026-11-24: her flowers are as big as Yuyuko's tree's)
         public const double PARSEE_FLOWER_BEATS = 8;
         public const float PARSEE_PETAL_SPEED = 0.6f;
 

@@ -11,7 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Hatate Himekaidou (2026-11-22): no pauses. Every HATATE_EVERY_BEATS of her section she throws a photo frame (StageLayer's, after the user's screenshot of her spell) from where she is at where the
         // player is then: harmless, it flies there over HATATE_FLY_BEATS, HATATE_FRAME_START circle diameters tall as it leaves her and HATATE_FRAME_END as it gets there (HATATE_FRAME_ASPECT as wide as tall),
-        // turned square to the way it flies (its wide side across it, as she holds it up: 2026-11-22).
+        // turned square to the way it flies (its wide side across it, as she holds it up: 2026-11-22). Only its rim and cross show as it flies; its see-through grey glass comes as the picture is taken
+        // (2026-11-24).
         // As it gets there she takes the picture (a shutter, a flash, and the frame fades): everything that is flying turns to fly the way from the frame to where the player is now, HATATE_SLOW times as fast
         // (BossOps: an aim at a point far off that way, which this act places as the picture is taken). A player whose character is in the frame then is hit once, and for HATATE_DELAY_LENGTH_BEATS the
         // character follows where the mouse was (and what the keys did) HATATE_DELAY_BEATS before.
@@ -193,6 +194,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (alpha > 0.01f)
                         f.stageFront.Add(StageTexture.PhotoFrame, centre, size, facing[k] * 180f / MathF.PI, alpha, Color4.White);
+
+                    // (its see-through grey glass only as the picture is taken, and it fades with the frame: 2026-11-24)
+                    if (t >= photo && alpha > 0.01f)
+                        f.stageFront.Add(StageTexture.PhotoGlass, centre, size, facing[k] * 180f / MathF.PI, alpha, Color4.White);
 
                     // (the flash of the picture)
                     if (t >= photo)

@@ -15,6 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Her clone stands in the middle of the screen, see-through (Seija's clone, BulletField.Boss), all through her section; it shoots her arrowheads (the planner's, BulletEmitter.FansOnLeaving). One that
         // leaves the screen fans out PARSEE_FAN_BULLETS basic bullets, PARSEE_FAN_SIZE as big as a plain one, PARSEE_FAN_SPREAD_DEGREES wide, back in from where it left, square to that edge (when it left is
         // worked out from its flight, so a seek makes the same fans).
+        // (2026-11-24: the flowers are as small as Yuyuko's tree's, scattered round each ball's way - a little earlier or later and to one side or the other, PARSEE_FLOWER_SCATTER of its radius at most, by a hash -
+        // every quarter beat, and their petals fly off as the tree's: three of each out of it, two falling straight down.)
         // Where the balls go is where the player was when they were thrown: that is taken then and kept.
         // ======================================================================================================================================================
 
@@ -35,11 +37,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 public readonly Vector2 At;
                 public readonly double T;
+                public readonly float Length; // (of a petal, px: as Yuyuko's tree's)
 
-                public Flower(Vector2 at, double t)
+                public Flower(Vector2 at, double t, float length)
                 {
                     At = at;
                     T = t;
+                    Length = length;
                 }
             }
 
@@ -189,10 +193,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 double every = beat * DanmakusuBalance.PARSEE_FLOWER_EVERY_BEATS;
                 Vector2 v = ballVelocity(volley, i);
+                Vector2 side = v.LengthSquared > 1e-12f ? Vector2.Normalize(new Vector2(-v.Y, v.X)) : Vector2.UnitX;
+                float scatter = ballRadius(f) * DanmakusuBalance.PARSEE_FLOWER_SCATTER;
 
                 for (double t = volley.T + (volley.Flowers[i] + 1) * every; t <= now; t = volley.T + (volley.Flowers[i] + 1) * every)
                 {
-                    Vector2 at = volley.From + v * (float)(t - volley.T);
+                    // (scattered round its way, each a little earlier or later and to one side or the other, by its own hash: 2026-11-24, "random and more packed")
+                    int number = (int)(volley.T % 100000) * 8 + i * 4096 + volley.Flowers[i];
+                    double when = t - every * 0.4 * hash01(Id, number, 141);
+                    Vector2 at = volley.From + v * (float)(when - volley.T) + side * (scatter * (hash01(Id, number, 142) * 2f - 1f));
 
                     if (consumed(f, volley.Index[i]) || at.X < f.stageMin.X || at.X > f.stageMax.X || at.Y < f.stageMin.Y || at.Y > f.stageMax.Y)
                     {
@@ -200,28 +209,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         return;
                     }
 
-                    bloom(f, at, t, flowers.Count);
-                    flowers.Add(new Flower(at, t));
+                    float length = DanmakusuBalance.YUYUKO_PETAL_SIZE * (0.8f + 0.4f * hash01(Id, number, 45)) * treeHeight(f);
+                    bloom(f, at, t, flowers.Count, length);
+                    flowers.Add(new Flower(at, t, length));
                     volley.Flowers[i]++;
                 }
             }
 
-            /// <summary>A flower at <paramref name="at"/>: five petals that stand there, then fly straight out from its middle.</summary>
-            private void bloom(BulletField f, Vector2 at, double t, int number)
+            private static float treeHeight(BulletField f) => DanmakusuBalance.YUYUKO_TREE_HEIGHT * (f.stageMax.Y - f.stageMin.Y);
+
+            /// <summary>
+            /// A flower at <paramref name="at"/>, as one of Yuyuko's tree (2026-11-24: its size, its petals - <paramref name="length"/> px long, as far out): five pink petals that stand there, then fly off as the
+            /// tree's do - three of them out of the flower, each a little turned and at a speed of its own, the other two falling straight down, keeping the angle they had.
+            /// </summary>
+            private void bloom(BulletField f, Vector2 at, double t, int number, float length)
             {
-                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.PARSEE_PETAL_SIZE;
-                float reach = radius * 1.1f;
+                float radius = length * 0.5f;
+                float reach = DanmakusuBalance.YUYUKO_PETAL_REACH * length;
                 double release = t + flowerMs;
-                float speed = stageBulletSpeed(Period) * DanmakusuBalance.PARSEE_PETAL_SPEED;
-                float turn = number * 0.9f; // (each a little turned from the one before)
+                float baseSpeed = stageBulletSpeed(Period) * DanmakusuBalance.PARSEE_PETAL_SPEED;
+                float turn = hash01(Id, number, 47) * MathF.Tau;
                 int petals = DanmakusuBalance.YUYUKO_PETALS_PER_FLOWER;
 
                 for (int k = 0; k < petals; k++)
                 {
+                    int key = number * 8 + k;
                     float angle = turn + k * MathF.Tau / petals;
                     var outward = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
                     Vector2 p = at + outward * reach;
-                    Vector2 v = outward * speed;
+                    bool falls = (k + number) % petals >= DanmakusuBalance.YUYUKO_SHOT_PETALS;
+                    Vector2 way = falls ? Vector2.UnitY : turned(outward, (hash01(Id, key, 3) - 0.5f) * 0.3f);
+                    Vector2 v = way * Math.Max(baseSpeed * (0.6f + 0.6f * hash01(Id, key, 4)), 0.02f);
 
                     AddBullet(new StageBullet
                     {
@@ -236,7 +254,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Tint = BulletRenderer.TINT_PINK,
                         TintAmount = 1f,
                         Face = -outward, // (the tip at the middle of the flower, as on Yuyuko's)
-                        KeepFace = true,
+                        KeepFace = falls, // (what falls keeps its angle; what is shot faces the way it flies)
                         Until = release + f.stageLife(v),
                         Untraced = true,
                     });
@@ -330,7 +348,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (the dark middle of every flower that stands, and its bloom over it, as Yuyuko's)
                 var bloomColour = new Color4(1f, 0.62f, 0.78f, 1f);
                 var dark = new Color4(0.85f, 0.2f, 0.4f, 1f);
-                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.PARSEE_PETAL_SIZE;
 
                 foreach (var flower in flowers)
                 {
@@ -338,8 +355,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     float shown = smoothStep((t - flower.T) / 80.0);
-                    f.stageTree.Add(StageTexture.Orb, flower.At, new Vector2(radius * 1.1f * shown), 0f, 0.95f, dark);
-                    f.stageTree.Add(StageTexture.Glow, flower.At, new Vector2(radius * 5f * shown), 0f, DanmakusuBalance.YUYUKO_BLOOM_ALPHA * shown, bloomColour, true);
+                    f.stageTree.Add(StageTexture.Orb, flower.At, new Vector2(flower.Length * 0.5f * shown), 0f, 0.95f, dark);
+                    f.stageTree.Add(StageTexture.Glow, flower.At, new Vector2(flower.Length * DanmakusuBalance.YUYUKO_BLOOM_SIZE * shown), 0f, DanmakusuBalance.YUYUKO_BLOOM_ALPHA * shown, bloomColour, true);
                 }
 
                 // (her balls: green, as her eyes)

@@ -12,13 +12,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Mononobe no Futo: everything fired in her section loses speed the nearer it gets to the wall ahead of it, down to 0.3 of its speed at the wall (BulletEmitter.SlowsToWall). When a pause starts she throws a boat at the
         // player: the user's picture of a wooden ship seen from above, twice FUTO_BOAT_CIRCLES circle radii long (ten since 2026-11-22; twenty before, so it is out of the wall twice as soon) and as wide
         // as the picture is for that. It comes out of the wall nearest her, from behind her (from just out of the screen straight behind that wall from where she is), and flies straight at where the player
-        // is then, bow first; two more fly with it, the same way, one to each side of it (FUTO_FOLLOW_ASIDE of its width apart) and FUTO_FOLLOW_BEHIND of its length behind (2026-11-22).
+        // is then, bow first; two more fly with it, the same way, one to each side of it (FUTO_FOLLOW_ASIDE of its width apart) and FUTO_FOLLOW_BEHIND of its length behind (2026-11-22), and since 2026-11-24 two
+        // more beyond those, as far again to the side and behind (five a throw), all twice as fast (FUTO_BOAT_SPEED). The slices of beams are pushed out of the boats too (2026-11-24, IBeamPusher): a slice that
+        // would be in a boat is at the nearest edge of its hull then - the beam bends round the boat as it goes by.
         // It hurts like a slider body where the picture is. Nothing stays in it: every bullet whose body is in
         // the hull (its outline, read from the picture) slides out to the nearest edge, fast (twice the boat's and its own speed together) but smoothly, a little every step; the first time the boat has it, it is turned
         // to fly straight out of the boat from there, as fast, and after that it keeps its way (once per bullet).
         // ======================================================================================================================================================
 
-        private sealed class BoatAct : StageAct
+        private sealed class BoatAct : StageAct, IBeamPusher
         {
             private sealed class Boat
             {
@@ -141,11 +143,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Update(BulletField f, double now)
             {
+                if (pushCircle != f.circleRadius)
+                    Prepare(f);
+
                 if (f.failed)
                     return;
 
-                // (three boats a throw: boats.Count / 3 is the throw)
-                while (boats.Count / 3 < throws.Count && throws[boats.Count / 3] <= now)
+                // (five boats a throw: boats.Count / 5 is the throw - three until 2026-11-24)
+                while (boats.Count / 5 < throws.Count && throws[boats.Count / 5] <= now)
                 {
                     // (it comes out of the wall nearest her, from behind her: from just out of the screen straight behind that wall from where she is)
                     Vector2 her = f.bossVisualOf(Period);
@@ -161,14 +166,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float speed = stageBulletSpeed(Period) * DanmakusuBalance.FUTO_BOAT_SPEED;
 
                     // (it is looked at until all of it has left the screen, however long it is)
-                    double time = throws[boats.Count / 3];
-                    double until = time + (Vector2.Distance(f.stageMin, f.stageMax) + 3f * halfLength(f) + followBehind(f)) / Math.Max(speed, 1e-4f);
+                    double time = throws[boats.Count / 5];
+                    double until = time + (Vector2.Distance(f.stageMin, f.stageMax) + 3f * halfLength(f) + 2f * followBehind(f)) / Math.Max(speed, 1e-4f);
                     Vector2 side = new Vector2(-way.Y, way.X);
 
                     // (two more follow it, one to its left and one to its right, a little behind: 2026-11-22)
                     boats.Add(new Boat { Time = time, Until = until, From = from, Velocity = way * speed });
                     boats.Add(new Boat { Time = time, Until = until, From = from + side * followAside(f) - way * followBehind(f), Velocity = way * speed });
                     boats.Add(new Boat { Time = time, Until = until, From = from - side * followAside(f) - way * followBehind(f), Velocity = way * speed });
+
+                    // (two more beyond those, as far again to the side and behind: 2026-11-24, "another two boats on side")
+                    boats.Add(new Boat { Time = time, Until = until, From = from + side * (2f * followAside(f)) - way * (2f * followBehind(f)), Velocity = way * speed });
+                    boats.Add(new Boat { Time = time, Until = until, From = from - side * (2f * followAside(f)) - way * (2f * followBehind(f)), Velocity = way * speed });
                     f.playStageSound("mokou_wall_hit");
                 }
             }
@@ -236,6 +245,63 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     position = to + outWorld * move;
                     direction = turned.Add((emitter, bullet)) || step.LengthSquared <= 1e-8f ? outWorld : Vector2.Normalize(step);
                     speed = own;
+                    return true;
+                }
+
+                return false;
+            }
+
+            private float pushCircle = -1f; // (the circle radius the hull was made for, kept for the beams' pushes: they do not know the field)
+            private Vector2[] pushHull = Array.Empty<Vector2>();
+            private Vector2 pushStageMin, pushStageMax;
+
+            /// <summary>Takes what the beams' pushes need of the field (they are asked without it).</summary>
+            public void Prepare(BulletField f)
+            {
+                pushHull = hullOf(f);
+                pushCircle = f.circleRadius;
+                pushStageMin = f.stageMin;
+                pushStageMax = f.stageMax;
+            }
+
+            public bool CanPush(double time)
+            {
+                if (pushCircle <= 0f)
+                    return false;
+
+                foreach (var boat in boats)
+                {
+                    if (time >= boat.Time && time <= boat.Until)
+                        return true;
+                }
+
+                return false;
+            }
+
+            /// <summary>A slice of a beam that would be in a boat is at the nearest edge of its hull (and a little out).</summary>
+            public bool Push(Vector2 position, double time, out Vector2 pushed)
+            {
+                pushed = position;
+
+                if (pushCircle <= 0f)
+                    return false;
+
+                float along = pushCircle * DanmakusuBalance.FUTO_BOAT_CIRCLES, across = along / StageLayer.BoatAspect;
+
+                foreach (var boat in boats)
+                {
+                    if (time < boat.Time || time > boat.Until)
+                        continue;
+
+                    Vector2 p = local(boat, time, position, out Vector2 forward, out Vector2 side);
+
+                    if (MathF.Abs(p.X) > along || MathF.Abs(p.Y) > across || !PolygonShape.Contains(p, pushHull))
+                        continue;
+
+                    nearestEdge(pushHull, p, out Vector2 nearest, out float distance, out Vector2 edgeOut);
+                    Vector2 outward = distance > 1e-3f ? (nearest - p) / distance : edgeOut;
+                    Vector2 edge = nearest + outward * 2f;
+                    pushed = at(boat, time) + forward * edge.X + side * edge.Y;
                     return true;
                 }
 

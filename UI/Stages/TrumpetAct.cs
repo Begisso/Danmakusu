@@ -56,6 +56,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // DanmakusuPlayfield). In her spinners she throws six circles and sliders round her every eight beats, flying away from her; each sends out such a ring every two beats - half as solid and harmless
         // while the player is on it.
         // Whether each sent out a ring is decided when it is hit (where the player is then), and done again when time goes back.
+        // (2026-11-24: the lanes along the follow points are a circle wide to either side; where her rings go over a safe place they are dimmed dark, and the bullets in one are drawn much darker - Dims.)
         // ======================================================================================================================================================
 
         private sealed class TrumpetAct : StageAct
@@ -533,8 +534,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return false;
             }
 
-            // (the safe places of the moment, as circles - along a slider, one every so often: where her rings go over one they are green)
+            // (the safe places of the moment, as circles - along a slider, one every so often: where her rings go over one they are dimmed, strongly - green until 2026-11-24)
             private readonly List<(Vector2 Centre, float Radius)> safeCircles = new List<(Vector2, float)>();
+
+            /// <summary>What her white rings turn where they go over a safe place (2026-11-24, "strong dim to white circle ... in safe zone"): a very dark green.</summary>
+            private static readonly Color4 safeDim = new Color4(0.04f, 0.14f, 0.07f, 1f);
+
+            /// <summary>The bullets in her safe places are drawn darker, strongly (2026-11-24): nothing there hurts.</summary>
+            public override void Dims(BulletField f, double t, List<StageDim> into)
+            {
+                if (f.failed || t < Start - 1 || t > End)
+                    return;
+
+                gatherSafeCircles(f, t);
+
+                foreach (var (centre, radius) in safeCircles)
+                    into.Add(new StageDim { Centre = centre, Radius = radius * 0.8f, Strength = DanmakusuBalance.MERLIN_SAFE_DIM });
+            }
 
             private void gatherSafeCircles(BulletField f, double t)
             {
@@ -565,6 +581,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                     else if (t <= shot.Time)
                         safeCircles.Add((shot.Position, shot.Radius * safeRadii));
+                }
+
+                // (the lanes along the follow points too, a circle every so often: 2026-11-24, where the rings are dimmed and the bullets darkened)
+                foreach (var follow in follows)
+                {
+                    if (t < follow.Shown || t > follow.Until)
+                        continue;
+
+                    float gap = Math.Max(follow.HalfWidth * 0.6f, 4f);
+                    float length = Vector2.Distance(follow.From, follow.To);
+
+                    for (float s = 0f; s <= length; s += gap)
+                        safeCircles.Add((Vector2.Lerp(follow.From, follow.To, length > 1e-3f ? s / length : 0f), follow.HalfWidth));
                 }
 
                 foreach (var one in thrown)
@@ -690,7 +719,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     ring(f, shots[i].Position, speed * (float)(t - shots[i].Time), decided[i] == 1 ? faint : solid, ringColour);
-                    greenOver(f, shots[i].Position, speed * (float)(t - shots[i].Time), decided[i] == 1 ? faint : solid, green);
+                    greenOver(f, shots[i].Position, speed * (float)(t - shots[i].Time), decided[i] == 1 ? faint : solid, safeDim);
                 }
 
                 foreach (var (time, at, isFaint) in thrownRings)
@@ -698,7 +727,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (time <= t && t - time <= life)
                     {
                         ring(f, at, speed * (float)(t - time), isFaint ? faint : solid, ringColour);
-                        greenOver(f, at, speed * (float)(t - time), isFaint ? faint : solid, green);
+                        greenOver(f, at, speed * (float)(t - time), isFaint ? faint : solid, safeDim);
                     }
                 }
 
