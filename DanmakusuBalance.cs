@@ -1224,6 +1224,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float ALICE_STAR_SIZE = 1.25f;
         public const float ALICE_BEAM_SIDE = 3f;
 
+        /// <summary>Alice (2026-11-25, "doll laserbeams small angle to left and right"): the beam on either side of a stream flies this many degrees out from its way, to its own side (they flew alongside it).</summary>
+        public const float ALICE_BEAM_TURN_DEGREES = 10f;
+
         /// <summary>
         /// Rin Kaenbyou (2026-11-21): every bullet fired in her attacks stops this many beats after it was fired, for this many, swelling to this many times its size (drawn and hit) over this many beats, and
         /// shrinking back over as many when it flies on; for this many beats before, a circle as big as it will swell to flashes round it this many times, this solid.
@@ -1364,7 +1367,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>Her dashes start on a grid of this many beats (1 until 2026-11-22, the same day).</summary>
         public const double AYA_DASH_EVERY_BEATS = 0.5;
 
-        public const double AYA_PREVIEW_LEAST_BEATS = 0.25; // (0.5 until 2026-11-22, the same day, with her dashes every beat)
+        public const double AYA_PREVIEW_LEAST_BEATS = 0.75; // (0.25 until 2026-11-25, "laserbeam preview doubled": with her dashes on the half beats a preview was 0.25-0.75 of a beat, half a beat on the whole; now 0.75-1.25, a beat) (0.5 until 2026-11-22, the same day, with her dashes every beat)
         public const double AYA_TRACE_BEATS = 8;
         public const double AYA_TRACE_FADE_BEATS = 0.5;
         public const float AYA_SLASH_CIRCLES = 1.5f;
@@ -2131,6 +2134,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double SUNNY_TAIL_BEATS = 2;
         public const float SUNNY_TAIL_WIDTH = 0.6f;
         public const int SUNNY_TAIL_POINTS = 6;
+        public const float SUNNY_TAIL_MIDDLE_LIGHT = 0.45f; // (how far towards white the middle of a tail is: its colour, lighter - 2026-11-25, "traces body colors are rainbow too"; it was white)
         public const float SUNNY_SPLIT_SIZE_DIVISOR = 4f;
         public const double SUNNY_FLASH_MS = 450;
         public const int SUNNY_HALO_RINGS = 36;

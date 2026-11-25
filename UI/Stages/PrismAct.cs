@@ -14,7 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // bullets, spread over 120 degrees round that way, each a third of the size and in another colour of the rainbow (the colours start from the colour of the bullet that went in); every second bullet of a ring
         // is not split: it comes out the mirrored way as it went in. The prism hurts like a slider body.
         // Where a bullet goes in or comes out the halo glows a little brighter for a moment. Like Nazrin's arrowheads the bullets in the prism are simulated step by step (they only fly straight on, but the prism turns under them).
-        // Since 2026-11-25 every one of the seven split bullets has a narrow beam for a tail, SUNNY_TAIL_BEATS of its way long, in its colour, narrowing to a point; it hurts like a slider body.
+        // Since 2026-11-25 every one of the seven split bullets has a narrow beam for a tail, SUNNY_TAIL_BEATS of its way long, in its colour, narrowing to a point; it hurts like a slider body. Since
+        // 2026-11-25 its middle is its colour too, lighter (SUNNY_TAIL_MIDDLE_LIGHT; it was white), and it goes on out after its bullet when that has left the screen (it went at once).
         // ======================================================================================================================================================
 
         private sealed class PrismAct : StageAct
@@ -128,21 +129,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private double tailMs => beat * DanmakusuBalance.SUNNY_TAIL_BEATS;
 
-            /// <summary>Where split bullet <paramref name="index"/>'s tail is at <paramref name="t"/>: from where it was a tail's length ago (not before it was split) to where it is, in SUNNY_TAIL_POINTS points.</summary>
+            /// <summary>
+            /// Where split bullet <paramref name="index"/>'s tail is at <paramref name="t"/>: from where it was a tail's length ago (not before it was split) to where it is, in SUNNY_TAIL_POINTS points. Once the
+            /// bullet has left the screen (the field ends its life then) the tail goes on out after it, from where it left: 2026-11-25, "traces disappear early" - the whole tail went the moment its bullet left.
+            /// </summary>
             private bool tailOf(BulletField f, int index, double t, List<Vector2> into)
             {
                 into.Clear();
                 var bullet = Bullets[index];
 
-                if (t <= bullet.T0 || t > bullet.Until || f.stageConsumed.Contains(Id * 65536 + index))
+                if (t <= bullet.T0 || t > bullet.Until + tailMs || f.stageConsumed.Contains(Id * 65536 + index))
                     return false;
 
+                double head = Math.Min(t, bullet.Until);
                 double back = Math.Max(t - tailMs, bullet.T0);
+
+                if (head - back < 1)
+                    return false;
+
                 int points = DanmakusuBalance.SUNNY_TAIL_POINTS;
 
                 for (int k = 0; k < points; k++)
                 {
-                    double at = back + (t - back) * k / (points - 1);
+                    double at = back + (head - back) * k / (points - 1);
 
                     if (f.stageBulletAt(bullet, at, out Vector2 position))
                         into.Add(position);
@@ -181,7 +190,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     for (int p = 0; p < tailLine.Count; p++)
                         tailWidths.Add(width * Math.Max(p / (float)(tailLine.Count - 1), 0.15f));
 
-                    f.addPlainBeam(tailLine, width, colour, DanmakusuBalance.BorderColour(colour), ref beams, ref pointTotal, tailWidths);
+                    // (its middle in its own colour too, lighter - 2026-11-25, "traces body colors are rainbow too": it was white, as a boss's beam's)
+                    var middle = new Color4(colour.R + (1f - colour.R) * DanmakusuBalance.SUNNY_TAIL_MIDDLE_LIGHT, colour.G + (1f - colour.G) * DanmakusuBalance.SUNNY_TAIL_MIDDLE_LIGHT,
+                        colour.B + (1f - colour.B) * DanmakusuBalance.SUNNY_TAIL_MIDDLE_LIGHT, 1f);
+                    f.addPlainBeam(tailLine, width, colour, DanmakusuBalance.BorderColour(colour), ref beams, ref pointTotal, tailWidths, null, middle);
                 }
             }
 

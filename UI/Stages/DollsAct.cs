@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // each stands on a yellow magic circle half as big as a boss's, drawn above everything but the fumos. Every two beats each shoots a stream - two of every four at the player, one thirty degrees to its
         // right, one to its left: an arrowhead, a plain bullet, an ellipse (it falls on towards the player, as an ellipse of a ring does) and a ricochet star (it bounces once off the edge of
         // the screen), one after another along one line, with a straight beam as long as the stream on either side of it, flying with it; the beams hurt like a slider body. The fumos themselves do not hurt.
+        // Since 2026-11-25 each beam flies ALICE_BEAM_TURN_DEGREES out from the stream's way, to its own side (they flew alongside it).
         // They go back into her over a beat when her section ends. Where each fumo is follows from the time; where each stream was aimed is kept, so time going back fires them again the same way.
         // ======================================================================================================================================================
 
@@ -223,14 +224,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 for (int side = -1; side <= 1; side += 2)
                 {
+                    // (a little out from the stream's way, to its own side: 2026-11-25 - they flew alongside it)
                     Vector2 start = from + across * side;
-                    float reach = speed * (float)f.toWall(start, v, out _) + half;
+                    Vector2 beamWay = turned(way, side * DanmakusuBalance.ALICE_BEAM_TURN_DEGREES * MathF.PI / 180f);
+                    float reach = speed * (float)f.toWall(start, beamWay * speed, out _) + half;
 
                     beams.Add(new Beam
                     {
                         T = t,
                         From = start,
-                        Way = way,
+                        Way = beamWay,
                         Speed = speed,
                         Length = length,
                         Across = reach,
