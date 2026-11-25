@@ -274,6 +274,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return;
 
                 var core = new Color4(1f, 0.32f, 0.3f, 1f);
+                var glow = new Color4(1f, 0.62f, 0.58f, 1f);
                 var border = DanmakusuBalance.BorderColour(new Color4(0.62f, 0.02f, 0.06f, 1f));
                 float half = halfWidth(f);
 
@@ -296,7 +297,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         foreach (var point in stroke)
                             line.Add(at + point * thrown.Size);
 
-                        f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal);
+                        f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal, null, null, glow); // (red all through: with a white middle, as other beams, a thin curse looked like a white slider beam - 2026-11-25)
                     }
                 }
             }

@@ -9,7 +9,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Takane Yamashiro (2026-11-25): all through her section every bullet of a ring at least TAKANE_BIG times as big as a basic one (anyone's) grabs every smaller bullet of a ring whose middle comes within
-        // TAKANE_GRAB_CIRCLES osu! circle radii of its body: the grabbed one leaves its ring and goes round the big one once every TAKANE_ORBIT_BEATS, as far out as it was grabbed, on a circle tilted
+        // TAKANE_GRAB_CIRCLES osu! circle radii of its body: the grabbed one leaves its ring and goes round the big one once every TAKANE_ORBIT_BEATS, as far out as the big one's radius and TAKANE_GRAB_CIRCLES osu!
+        // circle radii more (2026-11-25; as far out as it was grabbed before - it eases out to there over half a beat), on a circle tilted
         // towards the screen - seen as an ellipse TAKANE_ORBIT_FLAT as wide across as along, its long axis the way it was grabbed from - so that each goes round on a slant of its own, as the electrons of an
         // atom do, wherever the big one goes; at most TAKANE_MOST_GRABBED round one. When the big one is gone (it has hit, something took it, it has left the screen), what went round it flies off the way
         // it was going. That the bullets of her section fly the slower the bigger they are, and her rings of big balls, are the planner's.
@@ -242,7 +243,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     distance = 1f;
                 }
 
-                float orbit = Math.Max(distance, nucleus.Radius + stored.Radius * big * 0.5f);
+                // (as far out as the big one is big, and an osu! circle radius more: 2026-11-25 - it was as far out as it was grabbed; it eases out to there over half a beat)
+                float orbit = nucleus.Radius + f.circleRadius * DanmakusuBalance.TAKANE_GRAB_CIRCLES;
                 double hubEnd = nucleus.Ring.Time + nucleus.Ring.Lifetime + beat * 4;
                 int index = Bullets.Count;
 
@@ -259,6 +261,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     TintAmount = stored.TintAmount,
                     Shade = stored.Shade,
                     Orbit = orbit,
+                    OrbitFrom = distance,
+                    OrbitGrow = beat * 0.5,
                     OrbitOmega = MathF.Tau / (float)(beat * DanmakusuBalance.TAKANE_ORBIT_BEATS),
                     OrbitPhase = 0f,
                     OrbitFlat = DanmakusuBalance.TAKANE_ORBIT_FLAT,

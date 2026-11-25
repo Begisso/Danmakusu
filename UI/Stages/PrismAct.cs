@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // bullets, spread over 120 degrees round that way, each a third of the size and in another colour of the rainbow (the colours start from the colour of the bullet that went in); every second bullet of a ring
         // is not split: it comes out the mirrored way as it went in. The prism hurts like a slider body.
         // Where a bullet goes in or comes out the halo glows a little brighter for a moment. Like Nazrin's arrowheads the bullets in the prism are simulated step by step (they only fly straight on, but the prism turns under them).
+        // Since 2026-11-25 every one of the seven split bullets has a narrow beam for a tail, SUNNY_TAIL_BEATS of its way long, in its colour, narrowing to a point; it hurts like a slider body.
         // ======================================================================================================================================================
 
         private sealed class PrismAct : StageAct
@@ -109,7 +110,123 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 crossings.Clear();
                 flashes.Clear();
+                tailed.Clear();
+                firstTailed = 0;
+                tailShapes.Forget();
                 ClearBullets();
+            }
+
+            // ---- the tails of what the prism splits (2026-11-25, "all bullets that spread out by prism have 2 beat long small laserbeam tail") ----
+
+            /// <summary>The split bullets (in Bullets), each with the colour of its tail.</summary>
+            private readonly List<(int Index, Color4 Colour)> tailed = new List<(int, Color4)>();
+
+            private readonly MomentShapes tailShapes = new MomentShapes();
+            private readonly List<Vector2> tailLine = new List<Vector2>(8);
+            private readonly List<float> tailWidths = new List<float>(8);
+            private int firstTailed;
+
+            private double tailMs => beat * DanmakusuBalance.SUNNY_TAIL_BEATS;
+
+            /// <summary>Where split bullet <paramref name="index"/>'s tail is at <paramref name="t"/>: from where it was a tail's length ago (not before it was split) to where it is, in SUNNY_TAIL_POINTS points.</summary>
+            private bool tailOf(BulletField f, int index, double t, List<Vector2> into)
+            {
+                into.Clear();
+                var bullet = Bullets[index];
+
+                if (t <= bullet.T0 || t > bullet.Until || f.stageConsumed.Contains(Id * 65536 + index))
+                    return false;
+
+                double back = Math.Max(t - tailMs, bullet.T0);
+                int points = DanmakusuBalance.SUNNY_TAIL_POINTS;
+
+                for (int k = 0; k < points; k++)
+                {
+                    double at = back + (t - back) * k / (points - 1);
+
+                    if (f.stageBulletAt(bullet, at, out Vector2 position))
+                        into.Add(position);
+                }
+
+                return into.Count >= 2;
+            }
+
+            private float tailWidth(int index) => Bullets[index].Radius * DanmakusuBalance.SUNNY_TAIL_WIDTH;
+
+            /// <summary>(a new frame: the tails move on, and the ones long gone are passed over)</summary>
+            private void updateTails(double now)
+            {
+                tailShapes.Forget();
+
+                while (firstTailed < tailed.Count && Bullets[tailed[firstTailed].Index].Until + tailMs < now)
+                    firstTailed++;
+            }
+
+            public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
+            {
+                if (f.failed)
+                    return;
+
+                for (int k = firstTailed; k < tailed.Count; k++)
+                {
+                    var (index, colour) = tailed[k];
+
+                    if (!tailOf(f, index, t, tailLine))
+                        continue;
+
+                    // (narrowing to a point at its back end)
+                    float width = tailWidth(index);
+                    tailWidths.Clear();
+
+                    for (int p = 0; p < tailLine.Count; p++)
+                        tailWidths.Add(width * Math.Max(p / (float)(tailLine.Count - 1), 0.15f));
+
+                    f.addPlainBeam(tailLine, width, colour, DanmakusuBalance.BorderColour(colour), ref beams, ref pointTotal, tailWidths);
+                }
+            }
+
+            /// <summary>The prism hurts like a slider body (see Hurts), and so do the tails.</summary>
+            private bool tailsHurt(BulletField f, double now)
+            {
+                Vector2 player = f.characterPosition;
+                var kept = tailShapes.Kept(now);
+
+                if (kept == null && tailShapes.Begin(now) is MomentShapes.Moment fresh)
+                {
+                    for (int k = firstTailed; k < tailed.Count; k++)
+                    {
+                        if (!tailOf(f, tailed[k].Index, now, tailLine))
+                            continue;
+
+                        float reach = tailWidth(tailed[k].Index) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                        foreach (var point in tailLine)
+                            fresh.Point(point, reach);
+
+                        fresh.EndRun();
+                    }
+
+                    kept = fresh;
+                }
+
+                if (kept != null)
+                    return kept.Touches(player);
+
+                for (int k = firstTailed; k < tailed.Count; k++)
+                {
+                    if (!tailOf(f, tailed[k].Index, now, tailLine))
+                        continue;
+
+                    float reach = tailWidth(tailed[k].Index) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                    for (int p = 1; p < tailLine.Count; p++)
+                    {
+                        if (distanceToSegment(player, tailLine[p - 1], tailLine[p]) <= reach)
+                            return true;
+                    }
+                }
+
+                return false;
             }
 
             public override bool Takes(BulletField f, double t, Vector2 from, Vector2 to, BulletEmitter emitter, int bullet)
@@ -193,6 +310,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Update(BulletField f, double now)
             {
+                updateTails(now);
+
                 if (f.failed || crossings.Count == 0)
                     return;
 
@@ -295,6 +414,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 velocity = outOf(new Vector2(MathF.Cos(angle), MathF.Sin(angle)), outward) * crossing.Speed;
                     int tint = rainbow[(i + offset) % rainbow.Length];
 
+                    int index = Bullets.Count;
+
                     AddBullet(new StageBullet
                     {
                         T0 = crossing.Time,
@@ -308,6 +429,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         TintAmount = 1f,
                         Until = crossing.Time + f.stageLife(velocity),
                     });
+
+                    if (Bullets.Count > index)
+                        tailed.Add((index, BulletRenderer.SpecialBodies[tint - 1])); // (with a tail of its colour behind it: 2026-11-25)
                 }
 
                 flash(crossing.Time, crossing.Position, BulletRenderer.SpecialBodies[rainbow[(3 + offset) % rainbow.Length] - 1]);
@@ -321,7 +445,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float radius = radiusOf(f);
                 Vector2 q = f.characterPosition - centreOf(f);
 
-                return q.LengthSquared <= (radius + 4f) * (radius + 4f) && inside(q, angleAt(now), radius, DanmakusuBalance.PLAYER_HITBOX_RADIUS);
+                return (q.LengthSquared <= (radius + 4f) * (radius + 4f) && inside(q, angleAt(now), radius, DanmakusuBalance.PLAYER_HITBOX_RADIUS)) || tailsHurt(f, now);
             }
 
             public override void Draw(BulletField f, double t)

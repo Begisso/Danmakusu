@@ -248,22 +248,30 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (presence(t) < 0.5f)
                     return false; // (her wings are not out yet, or not any more)
 
+                // (every bullet comes out twice, of two wings in turn: 2026-11-25, "double the bullets count" - with the gap halved, every stream is twice as dense)
+                int copies = DanmakusuBalance.SHINKI_BULLET_COPIES;
+
                 if (!bases.TryGetValue(emitter, out long first))
                 {
                     bases[emitter] = first = counted;
-                    counted += emitter.Count;
+                    counted += (long)emitter.Count * copies;
                 }
 
-                // (the six wings in turn; a wing's share of one ring comes out one after another)
-                long number = first + bullet;
-                int w = (int)(number % DanmakusuBalance.SHINKI_WINGS);
-                double at = Math.Max(emitter.Time, Start) + (number / DanmakusuBalance.SHINKI_WINGS - first / DanmakusuBalance.SHINKI_WINGS) * beat * DanmakusuBalance.SHINKI_STREAM_GAP_BEATS;
-
                 var stored = f.makeStored(emitter, t);
-                float angle = streamAngle(w, at);
-                Vector2 velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * stored.Speed;
 
-                AddBullet(f.makeStageBullet(stored, emitter, bullet, at, wingMiddle(f, w, at), velocity));
+                for (int copy = 0; copy < copies; copy++)
+                {
+                    // (the six wings in turn; a wing's share of one ring comes out one after another)
+                    long number = first + (long)bullet * copies + copy;
+                    int w = (int)(number % DanmakusuBalance.SHINKI_WINGS);
+                    double at = Math.Max(emitter.Time, Start) + (number / DanmakusuBalance.SHINKI_WINGS - first / DanmakusuBalance.SHINKI_WINGS) * beat * DanmakusuBalance.SHINKI_STREAM_GAP_BEATS;
+
+                    float angle = streamAngle(w, at);
+                    Vector2 velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * stored.Speed;
+
+                    AddBullet(f.makeStageBullet(stored, emitter, bullet, at, wingMiddle(f, w, at), velocity));
+                }
+
                 return true;
             }
         }

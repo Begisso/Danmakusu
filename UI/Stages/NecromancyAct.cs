@@ -10,7 +10,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Seiga Kaku: every second bullet that goes out through a wall of the playfield while she attacks (the bullets of the hit objects and the other boss too) comes back. It turns round where it went out, flies the way it came at a
         // quarter of its speed as a paper talisman (whatever it was), and fades out once sixteen beats have passed. Under it, the bullet that went out comes back too, tinted brown and harmless (2026-11-22).
         // Like the bullets of any act it is a function of time: a straight line from the wall.
-        // Yoshika Miyako (2026-11-13) does the same with every fourth bullet, which comes back at its own speed as a talisman YOSHIKA_TALISMAN_SIZE times as big. Since 2026-11-22 it comes back along a curve
+        // Yoshika Miyako (2026-11-13) does the same with every fourth bullet, which comes back at its own speed as a talisman YOSHIKA_TALISMAN_SIZE times as big, straight back the way it came since 2026-11-25
+        // ("remove spinning"), its train behind it. From 2026-11-22 until then it came back along a curve
         // as Aunn's beams do: bending ever more over its first YOSHIKA_CURL_CIRCLES circle radii, once round a loop YOSHIKA_LOOP_BIG wide, once round one YOSHIKA_LOOP_SMALL wide, then straight on out of the
         // screen (each one curling the other way from the last; legs every few px, so all of it is worked out when the bullet turns and known before it comes), and a train of its copies as long as it goes in YOSHIKA_TRAIN_BEATS
         // follows it end to end along the same legs, as the body of Aunn's beam follows its head. (Until then its copies stood where it left them for eight beats - since the curve, rings
@@ -134,37 +135,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (speed < 1e-4f)
                     return false;
 
-                float circle = f.circleRadius;
-                float curl = circle * DanmakusuBalance.YOSHIKA_CURL_CIRCLES, big = circle * DanmakusuBalance.YOSHIKA_LOOP_BIG, small = circle * DanmakusuBalance.YOSHIKA_LOOP_SMALL;
-                float total = curl + MathF.Tau * (big + small) + circle * DanmakusuBalance.YOSHIKA_STRAIGHT_CIRCLES;
-                float side = ((Math.Abs((long)emitter.Time) / Math.Max(every, 1) + bullet) & 1) == 0 ? 1f : -1f;
-                float heading = MathF.Atan2(velocity.Y, velocity.X);
-
-                // (how much it turns per px at s along the curve: ever more over the curl, then a loop's worth, then the other's, then none)
-                float bend(float s) => s < curl ? s / curl / big : s < curl + MathF.Tau * big ? 1f / big : s < curl + MathF.Tau * (big + small) ? 1f / small : 0f;
-
-                const float step = 8f;
-                int steps = Math.Clamp((int)MathF.Ceiling(total / step), 2, 400);
-                var legs = new StageLeg[steps];
-                Vector2 p = wall;
-                float angle = heading;
-
-                // (a leg every step of its way, each along the heading half way through that step, so that the legs meet end to end)
-                for (int k = 0; k < steps; k++)
-                {
-                    float turn = side * bend((k + 0.5f) * step) * step;
-                    float middle = angle + turn * 0.5f;
-                    Vector2 way = new Vector2(MathF.Cos(middle), MathF.Sin(middle));
-
-                    legs[k] = new StageLeg { T = crossed + k * step / speed, P = p, V = way * speed };
-                    p += way * step;
-                    angle += turn;
-                }
-
-                // (after its curve it flies straight on, the way its last leg goes, out of the screen: gone there)
-                double over = crossed + steps * step / speed;
-                double until = over + f.stageLife(legs[^1].V);
-                b.Legs = legs;
+                // (straight back the way it came, out of the screen: 2026-11-25, "remove spinning" - from 2026-11-22 it went round a big loop and a small one first, as Aunn's beams do)
+                double until = crossed + f.stageLife(velocity);
+                b.Legs = new[] { new StageLeg { T = crossed, P = wall, V = velocity } };
                 b.AlphaFrom = until - DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
                 b.AlphaOver = DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
                 b.Until = until;

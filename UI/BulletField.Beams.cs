@@ -542,7 +542,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public static Action<string>? EarlyGoneProbe;
 
         /// <summary>A beam through <paramref name="points"/>, <paramref name="halfWidth"/> wide everywhere (or <paramref name="widths"/> at each point, at most that), that glows like a boss's beam (the beams behind Sekibanki's heads).</summary>
-        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null)
+        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null, Color4? core = null)
         {
             int length = points.Count;
 
@@ -597,6 +597,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Glow = true,
                 Colour = colour,
                 BorderColour = border,
+                CoreColour = core ?? default, // (its middle in this colour instead of white: Noroiko's curses, red all through - 2026-11-25)
                 Speed = 0.01f,
             };
 

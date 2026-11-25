@@ -244,7 +244,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
                 {
                     foreach (var (start, end) in BossOps.Attacks(period))
                     {
-                        if (end > start)
+                        if (end > start && DanmakusuBalance.MUGETSU_SLOWED < 1) // (none since 2026-11-25: "restore bullets normal speed")
                             windows.Add((start, end, 0f, DanmakusuBalance.MUGETSU_SLOWED, DanmakusuBalance.MUGETSU_SLOWED, (int)BossMechanic.Crescent));
                     }
 

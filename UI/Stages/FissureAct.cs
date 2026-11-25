@@ -24,6 +24,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // 2026-11-24: the jags a little sharper, more and longer branches, each with a twig and the longer ones two; the glow follows the crack's line smoothed (it folded into wedges round the jags' corners);
         // the impact frame follows only the crack's widest bend, in finer pieces, round at both ends (where its band folded over itself it turned back in jagged slivers), and its stars are on and round the
         // crack (they were by the edges of the screen); two ellipses at the wall, not four.
+        // 2026-11-25: the lava picture is laid flat over the ground, the same size on every crack and going on across their corners and where they meet (it was laid along each crack: sheared at its
+        // jags and as big as the crack was wide); the crust is as thick on every crack (SUIKA_CRUST_CIRCLES); the branches and twigs end in a point; the impact frame's band and stars have soft edges (a
+        // strip a pixel and a half wide round them, ImpactStarLayer.AddOutline); the stars come over the last beat before it explodes (two).
         // ======================================================================================================================================================
 
         private sealed class FissureAct : StageAct
@@ -355,7 +358,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float u = i / (points - 1f);
                     float zig = jag(k * 311 + c * 7 + j, u, 0.3f) * length * 0.12f * smoothStep(u / 0.25f);
                     crack.Add(root + way * (length * u) + across * zig);
-                    crackWidths.Add(width * (1f - 0.85f * u));
+                    crackWidths.Add(width * (1f - u)); // (to a point: 2026-11-25, "why branches are not sharp" - it ended at 15 % of its width, round)
                 }
             }
 
@@ -511,7 +514,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     float s = grown * i / (points - 1);
                     crack.Add(pointOf(branch, root, way, s));
-                    crackWidths.Add(rootWidth * (1f - 0.8f * s / branch.Length));
+                    crackWidths.Add(rootWidth * (1f - s / branch.Length)); // (to a point, 2026-11-25: it ended at a fifth of its width, round)
                 }
 
                 return true;
@@ -557,7 +560,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         float s0 = branch.Length * (i - 1) / (points - 1), s = branch.Length * i / (points - 1);
                         Vector2 point = pointOf(branch, root, way, s);
-                        pieces.Add(new FissurePiece { A = last, B = point, Width = rootWidth * (1f - 0.8f * s0 / Math.Max(branch.Length, 1f)), From = rootDepth + s0, To = rootDepth + s, Branch = b });
+                        pieces.Add(new FissurePiece { A = last, B = point, Width = rootWidth * (1f - s0 / Math.Max(branch.Length, 1f)), From = rootDepth + s0, To = rootDepth + s, Branch = b });
                         last = point;
                     }
                 }
@@ -609,7 +612,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float s = parent.Length * branch.Along;
                 root = pointOf(parent, parentRoot, parentWay, s);
                 way = turned(parentWay, branch.Turn);
-                rootWidth = parentWidth * (1f - 0.8f * branch.Along) * branch.Width;
+                rootWidth = parentWidth * (1f - branch.Along) * branch.Width;
                 rootDepth = parentDepth + s;
             }
 
@@ -948,6 +951,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (bandRuns.Count == 0)
                     return;
 
+                crustPx = f.circleRadius * DanmakusuBalance.SUIKA_CRUST_CIRCLES;
+
                 // (from the middle out, as shares of the half width: where each layer begins and ends, and its colour at its inner and outer edge. Inside the crust it is lava - the lava picture, end to end
                 // without a seam: 2026-11-22, "magma crack has texture inside, seamless"; it was orange going yellow, with a white-hot vein)
                 for (int layer = 0; layer < 3; layer++)
@@ -980,8 +985,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 far = new Color4(0.9f, 0.22f, 0.04f, 0f);
                                 break;
 
-                            default: // (the dark crust: half as thick since 2026-11-14)
-                                from = lava_share;
+                            default: // (the dark crust: half as thick since 2026-11-14; as thick everywhere since 2026-11-25, SUIKA_CRUST_CIRCLES - from the lava's edge at each point, set below)
+                                from = 0f;
                                 to = 1f;
                                 near = new Color4(0.42f, 0.09f, 0.03f, heat);
                                 far = new Color4(0.12f, 0.035f, 0.02f, heat);
@@ -1006,15 +1011,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 inner.A *= glow;
                             }
 
-                            f.stageMeshes.Add(new MeshQuad { A = a + sa * from, B = b + sb * from, C = a + sa * to, D = b + sb * to, Near = inner, Far = far });
-                            f.stageMeshes.Add(new MeshQuad { A = a - sa * from, B = b - sb * from, C = a - sa * to, D = b - sb * to, Near = inner, Far = far });
+                            float fromA = layer == 1 ? lavaShare(i - 1) : from, fromB = layer == 1 ? lavaShare(i) : from;
+                            f.stageMeshes.Add(new MeshQuad { A = a + sa * fromA, B = b + sb * fromB, C = a + sa * to, D = b + sb * to, Near = inner, Far = far });
+                            f.stageMeshes.Add(new MeshQuad { A = a - sa * fromA, B = b - sb * fromB, C = a - sa * to, D = b - sb * to, Near = inner, Far = far });
                         }
 
                         // (round ends, as a branch of Yuyuko's tree has - 2026-11-21: the layer goes on round the end in a half circle; not where a crack grows out of another, which it starts inside)
-                        roundEnd(f, start + count - 1, start + count - 2, from, to, near, far, vein, layer == 0);
+                        roundEnd(f, start + count - 1, start + count - 2, layer == 1 ? lavaShare(start + count - 1) : from, to, near, far, vein, layer == 0);
 
                         if (bandGlows[start] >= 0.999f)
-                            roundEnd(f, start, start + 1, from, to, near, far, vein, layer == 0);
+                            roundEnd(f, start, start + 1, layer == 1 ? lavaShare(start) : from, to, near, far, vein, layer == 0);
                     }
                 }
 
@@ -1123,65 +1129,126 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>How far out the glow goes, a share of the crack's half width from its middle (1.75 from the edge of its jags until 2026-11-24).</summary>
             private const float glow_out = 1.9f;
 
-            /// <summary>How far in from its edge the lava of a crack goes (a share of its half width): to the crust.</summary>
-            private const float lava_share = 0.87f;
+            /// <summary>How thick the crust is this frame (px): the same on every crack (2026-11-25; it was 13 % of the crack's half width).</summary>
+            private float crustPx;
+
+            /// <summary>How far out from the middle the lava of a crack goes at band point <paramref name="i"/> (a share of its half width): to the crust, nothing where the crack is no wider than the crust is thick.</summary>
+            private float lavaShare(int i) => bandWidths[i] > crustPx ? 1f - crustPx / bandWidths[i] : 0f;
 
             /// <summary>
-            /// The lava of one crack (band points <paramref name="start"/> on): the lava picture laid along it, its width across the crack's widest, so that it keeps its size as the crack narrows (narrower, less of
-            /// it shows), going round the picture as it goes on - each piece cut where the picture starts again, so no piece stretches over its end; round at its ends, as the rest of the crack.
+            /// The lava of one crack (band points <paramref name="start"/> on): the lava picture laid flat over the ground (2026-11-25, "magma texture is inconsistently splitting and stretching": it was laid along
+            /// the crack, as big as the crack was wide, so it was sheared across the pieces at every jag, of another size on every crack and cut where one crack met another). Every piece is cut where the
+            /// picture starts again, so that each corner has its own place on it and no piece goes over its edge; round at its ends, as the rest of the crack.
             /// </summary>
             private void lavaRun(BulletField f, int start, int count, float heat)
             {
-                float widest = 1f;
-
-                for (int i = start; i < start + count; i++)
-                    widest = Math.Max(widest, bandWidths[i]);
-
-                // (the picture is twice as long as it is tall: across the crack's widest it is that tall)
-                float tile = widest * 2f * 2f;
+                // (the picture is twice as wide as it is tall)
+                float tileWidth = f.circleRadius * DanmakusuBalance.SUIKA_LAVA_TILE_CIRCLES, tileHeight = tileWidth * 0.5f;
                 var colour = new Color4(1f, 1f, 1f, heat);
-                float travelled = 0f;
 
                 for (int i = start + 1; i < start + count; i++)
                 {
                     Vector2 a = bandPoints[i - 1], b = bandPoints[i];
-                    Vector2 sa = bandSides[i - 1] * (bandWidths[i - 1] * lava_share), sb = bandSides[i] * (bandWidths[i] * lava_share);
-                    float length = (b - a).Length;
-                    float u0 = travelled / tile, u1 = (travelled + length) / tile;
-                    travelled += length;
+                    Vector2 sa = bandSides[i - 1] * (bandWidths[i - 1] * lavaShare(i - 1)), sb = bandSides[i] * (bandWidths[i] * lavaShare(i));
 
-                    // (cut where the picture starts again: a piece for every repeat of it the piece goes through)
-                    if (u1 - u0 < 1e-6f)
+                    if (sa.LengthSquared < 1e-6f && sb.LengthSquared < 1e-6f)
                         continue;
 
-                    int firstTile = (int)MathF.Floor(u0), lastTile = Math.Min((int)MathF.Floor(u1 - 1e-6f), firstTile + 8);
-
-                    for (int tileNumber = firstTile; tileNumber <= lastTile; tileNumber++)
-                    {
-                        float uFrom = Math.Max(u0, tileNumber), uTo = Math.Min(u1, tileNumber + 1f);
-
-                        if (uTo - uFrom < 1e-6f)
-                            continue;
-
-                        float from = (uFrom - u0) / (u1 - u0), to = (uTo - u0) / (u1 - u0);
-                        Vector2 pFrom = Vector2.Lerp(a, b, from), pTo = Vector2.Lerp(a, b, to);
-                        Vector2 sFrom = Vector2.Lerp(sa, sb, from), sTo = Vector2.Lerp(sa, sb, to);
-                        float across = Math.Min((sFrom.Length + sTo.Length) * 0.5f / (2f * widest), 0.5f); // (how much of the picture's height shows here)
-
-                        f.stageMeshes.Add(new MeshQuad
-                        {
-                            A = pFrom + sFrom, B = pTo + sTo, C = pFrom - sFrom, D = pTo - sTo, Near = colour, Far = colour,
-                            Lava = true, Uv = new osu.Framework.Graphics.Primitives.RectangleF(uFrom - tileNumber, 0.5f - across, uTo - uFrom, across * 2f),
-                        });
-                    }
+                    // (its corners round the piece: down one side, back along the other)
+                    lavaPolygon.Clear();
+                    lavaPolygon.Add(a - sa);
+                    lavaPolygon.Add(a + sa);
+                    lavaPolygon.Add(b + sb);
+                    lavaPolygon.Add(b - sb);
+                    lavaPiece(f, colour, tileWidth, tileHeight);
                 }
 
                 // (the round ends: the dark rock of the lava, under the crust - not where a crack grows out of another)
                 var rock = new Color4(0.22f, 0.06f, 0.03f, heat);
-                roundEnd(f, start + count - 1, start + count - 2, 0f, lava_share, rock, rock, false, false);
+                roundEnd(f, start + count - 1, start + count - 2, 0f, lavaShare(start + count - 1), rock, rock, false, false);
 
                 if (bandGlows[start] >= 0.999f)
-                    roundEnd(f, start, start + 1, 0f, lava_share, rock, rock, false, false);
+                    roundEnd(f, start, start + 1, 0f, lavaShare(start), rock, rock, false, false);
+            }
+
+            private readonly List<Vector2> lavaPolygon = new List<Vector2>();
+            private readonly List<Vector2> lavaClipped = new List<Vector2>();
+
+            /// <summary>The piece of lava in <see cref="lavaPolygon"/>, cut by every repeat of the picture it lies on, each part with its corners' places on the picture.</summary>
+            private void lavaPiece(BulletField f, Color4 colour, float tileWidth, float tileHeight)
+            {
+                float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+
+                foreach (var p in lavaPolygon)
+                {
+                    minX = Math.Min(minX, p.X);
+                    minY = Math.Min(minY, p.Y);
+                    maxX = Math.Max(maxX, p.X);
+                    maxY = Math.Max(maxY, p.Y);
+                }
+
+                int fromX = (int)MathF.Floor(minX / tileWidth), toX = Math.Min((int)MathF.Floor(maxX / tileWidth), fromX + 4);
+                int fromY = (int)MathF.Floor(minY / tileHeight), toY = Math.Min((int)MathF.Floor(maxY / tileHeight), fromY + 4);
+
+                for (int ty = fromY; ty <= toY; ty++)
+                {
+                    for (int tx = fromX; tx <= toX; tx++)
+                    {
+                        float left = tx * tileWidth, top = ty * tileHeight;
+
+                        lavaClipped.Clear();
+                        lavaClipped.AddRange(lavaPolygon);
+                        clipBy(0, left, 1f);
+                        clipBy(0, left + tileWidth, -1f);
+                        clipBy(1, top, 1f);
+                        clipBy(1, top + tileHeight, -1f);
+
+                        if (lavaClipped.Count < 3)
+                            continue;
+
+                        Vector2 uvOf(Vector2 p) => new Vector2(Math.Clamp((p.X - left) / tileWidth, 0f, 1f), Math.Clamp((p.Y - top) / tileHeight, 0f, 1f));
+
+                        // (a fan from its first corner, two triangles to a piece; C, A, B, D go round a piece)
+                        Vector2 first = lavaClipped[0];
+
+                        for (int j = 1; j + 1 < lavaClipped.Count; j += 2)
+                        {
+                            Vector2 p1 = lavaClipped[j], p2 = lavaClipped[j + 1], p3 = j + 2 < lavaClipped.Count ? lavaClipped[j + 2] : first;
+
+                            f.stageMeshes.Add(new MeshQuad
+                            {
+                                C = first, A = p1, B = p2, D = p3, Near = colour, Far = colour,
+                                Lava = true, UvC = uvOf(first), UvA = uvOf(p1), UvB = uvOf(p2), UvD = uvOf(p3),
+                            });
+                        }
+                    }
+                }
+            }
+
+            private readonly List<Vector2> clipScratch = new List<Vector2>();
+
+            /// <summary>Cuts <see cref="lavaClipped"/> by a line across x (<paramref name="axis"/> 0) or y (1) at <paramref name="at"/>, keeping what is on its <paramref name="keep"/> side (1 above it, -1 below).</summary>
+            private void clipBy(int axis, float at, float keep)
+            {
+                if (lavaClipped.Count == 0)
+                    return;
+
+                clipScratch.Clear();
+
+                for (int i = 0; i < lavaClipped.Count; i++)
+                {
+                    Vector2 p = lavaClipped[i], q = lavaClipped[(i + 1) % lavaClipped.Count];
+                    float dp = ((axis == 0 ? p.X : p.Y) - at) * keep, dq = ((axis == 0 ? q.X : q.Y) - at) * keep;
+
+                    if (dp >= 0f)
+                        clipScratch.Add(p);
+
+                    if ((dp >= 0f) != (dq >= 0f))
+                        clipScratch.Add(Vector2.Lerp(p, q, dp / (dp - dq)));
+                }
+
+                lavaClipped.Clear();
+                lavaClipped.AddRange(clipScratch);
             }
 
             /// <summary>One layer of the round end of a crack at band point <paramref name="end"/> (the point before it is <paramref name="before"/>): a half circle beyond it, between the layer's shares of its width.</summary>
@@ -1251,6 +1318,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 previousPoint = bandLineAt(k, 0f), previousSide = Vector2.Zero;
                 float previousWidth = 0f;
                 Vector2 firstSide = Vector2.Zero, lastSide = Vector2.Zero;
+                bandLeft.Clear();
+                bandRight.Clear();
 
                 for (int i = 0; i <= steps; i++)
                 {
@@ -1265,6 +1334,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     else
                         firstSide = side;
 
+                    bandLeft.Add(point + side * width);
+                    bandRight.Add(point - side * width);
                     lastSide = side;
                     previousPoint = point;
                     previousSide = side;
@@ -1274,8 +1345,36 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bandCap(f, bandLineAt(k, 0f), firstSide, bandWidthAt(f, k, 0f), -1f);
                 bandCap(f, bandLineAt(k, 1f), lastSide, bandWidthAt(f, k, 1f), 1f);
 
+                // (its outline, for its soft edge - 2026-11-25, "why explosion impact frame area edges are not smooth as asked several times": a shape's edge falls between the pixels of the screen in
+                // steps unless it is softened over a pixel or so. Up one side, round the far end, back down the other side and round the near end, through the very corners of its pieces)
+                bandOutline.Clear();
+                bandOutline.AddRange(bandLeft);
+                capOutline(bandLineAt(k, 1f), lastSide, bandWidthAt(f, k, 1f), 1f);
+
+                for (int i = bandRight.Count - 1; i >= 0; i--)
+                    bandOutline.Add(bandRight[i]);
+
+                capOutline(bandLineAt(k, 0f), firstSide, bandWidthAt(f, k, 0f), -1f);
+                f.impactStars.AddOutline(bandOutline);
+
                 impactStarsOf(f, k, flash);
                 f.impactStars.ShapesDone();
+            }
+
+            private readonly List<Vector2> bandLeft = new List<Vector2>(), bandRight = new List<Vector2>(), bandOutline = new List<Vector2>();
+
+            /// <summary>The arc of a round end of the impact frame's band (as <see cref="bandCap"/> makes it, without its two ends, which are the sides' last points) onto <see cref="bandOutline"/>, from the left side round.</summary>
+            private void capOutline(Vector2 at, Vector2 side, float width, float forward)
+            {
+                const int segments = 24; // (as bandCap)
+                Vector2 ahead = new Vector2(side.Y, -side.X) * forward;
+
+                // (the far end goes from the left side round to the right; the near end, coming back up the right side, from the right round to the left)
+                for (int j = 1; j < segments; j++)
+                {
+                    float a = MathF.PI * (forward > 0f ? j : segments - j) / segments;
+                    bandOutline.Add(at + (side * MathF.Cos(a) + ahead * MathF.Sin(a)) * width);
+                }
             }
 
             /// <summary>The line the impact frame follows (2026-11-24): the crack's widest bend only, gentle enough for the band round it not to fold over itself.</summary>

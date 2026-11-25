@@ -1,6 +1,7 @@
 using System;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Rendering;
 using osu.Framework.Graphics.Sprites;
@@ -41,13 +42,46 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             Texture = renderer.WhitePixel;
         }
 
+        // (the outlines of the shapes, each a closed run of points, for their soft edges)
+        private Vector2[] outline = new Vector2[1024];
+        private int outlineCount;
+        private int[] runStarts = new int[64], runCounts = new int[64];
+        private int runCount;
+
         public void ClearShapes()
         {
-            if (cornerCount == 0)
+            if (cornerCount == 0 && outlineCount == 0)
                 return;
 
             cornerCount = 0;
+            outlineCount = 0;
+            runCount = 0;
             Invalidate(Invalidation.DrawNode);
+        }
+
+        /// <summary>
+        /// The outline of a shape made of pieces (its points round it, either way round, without its first point again at the end): a soft edge is drawn just outside it, a pixel and a half wide on the
+        /// screen, half turned inside out at its middle - so that the shape's edge is smooth rather than in steps (2026-11-25, Suika's impact frame: "edges are not smooth as asked several times").
+        /// </summary>
+        public void AddOutline(System.Collections.Generic.List<Vector2> points)
+        {
+            if (points.Count < 3)
+                return;
+
+            if (outlineCount + points.Count > outline.Length)
+                Array.Resize(ref outline, Math.Max(outline.Length * 2, outlineCount + points.Count));
+
+            if (runCount == runStarts.Length)
+            {
+                Array.Resize(ref runStarts, runStarts.Length * 2);
+                Array.Resize(ref runCounts, runCounts.Length * 2);
+            }
+
+            runStarts[runCount] = outlineCount;
+            runCounts[runCount++] = points.Count;
+
+            foreach (var p in points)
+                outline[outlineCount++] = p;
         }
 
         /// <summary>One piece: <paramref name="a"/> to <paramref name="b"/> along one side and <paramref name="c"/> to <paramref name="d"/> along the other.</summary>
@@ -79,6 +113,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
             }
 
+            private Vector2[] outline = new Vector2[1024];
+            private int outlineCount;
+            private int[] runStarts = new int[64], runCounts = new int[64];
+            private int runCount;
+            private Vector2[] screen = new Vector2[256], normals = new Vector2[256];
+
             public override void ApplyState()
             {
                 base.ApplyState();
@@ -89,7 +129,26 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     corners = new Vector2[Source.corners.Length];
 
                 Array.Copy(Source.corners, corners, count);
+
+                outlineCount = Source.outlineCount;
+                runCount = Source.runCount;
+
+                if (outline.Length < outlineCount)
+                    outline = new Vector2[Source.outline.Length];
+
+                if (runStarts.Length < runCount)
+                {
+                    runStarts = new int[Source.runStarts.Length];
+                    runCounts = new int[Source.runCounts.Length];
+                }
+
+                Array.Copy(Source.outline, outline, outlineCount);
+                Array.Copy(Source.runStarts, runStarts, runCount);
+                Array.Copy(Source.runCounts, runCounts, runCount);
             }
+
+            /// <summary>How wide the soft edge round a shape is, in pixels of the screen.</summary>
+            private const float feather_px = 1.5f;
 
             protected override void Blit(IRenderer renderer)
             {
@@ -102,6 +161,60 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Vector2Extensions.Transform(corners[i + 3], DrawInfo.Matrix));
 
                     renderer.DrawQuad(pixel, piece, Color4.White, textureCoords: pixelCoords);
+                }
+
+                // (the soft edges: a strip outside every outline, fully turned at the shape's edge and not at all at its outer edge. What is drawn here is not premultiplied by the renderer, and the
+                // blending turns by the colour and keeps by the alpha, so both go down together: half way out, half of what is under it shows turned)
+                var edge = ColourInfo.GradientVertical(Color4.White, new Color4(0f, 0f, 0f, 0f));
+
+                for (int r = 0; r < runCount; r++)
+                {
+                    int start = runStarts[r], n = runCounts[r];
+
+                    if (screen.Length < n)
+                    {
+                        screen = new Vector2[n * 2];
+                        normals = new Vector2[n * 2];
+                    }
+
+                    float area = 0f;
+
+                    for (int i = 0; i < n; i++)
+                        screen[i] = Vector2Extensions.Transform(outline[start + i], DrawInfo.Matrix);
+
+                    for (int i = 0; i < n; i++)
+                    {
+                        Vector2 p = screen[i], q = screen[(i + 1) % n];
+                        area += p.X * q.Y - q.X * p.Y;
+                    }
+
+                    float outward = area > 0f ? 1f : -1f;
+
+                    // (at every point, out between its two edges, longer at a corner so that the strip keeps its width - at most twice)
+                    for (int i = 0; i < n; i++)
+                    {
+                        Vector2 before = screen[i] - screen[(i + n - 1) % n], after = screen[(i + 1) % n] - screen[i];
+                        Vector2 nb = before.LengthSquared > 1e-6f ? Vector2.Normalize(new Vector2(before.Y, -before.X)) * outward : Vector2.Zero;
+                        Vector2 na = after.LengthSquared > 1e-6f ? Vector2.Normalize(new Vector2(after.Y, -after.X)) * outward : nb;
+
+                        if (nb == Vector2.Zero)
+                            nb = na;
+
+                        Vector2 normal = nb + na;
+                        normal = normal.LengthSquared > 1e-6f ? Vector2.Normalize(normal) : na;
+                        float stretch = Math.Min(1f / Math.Max(Vector2.Dot(normal, na), 0.5f), 2f);
+                        normals[i] = normal * (feather_px * stretch);
+                    }
+
+                    for (int i = 0; i < n; i++)
+                    {
+                        int j = (i + 1) % n;
+
+                        if ((screen[j] - screen[i]).LengthSquared < 1e-6f)
+                            continue;
+
+                        renderer.DrawQuad(pixel, new Quad(screen[i], screen[j], screen[i] + normals[i], screen[j] + normals[j]), edge, textureCoords: pixelCoords);
+                    }
                 }
             }
 

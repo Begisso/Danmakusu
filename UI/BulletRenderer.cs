@@ -4,6 +4,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Primitives;
 using osu.Framework.Graphics.Rendering;
+using osu.Framework.Graphics.Rendering.Vertices;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
 using osu.Game.Rulesets.Danmakusu.Bullets;
@@ -26,12 +27,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public Color4 Near, Far;
 
         /// <summary>
-        /// The piece shows the lava picture (Suika's cracks, 2026-11-22: <see cref="StageLayer.BakeLava"/>, which repeats along its width without a seam) instead of a flat colour: <see cref="Uv"/> is the part of the picture
-        /// it shows (in shares of the picture: x along the crack, y across it; <see cref="A"/> - <see cref="B"/> along its top), in <see cref="Near"/>.
+        /// The piece shows the lava picture (Suika's cracks, 2026-11-22: <see cref="StageLayer.BakeLava"/>, which repeats both ways without a seam) instead of a flat colour, in <see cref="Near"/>: each corner
+        /// shows the place of the picture its Uv says (shares of the picture, 0..1), so a piece may lie on the picture at any angle (2026-11-25: the picture is laid flat over the ground, not along the crack).
         /// </summary>
         public bool Lava;
 
-        public RectangleF Uv;
+        public Vector2 UvA, UvB, UvC, UvD;
     }
 
     /// <summary>A picture drawn between the beams and the bullets (Tojiko's clouds: over her lightning and her rain, under every other bullet).</summary>
@@ -771,6 +772,42 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public BulletDrawNode(BulletRenderer source)
                 : base(source)
             {
+                lavaVertex = addLavaVertex;
+            }
+
+            // (the lava's pieces go through a batch of their own: each corner is given its own place on the picture as it is added - 2026-11-25, the picture laid flat over the ground)
+            private IVertexBatch<TexturedVertex2D>? lavaBatch;
+            private readonly Action<TexturedVertex2D> lavaVertex;
+            private readonly Vector2[] lavaCorners = new Vector2[4];
+            private readonly Vector2[] lavaUvs = new Vector2[4];
+
+            private void addLavaVertex(TexturedVertex2D vertex)
+            {
+                // (which corner it is: the nearest of the four)
+                int corner = 0;
+                float nearest = float.MaxValue;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    float distance = (vertex.Position - lavaCorners[i]).LengthSquared;
+
+                    if (distance < nearest)
+                    {
+                        nearest = distance;
+                        corner = i;
+                    }
+                }
+
+                Vector2 uv = lavaUvs[corner];
+                Vector4 rect = vertex.TextureRect;
+                vertex.TexturePosition = new Vector2(rect.X + (rect.Z - rect.X) * uv.X, rect.Y + (rect.W - rect.Y) * uv.Y);
+                lavaBatch!.Add(vertex);
+            }
+
+            protected override void Dispose(bool isDisposing)
+            {
+                base.Dispose(isDisposing);
+                lavaBatch?.Dispose();
             }
 
             public override void ApplyState()
@@ -922,11 +959,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var corners = new Quad(Vector2Extensions.Transform(piece.A, DrawInfo.Matrix), Vector2Extensions.Transform(piece.B, DrawInfo.Matrix), Vector2Extensions.Transform(piece.C, DrawInfo.Matrix),
                         Vector2Extensions.Transform(piece.D, DrawInfo.Matrix));
 
-                    // (a piece of lava: its part of the lava picture)
+                    // (a piece of lava: every corner at its own place on the lava picture)
                     if (piece.Lava && lavaTexture != null)
                     {
-                        var uv = new RectangleF(piece.Uv.X * lavaTexture.DisplayWidth, piece.Uv.Y * lavaTexture.DisplayHeight, piece.Uv.Width * lavaTexture.DisplayWidth, piece.Uv.Height * lavaTexture.DisplayHeight);
-                        renderer.DrawQuad(lavaTexture, corners, ColourInfo.GradientVertical(piece.Near, piece.Far), textureCoords: uv);
+                        lavaBatch ??= renderer.CreateQuadBatch<TexturedVertex2D>(2048, 8);
+                        lavaCorners[0] = corners.TopLeft;
+                        lavaCorners[1] = corners.TopRight;
+                        lavaCorners[2] = corners.BottomLeft;
+                        lavaCorners[3] = corners.BottomRight;
+                        lavaUvs[0] = piece.UvA;
+                        lavaUvs[1] = piece.UvB;
+                        lavaUvs[2] = piece.UvC;
+                        lavaUvs[3] = piece.UvD;
+                        renderer.DrawQuad(lavaTexture, corners, ColourInfo.GradientVertical(piece.Near, piece.Far), vertexAction: lavaVertex,
+                            textureCoords: new RectangleF(0, 0, lavaTexture.DisplayWidth, lavaTexture.DisplayHeight));
                         continue;
                     }
 

@@ -416,7 +416,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Futo: at the wall a bullet has this share of its speed; her boat (the user's picture, Resources/Textures/futo_boat.png: as wide as its picture is for its length) is this many circle radii from middle to tip and flies at
         /// this many times a bullet's speed. What gets into it slides out to its nearest edge at this many times the boat's and the bullet's own speed together (fast, but not at once), and flies on as fast as it flew.
         /// </summary>
-        public const float FUTO_SPEED_AT_WALL = 0.3f;
+        public const float FUTO_SPEED_AT_WALL = 0.25f; // (0.3 until 2026-11-25: "minimal speed 0.25x")
 
         public const float FUTO_BOAT_CIRCLES = 5f; // (half its length: twice the 5 it was; 10 until 2026-11-22: half as big again)
         public const float FUTO_BOAT_SPEED = 3f; // (1.5 until 2026-11-24: "double the speed")
@@ -629,13 +629,13 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Mugetsu's vortex: in her attacks every bullet goes round her at this share of its own speed (1: as fast round her as it flies), at any distance (Bullets/Swirl.cs); closer than this many px it is counted as this far
         /// (right by her the same speed round would be endlessly fast). The rings that meet her attacks live this many screen diagonals longer at their speed (going round they take longer to leave).
         /// </summary>
-        public const float MUGETSU_SWIRL = 8f; // (1 until 2026-11-21: "spin speed doubled"; 2 until 2026-11-24: "halve the bullets speed but double the spin speed" - of half the speed, 8 is twice as fast round her as before)
+        public const float MUGETSU_SWIRL = 2f; // (8 until 2026-11-25: at her full speed again, "halve the linear spin speed" - 4 times a bullet's speed round her was 8 x 0.5; now 2 x 1.) (1 until 2026-11-21: "spin speed doubled"; 2 until 2026-11-24: "halve the bullets speed but double the spin speed" - of half the speed, 8 is twice as fast round her as before)
 
         public const float MUGETSU_SWIRL_NEAR = 16f;
         public const float MUGETSU_SWIRL_LONGER = 1f;
 
         /// <summary>Mugetsu (2026-11-24): in her attacks every bullet flies this share of its speed (a window of the bullets' clock, as Mystia's).</summary>
-        public const double MUGETSU_SLOWED = 0.5;
+        public const double MUGETSU_SLOWED = 1; // (0.5 until 2026-11-25: "restore bullets normal speed")
 
         /// <summary>Mokou comes back this many beats after the last boss section is over (if the map goes on for at least this many beats more), with her ball and her landings' bullets this many times as big.</summary>
         public const double REVIVAL_DELAY_BEATS = 8;
@@ -819,7 +819,16 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_THIN_JAG = 0.065f; // (0.05 until 2026-11-24, with the big one)
         public const float SUIKA_THIN_JAG_EVERY = 0.12f;
         public const int SUIKA_THIN_BRANCHES = 2;
-        public const double SUIKA_STARS_BEFORE_BEATS = 2;
+        public const double SUIKA_STARS_BEFORE_BEATS = 1; // (2 until 2026-11-25: "stars should appear in twice less time before explosion")
+
+        /// <summary>
+        /// The dark crust along the edges of her cracks is this many circle radii thick, the same on every crack, branch and twig (2026-11-25, "why outlines are not same thickness": it was 13 % of the crack's
+        /// half width, so thick on the big crack and a hairline on the stomp's); the lava picture inside is laid flat over the ground, one picture SUIKA_LAVA_TILE_CIRCLES circle radii wide repeating
+        /// both ways, so it is as big on every crack and goes on across their corners and where they meet (it was laid along each crack, sheared at its corners and as big as the crack was wide).
+        /// </summary>
+        public const float SUIKA_CRUST_CIRCLES = 0.1f;
+
+        public const float SUIKA_LAVA_TILE_CIRCLES = 9f;
 
         public const float SUIKA_BRANCH_CIRCLES = 4.5f; // (3 until 2026-11-24: "crack branches longer with subbranches")
         public const float SUIKA_IMPACT_MARGIN = 3.2f; // (1.6 until 2026-11-21: "double the impact frames radius")
@@ -1106,7 +1115,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int KANAKO_SKIP_EVERY = 4;
         public const double KANAKO_SPIN_BEATS = 0; // (2 until 2026-11-21: "Circles do not spin around her. Circles move away!")
         public const double KANAKO_HUB_TURN_BEATS = 8;
-        public const double KANAKO_RING_TURN_BEATS = 16; // (4 until 2026-11-21: "0.25x the spin-around-circle speed")
+        public const double KANAKO_RING_TURN_BEATS = 32; // (4 until 2026-11-21: "0.25x the spin-around-circle speed"; 16 until 2026-11-25: "spin speed around circle halved")
         public const float KANAKO_SPEED = 0.7f;
 
         /// <summary>Kanako's talismans stop going round their circle this many beats after the circles fly out (2026-11-21): the circle flies on as it is, no longer turning.</summary>
@@ -1115,7 +1124,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>Kanako (2026-11-24): her talismans are this many times as big as a plain bullet ("double the talismans size"), and each circle grows from nothing at the edge of her magic circle to its size over this many beats.</summary>
         public const float KANAKO_TALISMAN_SIZE = 2f;
 
-        public const double KANAKO_GROW_BEATS = 2;
+        public const double KANAKO_GROW_BEATS = 8; // (2 until 2026-11-25: "circles grow speed quadrupple slower")
+
+        /// <summary>Kanako (2026-11-25): when her talismans stop turning they fly off straight out from the middle of their circle at this many times a plain bullet's speed; a red arrow beside each warns of it this many beats before.</summary>
+        public const float KANAKO_FLY_SPEED = 1f;
+        public const double KANAKO_WARN_BEATS = 2;
 
         /// <summary>
         /// Kokoro (2026-11-20): her mood changes every this many beats (purple, blue, aquamarine, orange). In blue everything is pulled at the player this many times as hard as Nazrin's ellipses; in aquamarine it
@@ -1158,6 +1171,11 @@ namespace osu.Game.Rulesets.Danmakusu
 
         /// <summary>Merlin (2026-11-24): the bullets in her safe places are this much darker (0..1).</summary>
         public const float MERLIN_SAFE_DIM = 0.85f;
+
+        /// <summary>Merlin (2026-11-25): the dim of a safe place fades in and out over this many ms, and darkens her rings in this many layers (smoother than three); when an attack of hers ends her rings stop where they are and fade out over this many beats.</summary>
+        public const double MERLIN_DIM_FADE_MS = 250;
+        public const int MERLIN_DIM_STEPS = 8;
+        public const double MERLIN_RING_FADE_BEATS = 1;
 
         /// <summary>Merlin (2026-11-21): round each of her circles and sliders, this many of its radii out, a green gradient circle where her rings do not hurt.</summary>
         public const float MERLIN_SAFE_RADII = 2f; // (1.6 until 2026-11-21: "immortal as long as 1x additional osu radius around osu objects")
@@ -1276,7 +1294,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// a star every this many degrees along each - seen this many degrees from above, turning once every this many beats. It grows over this many beats until its edge is just past the edges of the screen
         /// (this many star radii past the farthest), turns as big for this many, is pulled back into her over this many, and after this many more beats again.
         /// </summary>
-        public const float SAPPHIRE_STAR_SIZE = 2f;
+        public const float SAPPHIRE_STAR_SIZE = 1f; // (2 until 2026-11-25: "sphere stars size halved")
 
         public const int SAPPHIRE_MERIDIANS = 12;
         public const int SAPPHIRE_PARALLELS = 5;
@@ -1284,10 +1302,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SAPPHIRE_TILT_DEGREES = 15f;
         public const double SAPPHIRE_TURN_BEATS = 128; // (16 until 2026-11-21: "sphere spin speed quadruple slower"; 64 until 2026-11-22: "halve spin speed more")
         public const double SAPPHIRE_SPIN_BEATS = 128; // (and it spins round her in the plane of the screen, once in this many beats - 2026-11-22; that day it tumbled about its equator so first, taken back)
-        public const double SAPPHIRE_GROW_BEATS = 8;
+        public const double SAPPHIRE_GROW_BEATS = 16; // (8 until 2026-11-25: "sphere phase doubled", and the hold and the pull too)
         public const float SAPPHIRE_MARGIN = 1.5f;
-        public const double SAPPHIRE_HOLD_BEATS = 8;
-        public const double SAPPHIRE_BACK_BEATS = 8;
+        public const double SAPPHIRE_HOLD_BEATS = 16;
+        public const double SAPPHIRE_BACK_BEATS = 16;
         public const double SAPPHIRE_REST_BEATS = 0; // (8 until 2026-11-22: "next sphere comes out right after previous one fully pulled in")
 
         /// <summary>
@@ -1329,7 +1347,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SHINKI_WING_ALPHA = 0.95f;
         public const double SHINKI_WING_GROW_BEATS = 2;
         public const double SHINKI_STREAM_TURN_BEATS = 8;
-        public const double SHINKI_STREAM_GAP_BEATS = 1.0 / 16;
+        public const double SHINKI_STREAM_GAP_BEATS = 1.0 / 32; // (1/16 until 2026-11-25: "double the stream bullets density")
+
+        /// <summary>Shinki (2026-11-25, "double the bullets count ... quadruple her laserbeams length"): every bullet comes out of her wings this many times (of as many wings in turn); her beams are fired this many times as long.</summary>
+        public const int SHINKI_BULLET_COPIES = 2;
+        public const double SHINKI_BEAM_LONGER = 4;
 
         /// <summary>
         /// Aya Shameimaru (2026-11-22): no pauses. She dashes along a straight line to the edge of the screen at AYA_DASH_SPEED times Mokou's jump speed, the line through the most bullets from where she is;
@@ -1349,7 +1371,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float AYA_SLASH_SPEED = 2f;
 
         /// <summary>Aya's black feathers (2026-11-22, "white outlines on black feathers") have a white rim this share of their radius wide all round.</summary>
-        public const float AYA_FEATHER_RIM = 0.3f;
+        public const float AYA_FEATHER_RIM = 0.15f; // (0.3 until 2026-11-25: "white outline is halve thick")
+
+        /// <summary>Aya's feathers turn round as they fly (2026-11-25, "feathers spin"): this many radians a ms, every second one the other way round.</summary>
+        public const float AYA_FEATHER_SPIN = 0.006f;
         public const int AYA_DIRECTIONS = 72; // (the ways she looks at when she chooses a line)
         public const int AYA_FAN_BULLETS = 10; // (5 until 2026-11-22, the same day)
         public const float AYA_FAN_DEGREES = 60f;
@@ -1372,6 +1397,9 @@ namespace osu.Game.Rulesets.Danmakusu
         /// <summary>How long the character follows the mouse late (beats; 4 until 2026-11-22, the same day: halved).</summary>
         public const double HATATE_DELAY_LENGTH_BEATS = 2;
         public const float HATATE_FRAME_ALPHA = 0.9f;
+
+        /// <summary>Hatate (2026-11-25, "frame stays for 2 beats after clicking, with gray fill"): her frame stays where it is, with its grey glass, this many beats after the picture.</summary>
+        public const double HATATE_FRAME_STAY_BEATS = 2;
 
         /// <summary>
         /// Watari Nina (2026-11-22): every this many beats a golden beam as Matenshi's, twice as thick, along the line from her to the player (taken when its preview comes): a see-through preview for
@@ -1411,7 +1439,7 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const int UBAME_DOLLS = 10;
         public const float UBAME_FAN_DEGREES = 150f;
-        public const float UBAME_DOLL_SPEED = 1.2f; // (0.6 until 2026-11-22, the same day: twice as fast)
+        public const float UBAME_DOLL_SPEED = 2.4f; // (0.6 until 2026-11-22, then 1.2: twice as fast; twice again 2026-11-25, "double fumo fly speed")
         public const float UBAME_DOLL_CIRCLES = 1.2f; // (2.4 until 2026-11-22, the same day: half as big)
         public const float UBAME_DOLL_HIT = 0.32f;
         public const float UBAME_RESHOT_SIZE = 1.5f;
@@ -1472,7 +1500,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float ELLEN_FAN_DEGREES = 6f;
         public const double ELLEN_RING_EVERY_BEATS = 2;
         public const double ELLEN_BEAM_PREVIEW_BEATS = 1;
-        public const double ELLEN_BEAM_SOLID_BEATS = 1;
+        public const double ELLEN_BEAM_SOLID_BEATS = 2; // (1 until 2026-11-25: "connected laserbeams stay duration doubled")
         public const double ELLEN_BEAM_OFF_BEATS = 1;
         public const float ELLEN_CAT_SIZE = 2f;
         public const double ELLEN_CAT_JUMP_BEATS = 4;
@@ -2064,7 +2092,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int KEIKI_RING_EVERY = 2;
         public const int KEIKI_RING_COUNT_FACTOR = 2;
         public const int KEIKI_RETURN_EVERY = 5;
-        public const double KEIKI_BEAM_BEATS = 4;
+        public const double KEIKI_BEAM_BEATS = 2; // (4 until 2026-11-25: "halve the length of straight laserbeams")
+
+        /// <summary>Keiki (2026-11-25, "they shoot in two sides forming 90 degrees now"): each comes back as two beams this many degrees apart, one to either side of the way back.</summary>
+        public const float KEIKI_BEAM_SPLIT_DEGREES = 90f;
 
         /// <summary>
         /// Tsukasa (2026-11-14): every this many-th beam of her section bounces once (the bounce window goes on this long after her section, for the slices fired late in it). Her rings of this many big balls, each
@@ -2095,6 +2126,11 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUNNY_HALO_ALPHA = 0.32f;
         public const int SUNNY_SPLIT_BULLETS = 7;
         public const float SUNNY_SPLIT_SPREAD_DEGREES = 120f;
+
+        /// <summary>Sunny Milk (2026-11-25): every bullet the prism splits has a beam for a tail, this many beats of its way long, this share of its radius wide (narrowing to a point), drawn through this many points; it hurts like a slider body.</summary>
+        public const double SUNNY_TAIL_BEATS = 2;
+        public const float SUNNY_TAIL_WIDTH = 0.6f;
+        public const int SUNNY_TAIL_POINTS = 6;
         public const float SUNNY_SPLIT_SIZE_DIVISOR = 4f;
         public const double SUNNY_FLASH_MS = 450;
         public const int SUNNY_HALO_RINGS = 36;
@@ -4092,9 +4128,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double UTSUHO_EMERGE_MS = 300;
 
         /// <summary>How far the jets may turn in all (radians) and the fraction of a spinner beam's turning speed they use.</summary>
-        public const float UTSUHO_JET_MAX_TURN = MathF.PI / 2f;
+        public const float UTSUHO_JET_MAX_TURN = MathF.PI; // (a quarter turn until 2026-11-25: they turn twice as fast for as long)
 
-        public const float UTSUHO_JET_TURN_FACTOR = 0.125f;
+        public const float UTSUHO_JET_TURN_FACTOR = 0.25f; // (0.125 until 2026-11-25: "gamma ray cones spin speed doubled")
 
         /// <summary>
         /// Before every black hole everything slows down evenly to a stop over this many beats (the end of the attack before), stands still until the pull begins, and gets its speed back over this long (ms);
@@ -4160,6 +4196,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float MIMA_SHAKE = 0.5f;
         public const int MIMA_EDGE_STARS = 96;
         public const double MIMA_TAIL_BEATS = 2;
+
+        /// <summary>Mima (2026-11-25): as a moon has faded out its body shoots out this many of Marisa's stars from places all over it, each a way of its own, at this many times a plain bullet's speed (half its edges').</summary>
+        public const int MIMA_BODY_STARS = 40;
+        public const float MIMA_BODY_SPEED = 0.5f;
         public const double MIMA_FLASH_MS = 200;
         public const float MIMA_FLASH_SIZE = 1.5f;
 
@@ -4291,7 +4331,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double NOROIKO_EVERY_BEATS = 0.5;
 
         public const float NOROIKO_CURSE_CIRCLES = 4f;
-        public const float NOROIKO_STROKE_CIRCLES = 0.12f;
+        public const float NOROIKO_STROKE_CIRCLES = 0.24f; // (0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
         public const double NOROIKO_HOMING_BEATS = 8;
         public const float NOROIKO_SPEED_FROM = 0.5f;
         public const float NOROIKO_SPEED_TO = 2.5f;
@@ -4315,9 +4355,13 @@ namespace osu.Game.Rulesets.Danmakusu
         public static readonly osuTK.Graphics.Color4 KOGASA_BLUE = new osuTK.Graphics.Color4(0.22f, 0.42f, 0.95f, 1f);
 
         /// <summary>Kogasa's umbrella (2026-11-24) in the middle of the playfield: this many px across (playfield px; the playfield is 384 tall), this opaque.</summary>
-        public const float KOGASA_UMBRELLA_SIZE = 120f; // (240 until 2026-11-24: "halve the umbrella size")
+        public const float KOGASA_UMBRELLA_SIZE = 60f; // (240 until 2026-11-24, 120 until 2026-11-25: "halve the umbrella size", twice)
 
         public const float KOGASA_UMBRELLA_ALPHA = 0.9f;
+
+        /// <summary>Kogasa (2026-11-25): her umbrella turns this share as fast as her circles and sliders ("umbrella spin speed halved"); an arrow fades out this many beats after its circle or slider has come.</summary>
+        public const float KOGASA_UMBRELLA_TURN = 0.5f;
+        public const double KOGASA_ARROW_BEATS = 1;
 
         /// <summary>Kogasa's own: six spirals of basic bullets - a ring of this many every this many beats, each turned this many degrees further.</summary>
         public const int KOGASA_SPIRALS = 6;
@@ -4355,7 +4399,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int IKU_TETHER_GROUP = 5;
 
         public const float IKU_TETHER_CIRCLES = 3f;
-        public const float IKU_LINK_WIDTH = 0.1f;
+        public const float IKU_LINK_WIDTH = 0.2f; // (0.1 until 2026-11-25: the user saw no links)
 
         /// <summary>Iku (2026-11-24, the user: "iku mechanics stay but skip every second bullet"): only every this many-th bullet of a ring leaves a beam behind it or is tied (the groups are of those).</summary>
         public const int IKU_EVERY = 2;
@@ -4446,7 +4490,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const float SARA_FAST = 2f;
 
-        public const float SARA_SLOW = 0.5f;
+        public const float SARA_SLOW = 0.25f; // (0.5 until 2026-11-25: Futo's "minimal speed 0.25x. Same as for newest boss who had that mechanic")
 
         /// <summary>
         /// Sara: every this many beats of her section two thick beams (this many circle radii from their middle line to each side) from her, to her left and to her right (square to the line from her to the
@@ -4458,7 +4502,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SARA_BEAM_CIRCLES = 1f;
         public const double SARA_PREVIEW_BEATS = 4;
         public const double SARA_CLOSE_BEATS = 8;
-        public const float SARA_CLOSED_DEGREES = 87f;
+        public const float SARA_CLOSED_DEGREES = 6f; // (87 until 2026-11-25: "laserbeams stop 3 degree left and right from the line")
         public const double SARA_FADE_BEATS = 1;
         public const float SARA_SHAKE = 0.5f;
 
@@ -4476,7 +4520,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int TEIREIDA_BEAMS = 36;
         public const double TEIREIDA_PREVIEW_BEATS = 8;
         public const double TEIREIDA_LIVE_BEATS = 8;
-        public const double TEIREIDA_FADE_BEATS = 0.25;
+        public const double TEIREIDA_FADE_BEATS = 1; // (0.25 until 2026-11-25: "her laserbeams fade out once sequence is finished")
 
         /// <summary>
         /// Mai Teireida: every bullet fired in her section, by its own clock, moves this many times as fast as it was fired this many degrees to the left of its way for this many beats, stands this many
@@ -4487,6 +4531,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float TEIREIDA_TURN_DEGREES = 45f;
         public const double TEIREIDA_MOVE_BEATS = 4;
         public const double TEIREIDA_STOP_BEATS = 4;
+
+        /// <summary>Mai Teireida (2026-11-25): for this many beats before each move after a stop, a red arrow beside every bullet points the way it will go.</summary>
+        public const double TEIREIDA_WARN_BEATS = 2;
 
         /// <summary>Mai Teireida: a ring of this many talismans every this many beats.</summary>
         public const int TEIREIDA_TALISMANS = 30;
@@ -4517,7 +4564,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float TAKANE_BIG = 2f;
 
         public const float TAKANE_GRAB_CIRCLES = 1f;
-        public const double TAKANE_ORBIT_BEATS = 2;
+        public const double TAKANE_ORBIT_BEATS = 8; // (2 until 2026-11-25: "quadruple slower the orbital spin speed")
         public const float TAKANE_ORBIT_FLAT = 0.35f;
         public const int TAKANE_MOST_GRABBED = 12;
 

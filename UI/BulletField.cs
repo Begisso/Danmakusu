@@ -1376,6 +1376,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     rewindTo(now);
             }
 
+            // (the beams go through the ops that are over by now once per slice, and on from there: 2026-11-25, Kokoro's lag - see TraceCarry)
+            LaserEmitter.SettledTime = now;
+
             if (!failed)
                 spawnUpTo(now);
 
@@ -2048,6 +2051,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         emitter.Origins![b] = position;
                         emitter.Directions[b] = new Vector2(direction.X * cos - direction.Y * sin, direction.X * sin + direction.Y * cos);
+                    }
+
+                    // (the hidden ones stand where a shown one is: the ring is let go by how far its bullets have got from where they started, and a hidden one left at 0, 0 kept it longer - 2026-11-25)
+                    int shown = -1;
+
+                    for (int b = 0; b < emitter.Count && shown < 0; b++)
+                    {
+                        if ((hidden & (1UL << b)) == 0)
+                            shown = b;
+                    }
+
+                    if (shown >= 0 && emitter.Origins != null)
+                    {
+                        for (int b = 0; b < emitter.Count && b < emitter.Origins.Length; b++)
+                        {
+                            if ((hidden & (1UL << b)) != 0)
+                                emitter.Origins[b] = emitter.Origins[shown];
+                        }
                     }
 
                     break;
@@ -3052,7 +3073,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         swellWarnings.Add((position, ownRadius * emitter.BigScale(b) * emitter.SwellScale, (float)(1.0 - (emitter.SwellAt - ringTime) / Math.Max(emitter.SwellWarnMs, 1))));
 
                     if (!failed && emitter.GoAt != null)
-                        addGoArrow(emitter.GoAt, emitter.GoWarnMs, ringTime, position, ownRadius * emitter.BigScale(b) * (look?.Scale ?? 1f));
+                        addGoArrow(emitter.GoAt, emitter.GoTurns, emitter.GoWarnMs, ringTime, position, ownRadius * emitter.BigScale(b) * (look?.Scale ?? 1f), direction);
 
                     // a big round bullet (Utsuho's, or any at least twice as big as a plain one) is drawn as Mokou's ball is, from a big picture (see drawStage), not by the renderer, under the bullets, so it
                     // stays sharp; Utsuho's grow from nothing to their size over a moment when they are shot (only the picture: the hitbox is whole from the start)
@@ -3345,6 +3366,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             double ringTime = effects.Effective(emitter, drawTime); // (on the bullets' own clock)
             double age = ringTime - emitter.Time;
+
+            // (a ring made out of other bullets whose every bullet had nothing to be made from - Shion's copies of rings that had all left the screen by her mark - has nothing to show: 2026-11-25, "very
+            // strong lag with Shion": at her first mark every ring fired in the twenty seconds before was copied, 15,000 rings of hidden bullets kept to the end of her section, 70-80 ms a frame)
+            if (emitter.Derive == DeriveKind.Explode && emitter.Count is > 0 and <= 64 && emitter.Time <= drawTime
+                && (emitter.HiddenMask | emitter.ConsumedMask | emitter.AbsorbedMask) == (emitter.Count == 64 ? ulong.MaxValue : (1UL << emitter.Count) - 1))
+                return true;
 
             // (a ring that was only frozen - Reisen, Cirno - is judged by its radius again once the freezes are over, instead of being kept for its whole long lifetime)
             return age > emitter.Lifetime || emitter.HomingFinished || emitter.RemovedAt(drawTime) || ((emitter.IsRadial || emitter.IsStraightFromOrigins) && isRingGone(emitter, emitter.SlowestRadiusAt(ringTime)))

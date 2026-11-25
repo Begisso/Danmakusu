@@ -188,6 +188,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         public double GoWarnMs { get; private set; }
 
+        /// <summary>
+        /// Mai Teireida (2026-11-25): with <see cref="GoAt"/>, how far (radians) each of those moves turns the bullet from the way it was going (its arrow points that way, red); NaN for one that sets off at the
+        /// player (Aunn's, green). Null: all of them at the player.
+        /// </summary>
+        public float[]? GoTurns { get; private set; }
+
         /// <summary>No other boss's mechanic changes the size of these: Utsuho's big balls (<see cref="Sharp"/>) and special things like Yukari's trains.</summary>
         public bool KeepsSize => Sharp || Shape == BulletShape.Train;
 
@@ -1067,8 +1073,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             OpsArea = area;
             Lifetime = Math.Max(Lifetime, reach) + Lifetime * 2 + frozen + 2000 + (windowed ? 6000 : 0);
 
-            // (what swells it, and what the field warns of: Rin's swell, Aunn's moves - only those the ring lives to see are kept above)
+            // (what swells it, and what the field warns of: Rin's swell, Aunn's moves, Mai Teireida's turns - only those the ring lives to see are kept above)
             var goes = new System.Collections.Generic.List<double>();
+            var turns = new System.Collections.Generic.List<float>();
 
             foreach (var op in list)
             {
@@ -1085,15 +1092,19 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     SwellScale = op.During?.Scale ?? 1f;
                 }
 
-                if (op.PlayerAim)
+                if (op.PlayerAim || op.TurnWarn)
                 {
                     goes.Add(op.Time);
+                    turns.Add(op.TurnWarn ? op.TurnAngle : float.NaN);
                     GoWarnMs = op.WarnMs;
                 }
             }
 
             if (goes.Count > 0)
+            {
                 GoAt = goes.ToArray();
+                GoTurns = turns.Exists(turn => !float.IsNaN(turn)) ? turns.ToArray() : null;
+            }
 
             // (a ring that its ops only stop - and slide - flies straight away from its centre again once the last of them is over; one that leaves the top and falls as flowers
             // (Yuyuko) is gone once the flowers have had the time to fall through the screen: see GoneAfterFreezes)
@@ -1158,7 +1169,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     for (int k = 0; k < most; k++)
                     {
                         float turn = k == 0 ? -op.TurnAngle : k % 2 == 1 ? 2f * op.TurnAngle : -2f * op.TurnAngle;
-                        all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Turn, Time = moves, End = moves, TurnAngle = turn, SpeedFactor = k == 0 ? op.SpeedFactor : 1f });
+                        all.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.Turn, Time = moves, End = moves, TurnAngle = turn, SpeedFactor = k == 0 ? op.SpeedFactor : 1f,
+                            TurnWarn = k > 0 && op.WarnMs > 0, WarnMs = op.WarnMs, // (every move after a stop is warned of: 2026-11-25, "red arrow warnings on bullets that are about to move")
+                        });
 
                         double halt = moves + op.MoveMs;
 

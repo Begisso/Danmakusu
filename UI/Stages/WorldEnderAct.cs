@@ -1076,9 +1076,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             Vector2 box = reach * deepest + new Vector2(needle * (1f - deepest));
 
             impactStars.AddPiece(at - box, at + new Vector2(box.X, -box.Y), at + new Vector2(-box.X, box.Y), at + box);
+            starOutline.Clear();
 
             for (int tail = 0; tail < 4; tail++)
             {
+                starUp.Clear();
+                starDown.Clear();
+
                 Vector2 along = tail switch
                 {
                     0 => Vector2.UnitX,
@@ -1118,11 +1122,27 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     impactStars.AddPiece(a, b, c, d);
 
+                    starUp.Add(b);
+                    starDown.Add(d);
                     a = b;
                     c = d;
                 }
+
+                // (its outline goes out along one edge of the tail to the tip and back along the other, to the corner of the box where the next tail starts: 2026-11-25, soft edges)
+                Vector2 corner = at + along * start - side * wide;
+                starOutline.Add(corner);
+
+                for (int j = 0; j < starDown.Count - 1; j++)
+                    starOutline.Add(starDown[j]);
+
+                for (int j = starUp.Count - 1; j >= 0; j--)
+                    starOutline.Add(starUp[j]);
             }
+
+            impactStars.AddOutline(starOutline);
         }
+
+        private readonly List<Vector2> starOutline = new List<Vector2>(), starUp = new List<Vector2>(), starDown = new List<Vector2>();
 
         /// <summary>The bullets of an impact frame are black; each of them is noted for its streak and its arc, also through the explosion (the stage is drawn after the bullets, so they go with them).</summary>
         private void impactBullets(double t, int count)

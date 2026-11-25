@@ -201,7 +201,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (scattered round its way, each a little earlier or later and to one side or the other, by its own hash: 2026-11-24, "random and more packed")
                     int number = (int)(volley.T % 100000) * 8 + i * 4096 + volley.Flowers[i];
                     double when = t - every * 0.4 * hash01(Id, number, 141);
-                    Vector2 at = volley.From + v * (float)(when - volley.T) + side * (scatter * (hash01(Id, number, 142) * 2f - 1f));
+
+                    // (where the ball really is then - on the bullets' clock, which Gengetsu speeds up: 2026-11-25, "flower traces are not keeping up with ball", they were where it would be by the game's time)
+                    Vector2 onWay = f.stageBulletAt(Bullets[volley.Index[i]], when, out Vector2 ballThen) ? ballThen : volley.From + v * (float)(when - volley.T);
+                    Vector2 at = onWay + side * (scatter * (hash01(Id, number, 142) * 2f - 1f));
 
                     if (consumed(f, volley.Index[i]) || at.X < f.stageMin.X || at.X > f.stageMax.X || at.Y < f.stageMin.Y || at.Y > f.stageMax.Y)
                     {

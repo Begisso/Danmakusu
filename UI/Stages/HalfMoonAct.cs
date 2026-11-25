@@ -16,6 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // start, a ring for each edge). The next moon grows and lights up the other way round. A moon that has appeared always goes through to its end, also when her section is over. It is white all through with a thin
         // grey line along its edges and a soft white light round it, a flat shape between the beams and the bullets: pieces side by side between its outer edge and its hollow's, so it is sharp at any size and evenly
         // see-through. Where something bounces off it, a white flash shows for a moment. In its last beat its light reaches out twice as far and back, and when its stars fly off it fades out over a beat, harmless.
+        // Since 2026-11-25, as it has faded out, its body shoots out Marisa's stars too, white, from places all over it, each a way of its own, at half a plain bullet's speed (shootBody).
         // ======================================================================================================================================================
 
         private sealed class HalfMoonAct : StageAct
@@ -31,6 +32,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly Moon?[] moons;
             private readonly TrajectoryOp?[] opsOf; // (the op of each moon's solid time, once it is placed)
             private readonly bool[] lit, gone; // (their sounds have been played)
+            private readonly bool[] bodyOut; // (its body's stars have been shot out)
             private readonly double beat;
 
             public HalfMoonAct(BossPeriod period, double[] marks)
@@ -41,6 +43,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 opsOf = new TrajectoryOp?[marks.Length];
                 lit = new bool[marks.Length];
                 gone = new bool[marks.Length];
+                bodyOut = new bool[marks.Length];
                 beat = Math.Max(period.BeatLength, 1);
                 Start = marks.Length > 0 ? marks[0] : period.ShootStart;
                 End = marks.Length > 0 ? goneAt(marks.Length - 1) + fadeMs : period.ShootStart;
@@ -131,6 +134,55 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (goneAt(k) > time)
                         gone[k] = false;
+
+                    bodyOut[k] = false; // (what its body shot out is made again from where the moon was: Update)
+                }
+
+                ClearBullets();
+            }
+
+            /// <summary>
+            /// As a moon has faded out its body shoots out MIMA_BODY_STARS of Marisa's stars (the soft star, white as the moon) from places all over it, chosen by a hash, each a way of its own, at MIMA_BODY_SPEED times
+            /// a plain bullet's speed - half its edges' (2026-11-25, "moon body now shoots out randomly filled marisa stars in random direction too after fading out, half the speed").
+            /// </summary>
+            private void shootBody(BulletField f, int k, Moon moon, double at)
+            {
+                float radius = Period.StarRadius > 0 ? Period.StarRadius : f.stageBaseRadius(Period) * 1.5f;
+                float speed = stageBulletSpeed(Period) * DanmakusuBalance.MIMA_BODY_SPEED;
+                Vector2 hollow = hollowOf(moon);
+                float hollowR = hollowRadius(moon);
+                int made = 0;
+
+                for (int attempt = 0; made < DanmakusuBalance.MIMA_BODY_STARS && attempt < DanmakusuBalance.MIMA_BODY_STARS * 8; attempt++)
+                {
+                    float angle = hash01(Id, k * 4096 + attempt, 311) * MathF.Tau;
+                    float distance = moon.Radius * MathF.Sqrt(hash01(Id, k * 4096 + attempt, 312));
+                    Vector2 p = moon.Centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * distance;
+
+                    if (Vector2.Distance(p, hollow) <= hollowR)
+                        continue; // (in its hollow: not its body)
+
+                    float way = hash01(Id, k * 4096 + attempt, 313) * MathF.Tau;
+                    Vector2 v = new Vector2(MathF.Cos(way), MathF.Sin(way)) * speed;
+
+                    AddBullet(new StageBullet
+                    {
+                        T0 = at,
+                        P0 = p,
+                        V = v,
+                        Radius = radius,
+                        Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                        Style = f.comboStyle(made, true, Period.Rank),
+                        Shape = BulletShape.SoftStar,
+                        Tint = BulletRenderer.TINT_WHITE,
+                        TintAmount = 1f,
+                        Spin = 0.003f * (made % 2 == 0 ? 1f : -1f),
+                        SpinPhase = made,
+                        Grow = 150,
+                        Until = at + f.stageLife(v) + radius * 3f / Math.Max(speed, 1e-3f),
+                    });
+
+                    made++;
                 }
             }
 
@@ -163,6 +215,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         if (now - goneAt(k) < 250)
                             f.playStageSound("yuyuko_petals");
+                    }
+
+                    if (!bodyOut[k] && now >= goneAt(k) + fadeMs && moons[k] is Moon faded)
+                    {
+                        bodyOut[k] = true;
+                        shootBody(f, k, faded, goneAt(k) + fadeMs);
                     }
                 }
             }

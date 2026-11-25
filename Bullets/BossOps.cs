@@ -518,7 +518,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         {
                             Kind = TrajectoryOpKind.Zigzag, Time = period.Start, End = period.End, BornAfter = period.Start, BornBefore = period.End, SpeedFactor = DanmakusuBalance.TEIREIDA_SPEED,
                             TurnAngle = DanmakusuBalance.TEIREIDA_TURN_DEGREES * MathF.PI / 180f, MoveMs = beat * DanmakusuBalance.TEIREIDA_MOVE_BEATS, StopMs = beat * DanmakusuBalance.TEIREIDA_STOP_BEATS,
-                            GoUntil = period.End,
+                            GoUntil = period.End, WarnMs = beat * DanmakusuBalance.TEIREIDA_WARN_BEATS, // (a red arrow before every move after a stop: 2026-11-25)
                         });
 
                         break;
@@ -530,7 +530,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         foreach (double shot in PhotoShots(period))
                         {
                             double photo = shot + Math.Max(period.BeatLength, 1) * DanmakusuBalance.HATATE_FLY_BEATS;
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Aim, Time = photo, End = photo, SpeedFactor = DanmakusuBalance.HATATE_SLOW });
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Aim, Time = photo, End = photo, SpeedFactor = DanmakusuBalance.HATATE_SLOW, InFrameOnly = true }); // (only what is in her frame: 2026-11-25)
                         }
 
                         break;

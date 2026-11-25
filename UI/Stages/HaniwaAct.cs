@@ -11,7 +11,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // ======================================================================================================================================================
         // Keiki Haniyasushin: in her section the rings come half as often with twice as many bullets, all of them squares, and she shoots very dense squares of plain bullets every four beats (the planner's).
         // Here: every fifth bullet that goes out of the screen in her section (anyone's; chosen by its ring's time and its place in the ring, as Seiga's) comes back the way it came as a beam: from where it
-        // went out it runs back along the same line at the bullet's speed, growing until it is as long as KEIKI_BEAM_BEATS beats of that way, and goes on so until it has left the screen on the other side.
+        // went out it runs back at the bullet's speed, growing until it is as long as KEIKI_BEAM_BEATS beats of that way, and goes on so until it has left the screen on the other side. Since 2026-11-25 it is two beams,
+        // KEIKI_BEAM_SPLIT_DEGREES apart, one to either side of the way back (it was one, back along the same line, twice as long).
         // It hurts like a slider body all the way. (A straight line from the wall: where every beam is follows from the time alone once it is made.)
         // ======================================================================================================================================================
 
@@ -109,9 +110,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 s = Math.Clamp(s, 0f, 1f);
                 Vector2 wall = from + delta * s;
                 double crossed = t - (1f - s) * Math.Clamp(t - ScanPrevious, 0, 50);
-                Vector2 way = -direction;
+                // (two beams, 45 degrees to either side of the way back, 90 degrees apart: 2026-11-25 - it was one, straight back)
+                float split = DanmakusuBalance.KEIKI_BEAM_SPLIT_DEGREES * MathF.PI / 360f;
 
-                // (how far back across the screen it goes before it is out on the other side)
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float c = MathF.Cos(side * split), sn = MathF.Sin(side * split);
+                    Vector2 way = new Vector2(-direction.X * c + direction.Y * sn, -direction.X * sn - direction.Y * c);
+                    float across = acrossFrom(wall, way, low, high) + halfWidth(f);
+
+                    var beam = new Beam
+                    {
+                        Wall = wall,
+                        Way = way,
+                        Speed = speed,
+                        Crossed = crossed,
+                        Across = across,
+                        Gone = crossed + across / speed + lengthMs,
+                    };
+
+                    // (kept in the order they went out: almost always the last)
+                    int at = beams.Count;
+
+                    while (at > 0 && beams[at - 1].Crossed > crossed)
+                        at--;
+
+                    beams.Insert(at, beam);
+
+                    if (at < firstAlive)
+                        firstAlive = at;
+                }
+
+                shapes.Forget();
+                return true;
+            }
+
+            /// <summary>How far from <paramref name="wall"/> along <paramref name="way"/> it is to the other side of the screen (0 if it points out of it).</summary>
+            private static float acrossFrom(Vector2 wall, Vector2 way, Vector2 low, Vector2 high)
+            {
                 float across = float.PositiveInfinity;
 
                 if (way.X > 1e-6f)
@@ -124,34 +160,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 else if (way.Y < -1e-6f)
                     across = Math.Min(across, (low.Y - wall.Y) / way.Y);
 
-                if (float.IsInfinity(across) || across < 0f)
-                    across = 0f;
-
-                across += halfWidth(f);
-
-                var beam = new Beam
-                {
-                    Wall = wall,
-                    Way = way,
-                    Speed = speed,
-                    Crossed = crossed,
-                    Across = across,
-                    Gone = crossed + across / speed + lengthMs,
-                };
-
-                // (kept in the order they went out: almost always the last)
-                int at = beams.Count;
-
-                while (at > 0 && beams[at - 1].Crossed > crossed)
-                    at--;
-
-                beams.Insert(at, beam);
-
-                if (at < firstAlive)
-                    firstAlive = at;
-
-                shapes.Forget();
-                return true;
+                return float.IsInfinity(across) || across < 0f ? 0f : across;
             }
 
             /// <summary>Where a beam is at <paramref name="t"/>: its back end and its front end (the front runs ahead from the wall, the back follows four beats behind; both stop just past the other side).</summary>

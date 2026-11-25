@@ -322,10 +322,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// Shinki's (2026-11-22): the same beam fired again from spot <paramref name="spot"/> of her act (one of her wings: the act puts <see cref="Origin"/> there before the beam starts), straight - every slice
         /// from that one place, the way the beam was aimed as it started (beam 0 at the player) - for as long as it was going to fire, as wide and as fast. It counts as a slider's beam (its colour).
         /// </summary>
-        public LaserEmitter FromSpotStraight(int spot, int bossRank, double lifetime) => new LaserEmitter
+        public LaserEmitter FromSpotStraight(int spot, int bossRank, double lifetime, double longer = 1) => new LaserEmitter
         {
             StartTime = StartTime,
-            EndTime = EndTime,
+            EndTime = StartTime + (EndTime - StartTime) * longer, // (fired as many times as long: Shinki's are four times as long, 2026-11-25)
             ComboIndex = ComboIndex,
             Origin = Origin,
             HalfWidth = HalfWidth,
@@ -343,7 +343,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             CutAge = CutAge,
             CutStretch = CutStretch,
             ShrinkDelay = ShrinkDelay,
-            Lifetime = Math.Max(Lifetime, lifetime),
+            Lifetime = Math.Max(Lifetime, lifetime) + (EndTime - StartTime) * (longer - 1),
             KeepsSize = KeepsSize,
             Rotates = true,
             AngularSpeed = 0f,
@@ -513,7 +513,69 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float SelfSpin { get; init; }
 
         /// <summary>Does every slice fly straight on its own (so a closed form of a straight line does for it: the portals' quick way)? Not one that is held or spins round its middle.</summary>
-        public bool FliesStraightAlone => HoldUntil <= 0 && SelfSpin == 0f && Pusher == null;
+        public bool FliesStraightAlone => HoldUntil <= 0 && SelfSpin == 0f && SpinFrom <= 0 && Pusher == null;
+
+        /// <summary>
+        /// Son Biten (2026-11-25, "laserbeam spinning applies to the laserbeams that were already on the screen too"): from this moment on (0: never) the beam, all fired by then, flies on as one piece and turns
+        /// round its middle <see cref="LateSpin"/> radians a ms (the sign is which way round), as a held one does once it is let go.
+        /// </summary>
+        public double SpinFrom { get; init; }
+
+        public float LateSpin { get; init; }
+
+        /// <summary>Where a slice of a beam that began to spin later is (<see cref="SpinFrom"/>): as it was then, turned round the beam's middle, the whole flying on its way.</summary>
+        private Vector2 lateSpun(Vector2 start, Vector2 velocity, double fired, double time)
+        {
+            double middleFired = (StartTime + EndTime) / 2;
+            Vector2 then = start + velocity * (float)(SpinFrom - fired);
+            Vector2 pivot = holdMiddleOf(velocity) + velocity * (float)(SpinFrom - middleFired);
+            float u = (float)(time - SpinFrom);
+            float angle = LateSpin * u;
+            float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+            Vector2 from = then - pivot;
+            return pivot + velocity * u + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos);
+        }
+
+        /// <summary>The same beam, spinning from <paramref name="from"/> on (see <see cref="SpinFrom"/>).</summary>
+        public LaserEmitter SpunFrom(double from, float spin) => new LaserEmitter
+        {
+            StartTime = StartTime,
+            EndTime = EndTime,
+            ComboIndex = ComboIndex,
+            Origin = Origin,
+            HalfWidth = HalfWidth,
+            HitHalfWidth = HitHalfWidth,
+            Speed = Speed,
+            BeamCount = BeamCount,
+            Directions = new Vector2[Directions.Length],
+            BallPositions = BallPositions,
+            BallTimes = BallTimes,
+            FollowsBoss = FollowsBoss,
+            BossRank = BossRank,
+            PathFromOrigin = PathFromOrigin,
+            Grows = Grows,
+            StartHalfWidth = StartHalfWidth,
+            GrowthPower = GrowthPower,
+            PeakScale = PeakScale,
+            GhostMs = GhostMs,
+            CutAge = CutAge,
+            CutStretch = CutStretch,
+            ShrinkDelay = ShrinkDelay,
+            Lifetime = Lifetime,
+            Fan = Fan,
+            FanCentre = FanCentre,
+            FanAimed = FanAimed,
+            WallSide = WallSide,
+            Rotates = Rotates,
+            AngularSpeed = AngularSpeed,
+            HoldBeam = HoldBeam,
+            SpinFrom = from,
+            LateSpin = spin,
+            AimOffset = AimOffset,
+            KeepsSize = KeepsSize,
+            Immune = Immune,
+            BouncesOnce = BouncesOnce,
+        };
 
         /// <summary>Where a slice of a beam that spins round its own middle is (<see cref="SelfSpin"/>).</summary>
         private Vector2 selfSpun(Vector2 start, Vector2 velocity, double fired, double time)
@@ -1132,6 +1194,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             Ops = list.ToArray();
             OpsArea = area;
+            bringsBack = null;
+            affineOnly = null;
             fallsInPieces = list.Exists(op => op.Kind == TrajectoryOpKind.Fall);
 
             // (a beam whose only op is its own one bounce - Suwako's, Tsukasa's: a slice crosses the screen at most twice, there and back; 2026-11-21, every beam of Suwako's kept three times as long had her
@@ -1157,6 +1221,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             top = OpsArea.Min.Y;
         }
 
+        /// <summary>
+        /// The field's time now (set by it every frame; -infinity: not known): the ops that are over by then and can no longer change are gone through once per slice and kept (2026-11-25, Kokoro's lag,
+        /// <see cref="TraceCarry"/>).
+        /// </summary>
+        public static double SettledTime = double.NegativeInfinity;
+
+        private Dictionary<(double, Vector2, Vector2), TraceCarry>? carriesNow, carriesBefore; // (made when first needed: most beams have no ops)
+        private double carriesTime = double.NaN;
+
         /// <summary>Where a slice is at <paramref name="time"/> and how it looks after what the ops have done to it (without the portals).</summary>
         public void TraceSlice(Vector2 start, Vector2 velocity, double fired, double time, out Vector2 position, out BulletLook? look)
             => TraceSliceClocked(start, velocity, fired, clocked(fired, time), out position, out look);
@@ -1176,7 +1249,40 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             if (Ops != null && OpsArea != null)
             {
                 limits(out Vector2 min, out Vector2 max, out float top);
-                Trajectory.Trace(start, velocity, Vector2.Zero, fired, time, Ops, min, max, top, out TrajectoryState state);
+
+                if (BeamProbe != null)
+                    BeamProbe[6]++;
+
+                TrajectoryState state;
+
+                // (each slice goes on from how far it got through the ops that are over: see TraceCarry - not by Gengetsu's clock, whose time is not the field's)
+                if (Clock == null && !double.IsNegativeInfinity(SettledTime))
+                {
+                    carriesNow ??= new Dictionary<(double, Vector2, Vector2), TraceCarry>();
+                    carriesBefore ??= new Dictionary<(double, Vector2, Vector2), TraceCarry>();
+
+                    if (carriesTime != SettledTime)
+                    {
+                        // (what was not asked for since the last frame is let go: the searches for corners ask at other slices every frame)
+                        (carriesBefore, carriesNow) = (carriesNow, carriesBefore);
+                        carriesNow.Clear();
+                        carriesTime = SettledTime;
+                    }
+
+                    var key = (fired, start, velocity);
+
+                    if (!carriesNow.TryGetValue(key, out TraceCarry carry) && carriesBefore.TryGetValue(key, out carry))
+                        carriesNow[key] = carry;
+
+                    bool had = carry.Valid;
+                    int next = carry.Next;
+                    Trajectory.Trace(start, velocity, Vector2.Zero, fired, time, Ops, min, max, top, out state, ref carry, SettledTime);
+
+                    if (carry.Valid && (!had || carry.Next != next))
+                        carriesNow[key] = carry;
+                }
+                else
+                    Trajectory.Trace(start, velocity, Vector2.Zero, fired, time, Ops, min, max, top, out state);
                 position = state.Position;
                 look = state.Look;
 
@@ -1188,6 +1294,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 position = heldPlace(start, velocity, time); // (Son Biten's: standing, then flying on spinning - 2026-11-23)
             else if (SelfSpin != 0f)
                 position = selfSpun(start, velocity, fired, time); // (Son Biten's thrown ones: flying out, turning round their middles - 2026-11-24)
+            else if (SpinFrom > 0 && time > SpinFrom && fired <= SpinFrom)
+                position = lateSpun(start, velocity, fired, time); // (what was on the screen as her section began: from then on spinning too - 2026-11-25)
             else
                 position = start + velocity * (float)(time - fired);
         }
@@ -1271,6 +1379,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             if (Ops == null || OpsArea == null || Portals != null || Rigid)
                 return false;
 
+            // (a beam with no op that could bring a slice back - Kokoro's aims, pulls, falls and ricochets - has nothing to look for: 2026-11-25, every slice of hers went through all forty)
+            bringsBack ??= Array.Exists(Ops, op => op.Kind is TrajectoryOpKind.Redirect or TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror or TrajectoryOpKind.Outward or TrajectoryOpKind.Crescent);
+
+            if (bringsBack == false)
+                return false;
+
             Vector2 min = OpsArea.Min - new Vector2(HalfWidth * 2f), max = OpsArea.Max + new Vector2(HalfWidth * 2f);
 
             bool outside(Vector2 place) => place.X < min.X || place.X > max.X || place.Y < min.Y || place.Y > max.Y;
@@ -1288,6 +1402,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             return !double.IsInfinity(first) && outside(start + velocity * (float)(first - fired));
         }
+
+        /// <summary>Whether an op of the beam could bring back a slice that has left the screen (null: not looked at yet).</summary>
+        private bool? bringsBack;
+
+        /// <summary>Whether every op of the beam only turns its slices round or mirrors them (null: not looked at yet; see refineBends).</summary>
+        private bool? affineOnly;
 
         // ---- what falls from the top (Kaguya's) falls as separate short pieces ----
 
@@ -1601,7 +1721,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public bool SpinShape(double now, int beam, out Vector2 first, out Vector2 newest, out Vector2 middle, out float way)
         {
             first = newest = middle = default;
-            float spin = SelfSpin != 0f ? SelfSpin : HoldUntil > 0 ? HoldSpin : 0f;
+            float spin = SelfSpin != 0f ? SelfSpin : HoldUntil > 0 ? HoldSpin : SpinFrom > 0 && now >= SpinFrom ? LateSpin : 0f;
             way = MathF.Sign(spin);
 
             if (spin == 0f || now < StartTime || BallTimes.Length == 0 || beam >= Directions.Length)
@@ -1618,6 +1738,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 double half = (StartTime + last) / 2; // (the slice it turns round)
                 TraceSlice(ballAt(half, beam), velocity, half, now, out middle, out _);
             }
+            else if (SpinFrom > 0)
+                TraceSlice(holdMiddleOf(velocity), velocity, (StartTime + EndTime) / 2, now, out middle, out _);
             else
                 TraceSlice(holdMiddleOf(velocity), velocity, StartTime, now, out middle, out _);
 
@@ -1675,9 +1797,27 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public int GetPoints(double time, Vector2[] buffer, int beam, float[]? widths = null, float[]? distances = null, BulletLook?[]? looks = null)
         {
             BulletLook?[] flags = looksFor(looks, buffer.Length);
+            long probeMark = BeamProbe != null ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
             int count = pointsOf(time, buffer, beam, widths, distances, flags);
 
+            if (BeamProbe != null)
+            {
+                long at = System.Diagnostics.Stopwatch.GetTimestamp();
+                BeamProbe[0] += at - probeMark;
+                probeMark = at;
+                BeamProbe[4] += count;
+            }
+
             count = refineBends(time, beam, buffer, widths, distances, flags, count);
+
+            if (BeamProbe != null)
+            {
+                long at = System.Diagnostics.Stopwatch.GetTimestamp();
+                BeamProbe[1] += at - probeMark;
+                probeMark = at;
+                BeamProbe[5] += count;
+            }
+
             // (only what the bosses can move can have a point that is not a number, or two neighbours that went wholly different ways)
             if (!Rigid && ((Ops != null && OpsArea != null) || Freezer != null || Pusher != null || Portals != null))
             {
@@ -1685,8 +1825,18 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 cutNotNumbers(buffer, flags, count);
             }
 
+            if (BeamProbe != null)
+            {
+                BeamProbe[2] += System.Diagnostics.Stopwatch.GetTimestamp() - probeMark;
+                BeamProbe[3]++;
+                BeamProbe[7] += Ops?.Length ?? 0;
+            }
+
             return count;
         }
+
+        /// <summary>(Tools/SectionCheck, BEAM_PROBE=1: ticks spent making the points, refining the bends and cutting; how many beams, points made, points after refining, traces, ops per beam)</summary>
+        public static long[]? BeamProbe;
 
         /// <summary>How far apart in a beam the portal numbers of two pieces are that are cut where they went different ways (see <see cref="cutStretched"/>).</summary>
         private const int stretch_cut_step = 1 << 20;
@@ -1735,6 +1885,38 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             if (bounceOnly && Freezer == null && Pusher == null && Portals == null && Blasts == null && !Rotates)
                 return bounceCorners(time, beam, buffer, widths, distances, looks, count);
+
+            // (a beam whose ops only turn its slices round or mirror them through a point - Shion's - never bends between two neighbours that have been through the same of them: each is where the line
+            // between them says, as when it flies straight. Two have been through different ones only where an op's moment lies between when they were fired - what was fired before it was turned, what
+            // was fired after it was not: there the beam is cut, and a point is put on each side of that moment, so that both parts go all the way to it. 2026-11-25, "very strong lag with Shion": looking
+            // for bends everywhere cost her 11 ms a frame over her five hundred beams)
+            if (Ops != null)
+                affineOnly ??= Array.TrueForAll(Ops, op => op.Kind is TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror);
+
+            if (Ops != null && affineOnly == true && Freezer == null && Pusher == null && Portals == null && Blasts == null && !Rotates && Clock == null)
+            {
+                for (int k = count - 2; k >= 0; k--)
+                {
+                    double lo = pointFired[k], hi = pointFired[k + 1];
+
+                    // (the later moments first: what is put in before them does not move them)
+                    for (int o = Ops!.Length - 1; o >= 0; o--)
+                    {
+                        double m = Ops[o].Time;
+
+                        if (m > time || m <= lo + 0.02 || m >= hi - 0.02)
+                            continue;
+
+                        if (count + 2 >= buffer.Length || count + 2 >= looks.Length || (widths != null && count + 2 >= widths.Length) || (distances != null && count + 2 >= distances.Length))
+                            return count;
+
+                        insertPointAt(k + 1, m + 0.01, k, beam, time, buffer, widths, distances, looks, ref count);
+                        insertPointAt(k + 1, m - 0.01, k, beam, time, buffer, widths, distances, looks, ref count);
+                    }
+                }
+
+                return count;
+            }
 
             // (only while something can have steered its slices: an op that has begun by now and does not end before the beam began; portals and ripples always)
             if (Freezer == null && Pusher == null && Portals == null)

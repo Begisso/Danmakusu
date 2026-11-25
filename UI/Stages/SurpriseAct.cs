@@ -15,7 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Kogasa Tatara (2026-11-23): the circles and sliders of her section turn round the middle of the playfield, every second the other way round (SurpriseOrbit: the playfield moves them, the zones
         // hurt where they are), and stay KOGASA_HOLD_BEATS after they are over, still turning - red the ones that turn clockwise, blue the others - hurting as a slider's body does (the zones) and shooting what
         // they would have shot out from the middle over that time (the planner). This act says which of them stay where, for the FallLayer that shows them as what they are. Her six spirals are the planner's.
-        // Her umbrella turns in the middle all the while (2026-11-24), and an arrow beside each of hers shows which way it turns (2026-11-24, drawArrows).
+        // Her umbrella turns in the middle all the while (2026-11-24), and an arrow beside each of hers shows which way it turns (2026-11-24, drawArrows). Since 2026-11-25 the umbrella is half as big again,
+        // turns half as fast as hers and hurts like a slider body; an arrow fades out KOGASA_ARROW_BEATS after its circle or slider has come (it stayed until that was gone).
         // ======================================================================================================================================================
 
         private sealed class SurpriseAct : StageAct
@@ -53,7 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (alpha <= 0.002f)
                     return;
 
-                float degrees = (float)((t - Start) / beat * DanmakusuBalance.KOGASA_ORBIT_DEGREES);
+                float degrees = (float)((t - Start) / beat * DanmakusuBalance.KOGASA_ORBIT_DEGREES * DanmakusuBalance.KOGASA_UMBRELLA_TURN); // (half as fast as hers since 2026-11-25)
                 f.stageBack.Add(StageTexture.KogasaUmbrella, osu.Game.Rulesets.Osu.UI.OsuPlayfield.BASE_SIZE / 2f, new Vector2(DanmakusuBalance.KOGASA_UMBRELLA_SIZE), degrees,
                     alpha * DanmakusuBalance.KOGASA_UMBRELLA_ALPHA, Color4.White);
 
@@ -72,10 +73,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     double shows = source.StartTime - source.TimePreempt;
 
-                    if (t < shows || t >= turn.Until)
+                    // (2026-11-25, "warning arrow can disappear slightly after osu objects spawned": it fades out over half a beat KOGASA_ARROW_BEATS after it has faded in; it stayed until the thing was gone)
+                    double hides = Math.Min(shows + Math.Max(source.TimeFadeIn, 1) + beat * DanmakusuBalance.KOGASA_ARROW_BEATS, turn.Until);
+
+                    if (t < shows || t >= hides + beat * 0.5)
                         continue;
 
-                    float alpha = (float)Math.Min(Math.Clamp((t - shows) / Math.Max(source.TimeFadeIn, 1), 0, 1), Math.Clamp((turn.Until - t) / (beat * 0.5), 0, 1)) * DanmakusuBalance.KOGASA_ARROW_ALPHA;
+                    float alpha = (float)Math.Min(Math.Clamp((t - shows) / Math.Max(source.TimeFadeIn, 1), 0, 1), Math.Clamp((hides + beat * 0.5 - t) / (beat * 0.5), 0, 1)) * DanmakusuBalance.KOGASA_ARROW_ALPHA;
 
                     if (alpha <= 0.01f)
                         continue;
@@ -95,6 +99,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     f.stageRipple.Add(StageTexture.SeijaArrow, at + round * (radius + size * 0.55f), new Vector2(size), MathF.Atan2(round.Y, round.X) * 180f / MathF.PI, alpha,
                         turn.Way > 0 ? DanmakusuBalance.KOGASA_RED : DanmakusuBalance.KOGASA_BLUE);
                 }
+            }
+
+            /// <summary>Her umbrella hurts like a slider body, as big as it is drawn, while it is there (2026-11-25).</summary>
+            public override bool Hurts(BulletField f, double now)
+            {
+                if (f.failed || now < Start || now >= End)
+                    return false;
+
+                float reach = DanmakusuBalance.KOGASA_UMBRELLA_SIZE * 0.5f * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                return Vector2.DistanceSquared(f.characterPosition, osu.Game.Rulesets.Osu.UI.OsuPlayfield.BASE_SIZE / 2f) <= reach * reach;
             }
 
             /// <summary>What stays at <paramref name="t"/> (over, but not yet gone): where it has turned to, and its colour.</summary>

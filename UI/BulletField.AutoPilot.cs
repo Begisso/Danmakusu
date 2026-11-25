@@ -1215,7 +1215,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             return kept.Position + kept.Velocity * (float)(t - kept.Time);
 
                         double own = stageClock(bullet, t);
-                        return own > trailEnd ? bullet.Trail![^1] + trailVelocity * (float)(own - trailEnd) : stageBulletPosition(bullet, own);
+
+                        if (own > trailEnd)
+                            return bullet.Trail![^1] + trailVelocity * (float)(own - trailEnd);
+
+                        Vector2 placed = stageBulletPosition(bullet, own);
+
+                        // (round Mugetsu, as it is drawn: 2026-11-25)
+                        if (stageSwirl != null)
+                        {
+                            Vector2 flying = stageBulletVelocity(bullet, own);
+                            swirlStage(bullet, i, t, ref placed, ref flying);
+                        }
+
+                        return placed;
                     }
 
                     double firstTime = Math.Max(t0, solid);

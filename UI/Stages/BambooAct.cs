@@ -9,21 +9,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Mai Teireida (2026-11-25): no pauses; she stays where she is when her section begins, all through it. Every TEIREIDA_EVERY_BEATS TEIREIDA_BEAMS beams as thin as a slider's from her out past the
-        // edge of the screen, evenly round her, with the player (as they were when the preview came) in the middle of a gap: a see-through preview for TEIREIDA_PREVIEW_BEATS, then they are there at once,
-        // whole, and hurt like a slider body for TEIREIDA_LIVE_BEATS, fading out over TEIREIDA_FADE_BEATS (harmless by then) as the next preview comes. A set always goes on to its end, also after her section.
-        // Her rings of talismans are the planner's; that every bullet of her section moves in steps of four beats, 45 degrees to either side of its way, is BossOps' (TrajectoryOpKind.Zigzag).
-        // Where she stands, and where the player is when a preview comes, are taken then and kept.
+        // Mai Teireida (2026-11-25): no pauses. Every TEIREIDA_EVERY_BEATS TEIREIDA_BEAMS beams as thin as a slider's from where she is out past the edge of the screen, evenly round her, with the player (as
+        // they were when the preview came) in the middle of a gap: a see-through preview for TEIREIDA_PREVIEW_BEATS, while she stands still; then they are there at once, whole, with Byakuren's beam sound,
+        // and hurt like a slider body for TEIREIDA_LIVE_BEATS, fading out over TEIREIDA_FADE_BEATS (harmless by then) as the sequence ends. Once they are shot she moves on, and they stay where they
+        // were shot. A set always goes on to its end, also after her section.
+        // Her rings of talismans are the planner's; that every bullet of her section moves in steps of four beats, 45 degrees to either side of its way, with a red arrow before every move after a stop, is
+        // BossOps' (TrajectoryOpKind.Zigzag) and the field's.
+        // Where she stands and where the player is when a preview comes are taken then and kept.
+        // (Until 2026-11-25, the same day: she stayed where she was when her section began, the beams always from there, without a sound.)
         // ======================================================================================================================================================
 
         private sealed class BambooAct : StageAct
         {
             private readonly double beat;
             private readonly double[] strikes; // (when each preview comes)
+            private readonly Vector2[] from; // (where she was then: the beams come out of there)
             private readonly float[] turns; // (the angle of the first beam of each set)
             private readonly bool[] known;
-            private Vector2 home;
-            private bool homeKnown;
+            private int soundedStrike = -1;
+            private double resetTime = double.NegativeInfinity;
 
             private readonly List<Vector2> line = new List<Vector2>(2);
             private readonly List<float> fades = new List<float>(2);
@@ -41,6 +45,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     list.Add(t);
 
                 strikes = list.ToArray();
+                from = new Vector2[strikes.Length];
                 turns = new float[strikes.Length];
                 known = new bool[strikes.Length];
 
@@ -71,13 +76,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Reset(BulletField f, double time)
             {
-                if (time < Start)
-                    homeKnown = false;
+                resetTime = time;
+                soundedStrike = -1;
 
                 for (int k = 0; k < strikes.Length; k++)
                 {
                     if (strikes[k] > time)
                         known[k] = false;
+                    else if (solidAt(k) <= time)
+                        soundedStrike = k;
                 }
             }
 
@@ -86,14 +93,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || now < Start)
                     return;
 
-                // (where she stays: where she is as her section begins)
-                if (!homeKnown)
-                {
-                    home = f.bossPositionOf(Period);
-                    homeKnown = true;
-                }
-
-                // (every set whose preview has come is turned so that the player, as they are then, stands in the middle of a gap)
+                // (every set whose preview has come takes where she is, and is turned so that the player, as they are then, stands in the middle of a gap)
                 var (first, last) = around(now);
 
                 for (int k = first; k <= last; k++)
@@ -102,20 +102,46 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     known[k] = true;
-                    Vector2 toPlayer = f.characterPosition - home;
+                    from[k] = f.bossPositionOf(Period);
+                    Vector2 toPlayer = f.characterPosition - from[k];
                     turns[k] = (toPlayer.LengthSquared > 1f ? MathF.Atan2(toPlayer.Y, toPlayer.X) : MathF.PI / 2f) + step / 2f;
+                }
+
+                // (each set comes with Byakuren's beam sound)
+                for (; soundedStrike + 1 < strikes.Length && solidAt(soundedStrike + 1) <= now; soundedStrike++)
+                {
+                    double solid = solidAt(soundedStrike + 1);
+
+                    if (now - solid < 250 && solid > resetTime)
+                        f.playStageSound("touhou_strike");
                 }
             }
 
+            /// <summary>She stands still while a set is shown, until it is shot.</summary>
             public override bool BossAt(BulletField f, double now, out Vector2 position)
             {
-                position = home;
-                return homeKnown && now >= Start && now <= End;
+                position = default;
+
+                if (strikes.Length == 0 || now < Start)
+                    return false;
+
+                var (first, last) = around(now);
+
+                for (int k = first; k <= last; k++)
+                {
+                    if (known[k] && now >= strikes[k] && now < solidAt(k))
+                    {
+                        position = from[k];
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
             {
-                if (f.failed || strikes.Length == 0 || t < Start || !homeKnown)
+                if (f.failed || strikes.Length == 0 || t < Start)
                     return;
 
                 var core = new Color4(0.9f, 1f, 0.88f, 1f);
@@ -142,8 +168,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         var way = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
 
                         line.Clear();
-                        line.Add(home);
-                        line.Add(beamRayEnd(f, home, way, half));
+                        line.Add(from[k]);
+                        line.Add(beamRayEnd(f, from[k], way, half));
                         fades.Clear();
                         fades.Add(alpha);
                         fades.Add(alpha);
@@ -153,22 +179,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>
-            /// A solid set hurts like a slider body (not while it fades): every beam goes from her out past the edge, so the one nearest the player's angle round her is the only one to look at - how far the
-            /// player is from its line, if they are on its side of her.
+            /// A solid set hurts like a slider body (not while it fades): every beam goes from where it was shot out past the edge, so the one nearest the player's angle round that place is the only one to
+            /// look at - how far the player is from its line.
             /// </summary>
             public override bool Hurts(BulletField f, double now)
             {
-                if (f.failed || strikes.Length == 0 || now < Start || !homeKnown)
+                if (f.failed || strikes.Length == 0 || now < Start)
                     return false;
 
-                Vector2 off = f.characterPosition - home;
-                float distance = off.Length;
                 float reach = halfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
-
-                if (distance <= reach)
-                    return solidAny(now);
-
-                float angle = MathF.Atan2(off.Y, off.X);
                 var (first, last) = around(now);
 
                 for (int k = first; k <= last; k++)
@@ -176,24 +195,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!known[k] || now < solidAt(k) || now >= liveEnd(k))
                         continue;
 
+                    Vector2 off = f.characterPosition - from[k];
+                    float distance = off.Length;
+
+                    if (distance <= reach)
+                        return true;
+
                     // (the angle to the nearest beam, -step/2..step/2)
-                    float into = (angle - turns[k]) / step;
+                    float into = (MathF.Atan2(off.Y, off.X) - turns[k]) / step;
                     float aside = (into - MathF.Round(into)) * step;
 
                     if (distance * MathF.Abs(MathF.Sin(aside)) <= reach)
-                        return true;
-                }
-
-                return false;
-            }
-
-            private bool solidAny(double now)
-            {
-                var (first, last) = around(now);
-
-                for (int k = first; k <= last; k++)
-                {
-                    if (known[k] && now >= solidAt(k) && now < liveEnd(k))
                         return true;
                 }
 

@@ -14,6 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // seen (it is see-through) and every star hurts like a slider body. Over SAPPHIRE_GROW_BEATS the sphere grows from her until its edge is just past the farthest edge of the screen, turns as big for
         // SAPPHIRE_HOLD_BEATS, is pulled back into her over SAPPHIRE_BACK_BEATS, and the moment it is in it comes again (SAPPHIRE_REST_BEATS, 0), turning the other way. No pauses: what is left of the section
         // at its end gets a shorter one. A section too short for one is one as long as it is.
+        // Since 2026-11-25 her stars are half as big, every part of a sphere lasts twice as long, and as each has grown another is thrown over it from her, turning the other way, that is never pulled back: it
+        // grows on, as fast as the first grew in all, until it is wholly past the screen.
         // Everything is a closed form of time (the stars are beads: the autoplay asks where they are at any moment).
         // ======================================================================================================================================================
 
@@ -189,6 +191,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return Math.Max(half.X, half.Y) + starRadius(f) * DanmakusuBalance.SAPPHIRE_MARGIN;
             }
 
+            /// <summary>
+            /// The sphere thrown over each one once it has grown (2026-11-25, "on top of same sphere there will be thrown another sphere but it just grows away"): it grows from her at as many px a ms as the
+            /// first grew in all over its growing, and is never pulled back - it grows on until it is wholly past the screen. Turning the other way. Returns its sphere (or -1) and how big it is.
+            /// </summary>
+            private int thrownAt(BulletField f, double t, out float size, out float growing)
+            {
+                size = 0f;
+                growing = 0f;
+                float full = fullSize(f);
+                Vector2 half = (f.stageMax - f.stageMin) * 0.5f;
+                float gone = half.Length + starRadius(f) * 2f;
+
+                for (int k = 0; k < spheres.Length; k++)
+                {
+                    var (start, grow, _, _) = spheres[k];
+                    double thrown = start + grow;
+                    float speed = full / (float)Math.Max(grow, 1);
+
+                    if (t < thrown || t >= thrown + gone / speed)
+                        continue;
+
+                    size = speed * (float)(t - thrown);
+                    growing = speed;
+                    return k;
+                }
+
+                return -1;
+            }
+
             public override void Beads(BulletField f, double t, List<StageBead> into)
             {
                 if (f.failed)
@@ -196,11 +227,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 int k = sphereAt(f, t, out float size, out float growing);
 
-                if (k < 0 || size < 1f)
-                    return;
+                if (k >= 0 && size >= 1f)
+                    addSphere(f, t, into, k, size, growing, false);
 
+                int thrown = thrownAt(f, t, out float thrownSize, out float thrownGrowing);
+
+                if (thrown >= 0 && thrownSize >= 1f)
+                    addSphere(f, t, into, thrown, thrownSize, thrownGrowing, true);
+            }
+
+            /// <summary>The stars of sphere <paramref name="k"/> as it is at <paramref name="t"/>, <paramref name="size"/> px from its middle to its edge (the one thrown over it, <paramref name="over"/>, turns the other way).</summary>
+            private void addSphere(BulletField f, double t, List<StageBead> into, int k, float size, float growing, bool over)
+            {
                 // (turned about the line from pole to pole, every next sphere the other way round; seen a little from above; no perspective)
-                float way = k % 2 == 0 ? 1f : -1f;
+                float way = (k % 2 == 0) != over ? 1f : -1f;
                 float turn = way * (float)((t - spheres[k].Start) / (beat * DanmakusuBalance.SAPPHIRE_TURN_BEATS) * Math.Tau);
                 float cosTurn = MathF.Cos(turn), sinTurn = MathF.Sin(turn);
 

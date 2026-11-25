@@ -13,6 +13,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // every IKU_TRACE_STEP_BEATS, fainter towards its end - that hurts like a slider body. Every IKU_TETHER_GROUP neighbouring bullets of those of a ring fired in her section (every second one: 0, 2, 4, 6, 8; 10...) are tied together (the planner's
         // BulletEmitter.TetherGroup: none gets further than half of IKU_TETHER_CIRCLES osu! circles from the middle one of its group, so no two are further apart than that); a straight beam joins each to the
         // next, and hurts like a slider body. A bullet that has been used up or taken, or has left the screen, takes its beams with it.
+        // Since 2026-11-25 a group of five is joined as a five-pointed star (every second one to the next, and back), its beams gold all through and twice as thick (IKU_LINK_WIDTH) - the user saw none.
         // All of it is worked out from the rings' closed forms; where each bullet was at the moments of the grid that have come (IKU_TRACE_STEP_BEATS apart) is kept, as that does not change (going back in
         // time drops what is after it): worked out again for every frame it cost 7 ms a frame, and as much again for the autoplay.
         // ======================================================================================================================================================
@@ -213,7 +214,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (her colours: a pale blue beam with a deep blue edge behind every bullet, and pale gold ones with a rose edge - her ribbon - between those tied)
                 var traceCore = new Color4(0.82f, 0.92f, 1f, 1f);
                 var traceBorder = DanmakusuBalance.BorderColour(new Color4(0.3f, 0.36f, 0.9f, 1f));
-                var linkCore = new Color4(1f, 0.96f, 0.7f, 1f);
+                var linkCore = new Color4(1f, 0.84f, 0.3f, 1f); // (gold, 2026-11-25: a pale gold with a white middle before)
                 var linkBorder = DanmakusuBalance.BorderColour(new Color4(0.9f, 0.3f, 0.45f, 1f));
                 float half = traceHalf(f), link = linkHalf(f);
 
@@ -240,6 +241,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     drawLinks(f, ring, t, link, linkCore, linkBorder, ref beams, ref pointTotal);
             }
 
+            // (a group of five is joined as a five-pointed star, every second one to the next and back to the first: 2026-11-25, "star-forming laserbeam connections" - they were a chain in ring order)
+            private static readonly int[] star_order = { 0, 2, 4, 1, 3, 0 };
+            private readonly List<int> order = new List<int>(8);
+
+            /// <summary>The bullets of the group that starts at <paramref name="first"/>, in the order their beam joins them.</summary>
+            private List<int> linkOrder(int first, int group, int stride)
+            {
+                order.Clear();
+
+                if (group == 5)
+                {
+                    foreach (int m in star_order)
+                        order.Add(first + m * stride);
+                }
+                else
+                {
+                    for (int m = 0; m < group; m++)
+                        order.Add(first + m * stride);
+                }
+
+                return order;
+            }
             private void drawLinks(BulletField f, BulletEmitter ring, double t, float half, Color4 core, Color4 border, ref int beams, ref int pointTotal)
             {
                 if (ring.Time > t || t > ring.Time + ring.Lifetime * 2)
@@ -251,13 +274,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     line.Clear();
 
-                    for (int b = first; b < first + group * stride; b += stride)
+                    foreach (int b in linkOrder(first, group, stride))
                     {
                         // (a bullet that is gone breaks the beam there)
                         if (!there(ring, b, t) || !place(f, ring, b, t, out Vector2 at))
                         {
                             if (line.Count >= 2)
-                                f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal);
+                                f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal, null, null, core);
 
                             line.Clear();
                             continue;
@@ -267,7 +290,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
 
                     if (line.Count >= 2)
-                        f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal);
+                        f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal, null, null, core); // (gold all through: with a white middle they passed for nothing - 2026-11-25)
                 }
             }
 
@@ -322,7 +345,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (!place(f, ring, first + group / 2 * stride, t, out Vector2 middle) || Vector2.DistanceSquared(middle, around) > near * near)
                             continue;
 
-                        for (int b = first; b < first + group * stride; b += stride)
+                        foreach (int b in linkOrder(first, group, stride))
                         {
                             if (!there(ring, b, now) || !place(f, ring, b, t, out Vector2 at))
                             {
@@ -402,7 +425,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         bool had = false;
                         Vector2 previous = default;
 
-                        for (int b = first; b < first + group * stride; b += stride)
+                        foreach (int b in linkOrder(first, group, stride))
                         {
                             if (!there(ring, b, now) || !place(f, ring, b, now, out Vector2 at))
                             {

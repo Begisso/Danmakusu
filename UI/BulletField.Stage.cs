@@ -242,6 +242,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public float OrbitTilt;
 
+            /// <summary>With <see cref="OrbitGrow"/>: the circle grows from this far out (px) to <see cref="Orbit"/> instead of from nothing (Takane's grabbed bullets ease out to their orbit, 2026-11-25).</summary>
+            public float OrbitFrom;
+
             /// <summary>
             /// When not null the hub is bullet <see cref="HubBullet"/> of this ring, wherever that is (on its own clock, through <see cref="HubEffects"/>): what Takane's big bullets have grabbed
             /// (2026-11-25). The other Hub fields are not used then.
@@ -523,8 +526,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             CarryMark carried = kept.Carried;
             bool alive = flyTraced(bullet.P0, bullet.V, bullet.Acc, bullet.T0, bullet.Until, t, radius, out position, out velocity, out look, ref carried);
+
+            if (alive)
+                swirlStage(bullet, index, t, ref position, ref velocity);
+
             kept = new TracedAt { Time = t, Alive = alive, Position = position, Velocity = velocity, Look = look, Carried = carried };
             return alive;
+        }
+
+        /// <summary>Mugetsu's vortex (the field's one, if she is on the map).</summary>
+        private Swirl? stageSwirl;
+
+        /// <summary>Does a stage bullet fly on a straight line of its own (with no act moving it otherwise)? Those go round Mugetsu in her attacks too.</summary>
+        private static bool stageFliesStraight(in StageBullet b)
+            => !b.Untraced && b.Trail == null && b.Legs == null && b.A <= 0f && b.FallAt <= 0 && b.StopAfter <= 0 && b.WrapHeight <= 0f && !b.Slider && !b.Harmless && b.Switch <= 0 && b.TurnT <= 0
+               && b.Pushes == null && b.Wander <= 0f && b.SwayAmp <= 0f && b.Orbit <= 0f && b.PulseMs <= 0;
+
+        /// <summary>
+        /// A stage bullet that flies straight goes round Mugetsu in her attacks as the bullets of the rings do (2026-11-25, "spin applies to bullets that were already on the screen too": the acts' own
+        /// bullets - Kanako's talismans flying off, the prism's spread - flew straight through her vortex); the even ones of an act one way, the odd ones the other.
+        /// </summary>
+        private void swirlStage(in StageBullet b, int index, double t, ref Vector2 position, ref Vector2 velocity)
+        {
+            if (stageSwirl == null || !stageFliesStraight(b))
+                return;
+
+            float speed = velocity.Length;
+            Vector2 direction = speed > 1e-6f ? velocity / speed : Vector2.Zero;
+
+            // (by the bullets' own clock, as the rings: Swirl.Clock)
+            if (stageSwirl.Apply(b.T0, b.P0, b.V, index, effects.Effective(b.T0, t), ref position, ref direction) && speed > 1e-6f)
+                velocity = direction * speed;
         }
 
         /// <summary>Is a traced stage bullet surely gone at <paramref name="t"/>? (Its own clock is past its life plus every freeze there is: no op keeps it longer than that.)</summary>
@@ -2297,6 +2329,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         {
                             // (since 2026-11-24 everything flies half as fast in her attacks, by the bullets' clock: the vortex goes by it too)
                             swirl.Clock = effects;
+                            stageSwirl = swirl; // (the acts' bullets that fly straight go round her too: swirlStage)
                             registerStage(new SwirlAct(period, swirl));
                         }
 
@@ -2784,6 +2817,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Time went back: everything that was captured or taken in after <paramref name="time"/> is not there yet.</summary>
         private void rewindStage(double time)
         {
+            TraceCarry.CurrentGeneration++; // (the ops placed after it are taken back: what the beams' slices kept of them is thrown away)
+
             foreach (var act in stageActs)
             {
                 act.Traced = []; // (the portals, the freezes... may go another way this time)
@@ -3303,7 +3338,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private static Vector2 orbitingPoint(in StageBullet b, double t)
         {
             float angle = b.OrbitPhase + b.OrbitOmega * (float)(orbitClock(b, t) - b.T0);
-            float radius = b.OrbitGrow > 0 ? b.Orbit * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
+            float radius = b.OrbitGrow > 0 ? b.OrbitFrom + (b.Orbit - b.OrbitFrom) * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
 
             // (a tilted circle, seen as an ellipse: along its long axis as far out as the circle, across it flatter)
             if (b.OrbitFlat > 0f)
@@ -3540,6 +3575,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         double own = stageClock(bullet, drawTime);
                         position = stageBulletPosition(bullet, own);
                         velocity = stageBulletVelocity(bullet, own);
+                        swirlStage(bullet, i, drawTime, ref position, ref velocity);
                     }
 
                     if (failed)
@@ -3768,10 +3804,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                     else
                     {
-                        double ownEnd = stageClock(bullet, t1);
-                        positionA = stageBulletPosition(bullet, stageClock(bullet, ta));
+                        double ownStart = stageClock(bullet, ta), ownEnd = stageClock(bullet, t1);
+                        positionA = stageBulletPosition(bullet, ownStart);
                         positionB = stageBulletPosition(bullet, ownEnd);
                         velocity = stageBulletVelocity(bullet, ownEnd);
+                        Vector2 unused = velocity;
+                        swirlStage(bullet, i, ta, ref positionA, ref unused);
+                        swirlStage(bullet, i, t1, ref positionB, ref velocity);
                     }
 
                     Vector2 rel0 = positionA - pa;

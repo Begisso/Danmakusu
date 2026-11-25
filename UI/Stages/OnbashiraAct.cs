@@ -12,6 +12,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // evenly round her): the talismans lie end to end all round each circle, every fourth one left out. The circles fly at once (2026-11-21; they turned round her for two beats first)
         // straight away from her, the talismans still going round each moving circle (the circles themselves are not seen), until eight beats later the circle stops turning and flies on as it is
         // (2026-11-21). Since 2026-11-24 each comes out of the edge of her magic circle, growing to its size over KANAKO_GROW_BEATS, and its talismans are twice as big (KANAKO_TALISMAN_SIZE).
+        // Since 2026-11-25 every circle has two gaps across from each other, a talisman wide (every fourth talisman was left out), its talismans go round it half as fast and it grows four times as slowly; when
+        // they stop turning, each talisman flies off straight out from the middle of its circle at KANAKO_FLY_SPEED times a plain bullet's speed (and the circle's way on top), and for KANAKO_WARN_BEATS before
+        // that a red arrow beside every one points that way.
         // She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
         // Like every act's bullets they are a function of time (StageBullet.Orbit).
@@ -106,14 +109,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     double backAt = outAt + timeOut(turnAt - velocity * 1f, -velocity, low, high, true);
                     int style = f.comboStyle(c, true, Period.Rank);
 
+                    double stopAt = spinUntil + beat * DanmakusuBalance.KANAKO_STOP_TURNING_BEATS; // (8 beats after the circle flies out it stops turning: 2026-11-21)
+
                     for (int i = 0; i < around; i++)
                     {
-                        if (i % DanmakusuBalance.KANAKO_SKIP_EVERY == DanmakusuBalance.KANAKO_SKIP_EVERY - 1)
-                            continue; // (every fourth talisman left out)
+                        // (two gaps, across the circle from each other, a talisman wide: 2026-11-25 - every fourth talisman was left out)
+                        if (i == 0 || i == around / 2)
+                            continue;
 
                         float phase = i * MathF.Tau / around;
 
-                        AddBullet(new StageBullet
+                        var talisman = new StageBullet
                         {
                             T0 = t,
                             P0 = centre,
@@ -131,7 +137,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             HubUntil = spinUntil,
                             HubV = velocity,
                             HubBackAt = outAt,
-                            OrbitUntil = spinUntil + beat * DanmakusuBalance.KANAKO_STOP_TURNING_BEATS, // (8 beats after the circle flies out it stops turning: 2026-11-21)
+                            OrbitUntil = stopAt,
                             OrbitGrow = beat * DanmakusuBalance.KANAKO_GROW_BEATS,
                             Spin = ringOmega, // (each lies along its circle: end to end with the next)
                             SpinPhase = phase + turn * MathF.PI / 2f,
@@ -141,9 +147,76 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             Tint2Over = 200,
                             Grow = 200,
                             Untraced = true,
-                            Until = backAt,
-                        });
+                            Until = Math.Min(backAt, stopAt),
+                        };
+
+                        AddBullet(talisman);
+
+                        // (2026-11-25, "spin stop follows up with talismans flying away from centre": as it stops turning it flies off straight out from the middle of its circle, at a plain bullet's speed, and
+                        // the circle's own way on top; what it does from then on is the ops' - it too turns back once it has wholly left the screen, dark blue)
+                        if (stopAt < backAt)
+                        {
+                            Vector2 at = orbitingPoint(talisman, stopAt);
+                            Vector2 middle = hubPoint(talisman, stopAt);
+                            Vector2 outward = at - middle;
+                            Vector2 hubWay = stopAt > outAt ? -velocity : velocity;
+                            Vector2 flight = (outward.LengthSquared > 1e-6f ? Vector2.Normalize(outward) : Vector2.UnitY) * stageBulletSpeed(Period) * DanmakusuBalance.KANAKO_FLY_SPEED + hubWay;
+                            bool blue = stopAt >= outAt;
+
+                            AddBullet(new StageBullet
+                            {
+                                T0 = stopAt,
+                                P0 = at,
+                                V = flight,
+                                Radius = radius,
+                                Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                                Style = style,
+                                Shape = BulletShape.Talisman,
+                                Face = stageSpun(talisman, stopAt),
+                                Tint = blue ? BulletRenderer.TINT_DARK_BLUE : 0,
+                                TintAmount = blue ? 1f : 0f,
+                                Until = stopAt + f.stageLife(flight) * 2.5, // (it may come back once, across the screen)
+                            });
+                        }
                     }
+                }
+            }
+
+            /// <summary>
+            /// For KANAKO_WARN_BEATS before her talismans stop turning and fly off, a red arrow of Seija's dress beside every one points straight out from the middle of its circle (2026-11-25, "warn
+            /// about it with arrows").
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || Bullets.Count == 0)
+                    return;
+
+                double warn = beat * DanmakusuBalance.KANAKO_WARN_BEATS;
+                var red = new osuTK.Graphics.Color4(1f, 0.22f, 0.2f, 1f);
+                var all = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(Bullets);
+
+                for (int i = Math.Max(DrawFrom, 0); i < all.Length; i++)
+                {
+                    ref readonly var b = ref all[i];
+
+                    if (b.Orbit <= 0f || b.OrbitUntil <= t || b.OrbitUntil - t > warn || t < b.T0 || t > b.Until)
+                        continue;
+
+                    double u = 1.0 - (b.OrbitUntil - t) / warn;
+                    float level = smoothStep(u * 2.0);
+
+                    if (u > 0.5)
+                        level *= 0.6f + 0.4f * MathF.Cos((float)((u - 0.5) * 2.0) * MathF.PI * 4f);
+
+                    Vector2 at = orbitingPoint(b, t);
+                    Vector2 outward = at - hubPoint(b, t);
+
+                    if (outward.LengthSquared < 1e-6f)
+                        continue;
+
+                    outward = Vector2.Normalize(outward);
+                    float arrow = b.Radius * DanmakusuBalance.AUNN_ARROW_SIZE * 0.5f;
+                    f.stageRipple.Add(StageTexture.SeijaArrow, at + outward * (b.Radius + arrow), new Vector2(arrow * 2.2f), MathF.Atan2(outward.Y, outward.X) * 180f / MathF.PI, level, red);
                 }
             }
 

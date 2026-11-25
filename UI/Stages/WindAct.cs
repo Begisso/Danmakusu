@@ -14,7 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // she goes, at the next AYA_DASH_EVERY_BEATS of a beat at least AYA_PREVIEW_LEAST_BEATS later; then she flashes along it at AYA_DASH_SPEED times Mokou's jump speed, and behind her a beam as thick as a slider's stays for
         // AYA_TRACE_BEATS (it hurts like a slider body; it fades over its last AYA_TRACE_FADE_BEATS, harmless by then). Every bullet of a ring she passes (AYA_SLASH_CIRCLES circle radii to either side of her
         // way; not her own, not Yukari's train) comes apart into two of Matenshi's feathers, black as a crow's, which fly straight out to either side of her way, AYA_SLASH_SPEED times as fast as it was
-        // (2026-11-22; it flew out whole to its own side). Each swing is heard (Kagerou's).
+        // (2026-11-22; it flew out whole to its own side). The feathers turn round as they fly, the two of a bullet opposite ways (AYA_FEATHER_SPIN, 2026-11-25). Each swing is heard (Kagerou's).
         // Her own shots are the planner's: fans of orange maple leaves that pull towards the player, from wherever she is.
         // The ways she chose are kept: time going back takes the same ways again (the later ones are chosen when their time comes).
         // ======================================================================================================================================================
@@ -324,6 +324,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     var feather = f.makeStageBullet(stored, emitter, bullet, t, to, side * (sign * speed));
                     feather.Shape = BulletShape.Feather;
+                    feather.Spin = DanmakusuBalance.AYA_FEATHER_SPIN * sign; // (it turns round as it flies, the two of a bullet opposite ways: 2026-11-25)
+                    feather.SpinPhase = MathF.Atan2(side.Y * sign, side.X * sign);
                     feather.Radius *= DanmakusuBalance.MATENSHI_FEATHER_SIZE;
                     feather.Hit *= DanmakusuBalance.MATENSHI_FEATHER_SIZE;
                     feather.Tint = BulletRenderer.TINT_HISAMI_HAIR; // (black, with a sheen: a crow's)

@@ -726,7 +726,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>
         /// The lava inside Suika's cracks (2026-11-22, after the user's picture of cracked lava): dark, cooling rock broken into plates by a network of glowing cracks - wide bright ones between big plates, fine
-        /// dim ones inside them - with a red haze round them. It repeats along its width without a seam (the plates go round), so a crack shows it end to end.
+        /// dim ones inside them - with a red haze round them. It repeats both ways without a seam (the plates go round; along its height too since 2026-11-25, when it was laid flat over the ground).
         /// </summary>
         public static Texture BakeLava(IRenderer renderer) => bake(renderer, lava_picture.Value.Clone());
 
@@ -737,7 +737,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             const int width = 512, height = 256;
             var image = new Image<Rgba32>(width, height);
 
-            // (a feature point in every square of a grid that goes round in x, at a place of its own; the cracks lie where two points are about as near)
+            // (a feature point in every square of a grid that goes round both ways, at a place of its own; the cracks lie where two points are about as near)
             static (float Edge, float Near) cells(float x, float y, int columns, int rows, int seed)
             {
                 float cell = 1f / columns, cellY = 1f / rows;
@@ -749,9 +749,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     for (int dx = -1; dx <= 1; dx++)
                     {
                         int gx = cx + dx, gy = cy + dy;
-                        int wrapped = ((gx % columns) + columns) % columns;
-                        float px = (gx + 0.15f + 0.7f * hash(wrapped, gy, seed)) * cell;
-                        float py = (gy + 0.15f + 0.7f * hash(wrapped, gy, seed + 1)) * cellY;
+                        int wrapped = ((gx % columns) + columns) % columns, wrappedY = ((gy % rows) + rows) % rows;
+                        float px = (gx + 0.15f + 0.7f * hash(wrapped, wrappedY, seed)) * cell;
+                        float py = (gy + 0.15f + 0.7f * hash(wrapped, wrappedY, seed + 1)) * cellY;
                         float ddx = (x - px) * columns, ddy = (y - py) * rows;
                         float d = MathF.Sqrt(ddx * ddx + ddy * ddy);
 

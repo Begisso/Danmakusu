@@ -43,7 +43,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.FreeFall] = 3, // Toyohime
             [BossMechanic.Unknown] = 4, // Nue (3 until 2026-11-21: her UFOs hurt like a slider body)
             [BossMechanic.Winter] = 3, // Letty
-            [BossMechanic.Prism] = 3, // Sunny Milk
+            [BossMechanic.Prism] = 4, // Sunny Milk (3 until 2026-11-25: every split bullet has a beam tail two beats long that hurts)
             [BossMechanic.Qi] = 3, // Meiling
             [BossMechanic.Smoke] = 3, // Sannyo (her clouds 1.5 times as big since 2026-11-08: 2.25 times the room, not enough for a star more)
             [BossMechanic.Spring] = 2, // Lily White
@@ -124,8 +124,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Starlight] = 4, // Star Sapphire (3 until 2026-11-22, when its stars became twice as dense along its lines; a turning sphere of stars spinning round her (it tumbled until 2026-11-22) as big as the screen, growing and pulled back, one after another; no pauses)
             [BossMechanic.Frog] = 5, // Suwako Moriya (Junko's beams in a fan, faster, bouncing once; her reshots in five fans)
             [BossMechanic.Wind] = 5, // Aya Shameimaru (2026-11-22: dashes edge to edge through the bullets, leaving beams; what she passes comes apart into feathers flying out sideways, twice as fast; homing maple fans. 4 until she dashed twice as fast on the half beats and fanned out twice as many leaves twice as often, the same day)
-            [BossMechanic.Spoiler] = 3, // Hatate Himekaidou (2026-11-22: a photo every eight beats turns every bullet one way, half as fast; caught in the frame, the character lags behind the mouse for two beats)
-            [BossMechanic.Creation] = 4, // Shinki (2026-11-22: everything fired comes out of her six wings as turning streams; the lasers from her wings, straight)
+            [BossMechanic.Spoiler] = 2, // Hatate Himekaidou (3 until 2026-11-25, when her photo turned only what is in the frame. 2026-11-22: a photo every eight beats turns every bullet one way, half as fast; caught in the frame, the character lags behind the mouse for two beats)
+            [BossMechanic.Creation] = 5, // Shinki (4 until 2026-11-25: every bullet out of two wings, the streams twice as dense, her lasers four times as long. 2026-11-22: everything fired comes out of her six wings as turning streams; the lasers from her wings, straight)
             [BossMechanic.Mirage] = 4, // Watari Nina (2026-11-22: a huge golden beam at you every 16 beats; what leaves the screen comes back in, flying at it; fans of big balls)
             [BossMechanic.Effigy] = 4, // Ubame Chirizuka (2026-11-22: fans of dolls that hurt and shoot what they touch at you again, bigger; those bounce off each other)
             [BossMechanic.Fossil] = 4, // Ariya Iwanaga (2026-11-22: everything stops every 16 beats, the circles and sliders hold their shots and fire them all at once; a grid of bouncing ellipses that never stops)

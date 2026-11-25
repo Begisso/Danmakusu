@@ -2104,6 +2104,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.TAKANE_BALLS, phase, out _);
                     var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, ballRadius, BulletShape.Circle, followsBoss: true, straight: true);
                     ring.KeepCount = true; // (ten with another boss on the screen too)
+                    ring.Tint = UI.BulletRenderer.TINT_GREEN; // (her green: 2026-11-25, white balls with their white glow looked blurred, "low resolution")
                     ring.OwnShot = true;
                     emitters.Add(ring);
                 }
@@ -3281,7 +3282,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 if (beam.StartTime < period.ShootStart - 1 || beam.StartTime >= period.End || beam.FromSpot >= 0 || beam.Immune || (beam.FollowsBoss && beam.BossRank != period.Rank))
                                     continue;
 
-                                laserList[k] = beam.FromSpotStraight(wing++ % DanmakusuBalance.SHINKI_WINGS, period.Rank, (across + beam.MaxHalfWidth * 2f) / Math.Max(beam.Speed, 1e-3f));
+                                laserList[k] = beam.FromSpotStraight(wing++ % DanmakusuBalance.SHINKI_WINGS, period.Rank, (across + beam.MaxHalfWidth * 2f) / Math.Max(beam.Speed, 1e-3f), DanmakusuBalance.SHINKI_BEAM_LONGER); // (four times as long: 2026-11-25)
                             }
 
                             break;
@@ -3754,6 +3755,27 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                                 double until = Math.Max(beam.StartTime + beat * DanmakusuBalance.SON_HOLD_BEATS, beam.EndTime);
                                 laserList[k] = beam.Held(until, DanmakusuBalance.SON_HOLD_GROW, (held++ % 2 == 0 ? 1f : -1f) * spin, beat * DanmakusuBalance.SON_HOLD_EASE_BEATS);
+                            }
+
+                            // (2026-11-25, "laserbeam spinning applies to the laserbeams that were already on the screen too": a slider's beam that was all fired before her section began and is still
+                            // flying then flies on from then as one piece, turning round its middle as the held ones do once they go - every next one the other way round)
+                            for (int k = 0; k < laserList.Count; k++)
+                            {
+                                var beam = laserList[k];
+
+                                if (beam.SpinnerLike || beam.Rotates || beam.HoldUntil > 0 || beam.SelfSpin != 0f || beam.SpinFrom > 0 || beam.BallPositions.Length < 2 || beam.StartTime >= period.ShootStart - 1
+                                    || beam.EndTime > period.ShootStart || beam.EndTime + beam.Lifetime <= period.ShootStart)
+                                    continue;
+
+                                float extent = 0f;
+
+                                foreach (var point in beam.BallPositions)
+                                    extent = Math.Max(extent, Vector2.Distance(point, beam.BallPositions[0]));
+
+                                if (extent < 2f)
+                                    continue;
+
+                                laserList[k] = beam.SpunFrom(period.ShootStart, (held++ % 2 == 0 ? 1f : -1f) * spin);
                             }
 
                             break;

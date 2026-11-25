@@ -453,6 +453,28 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Zigzag: how far (radians) each move goes to the side of the thing's own way. Turn: how far it turns.</summary>
         public float TurnAngle { get; init; }
 
+        /// <summary>A turn the field warns of with a red arrow beside every bullet, <see cref="WarnMs"/> before, pointing the way it will go (Mai Teireida's moves, 2026-11-25).</summary>
+        public bool TurnWarn { get; init; }
+
+        /// <summary>
+        /// Hatate (2026-11-25, "only bullets that were within photo frame during click is affected"): an <see cref="TrajectoryOpKind.Aim"/> that only takes what is in her frame at its time - a box
+        /// <see cref="FrameHalf"/> to each side of <see cref="FrameCentre"/>, turned <see cref="FrameAngle"/> radians - which her act puts there as it places the op; until then it does nothing.
+        /// </summary>
+        public bool InFrameOnly { get; init; }
+
+        public Vector2 FrameCentre { get; set; }
+        public Vector2 FrameHalf { get; set; }
+        public float FrameAngle { get; set; }
+
+        /// <summary>Is <paramref name="p"/> in the frame of an op that only takes what is in it?</summary>
+        public bool InFrame(Vector2 p)
+        {
+            Vector2 d = p - FrameCentre;
+            float c = MathF.Cos(-FrameAngle), s = MathF.Sin(-FrameAngle);
+            Vector2 own = new Vector2(d.X * c - d.Y * s, d.X * s + d.Y * c);
+            return MathF.Abs(own.X) <= FrameHalf.X && MathF.Abs(own.Y) <= FrameHalf.Y;
+        }
+
         /// <summary>
         /// (for beams) The op takes whole beams: every beam that started between <see cref="BornAfter"/> and <see cref="BornBefore"/>, every slice of it whenever it was fired - Suwako's and Tsukasa's
         /// bounces (2026-11-21: the slices of a slider that went on past the end of her section flew out, while the ones before them bounced).
@@ -482,6 +504,35 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
     }
 
     /// <summary>
+    /// (2026-11-25, Kokoro's lag) How far <see cref="Trajectory.Trace"/> had got with a thing through ops that are over and can no longer change: where it was, how it flew and all the rest after op
+    /// <see cref="Next"/> - 1, so that it goes on from there next time rather than from where it started. Every beam of Kokoro's went through some forty of her ops, slice by slice, hundreds of slices a
+    /// frame, all from the start every frame (her ops last a beat each and are all placed once they are over).
+    /// </summary>
+    public struct TraceCarry
+    {
+        public bool Valid;
+        public int Next;
+        public int Generation;
+
+        /// <summary>The latest end of the ops it has been through: it holds only for a time at or after it.</summary>
+        public double ValidFrom;
+
+        internal Vector2 Position, V, Acc;
+        internal double Now;
+        internal BulletLook? Look;
+        internal double Vanish;
+        internal Vector2 TurnFrom, TurnTo;
+        internal double TurnAt, TurnBlend;
+        internal TrajectoryOp? ReleasedFrom;
+        internal bool Pulled, Reversed;
+        internal double RestoreAt;
+        internal float RestoreGain;
+
+        /// <summary>Bumped whenever time goes back (the ops placed after it are taken back): every carry made before is thrown away.</summary>
+        public static int CurrentGeneration;
+    }
+
+    /// <summary>
     /// Works out where a thing is at a time, when its flight is a straight line (or a fall with a constant pull) that the ops of a ring change: it is frozen for a while,
     /// mirrored, sent to a point, bounced off the border of the screen, turned into a petal... Everything is a closed form of time (so replays and seeks are exact).
     /// </summary>
@@ -501,6 +552,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public static void Trace(Vector2 start, Vector2 velocity, Vector2 acceleration, double t0, double time, TrajectoryOp[] ops, Vector2 min, Vector2 max, float top, out TrajectoryState result,
                                  int bullet = -1)
         {
+            TraceCarry none = default;
+            Trace(start, velocity, acceleration, t0, time, ops, min, max, top, out result, ref none, double.NegativeInfinity, bullet);
+        }
+
+        /// <summary>
+        /// <see cref="Trace"/>, going on from <paramref name="carry"/> if it holds, and keeping in it how far the thing has got through the ops that are over by <paramref name="settled"/> (the field's time
+        /// now) and can no longer change (see <see cref="settles"/>).
+        /// </summary>
+        public static void Trace(Vector2 start, Vector2 velocity, Vector2 acceleration, double t0, double time, TrajectoryOp[] ops, Vector2 min, Vector2 max, float top, out TrajectoryState result,
+                                 ref TraceCarry carry, double settled, int bullet = -1)
+        {
             Vector2 position = start;
             Vector2 v = velocity;
             Vector2 acc = acceleration;
@@ -514,6 +576,38 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             bool reversed = false; // (Shion has turned it round already: no later turn of hers does)
             double restoreAt = double.PositiveInfinity; // (when what slowed it down is gone, and how many times as fast it is then)
             float restoreGain = 1f;
+            int first = 0;
+
+            // (going on from how far it got before, if that still holds: nothing has gone back since, and the time asked about is after every op it went through)
+            bool carrying = !double.IsNegativeInfinity(settled);
+
+            if (carrying && carry.Valid && (carry.Generation != TraceCarry.CurrentGeneration || carry.Next > ops.Length))
+                carry.Valid = false;
+
+            if (carrying && carry.Valid && time >= carry.ValidFrom)
+            {
+                position = carry.Position;
+                v = carry.V;
+                acc = carry.Acc;
+                now = carry.Now;
+                look = carry.Look;
+                vanish = carry.Vanish;
+                turnFrom = carry.TurnFrom;
+                turnTo = carry.TurnTo;
+                turnAt = carry.TurnAt;
+                turnBlend = carry.TurnBlend;
+                releasedFrom = carry.ReleasedFrom;
+                pulled = carry.Pulled;
+                reversed = carry.Reversed;
+                restoreAt = carry.RestoreAt;
+                restoreGain = carry.RestoreGain;
+                first = carry.Next;
+            }
+            else if (carrying && carry.Valid)
+                carrying = false; // (asked about an earlier time: from the start, and what it had is kept)
+
+            bool keeping = carrying; // (every op so far is over and settled: how far it gets can be kept)
+            double keptEnd = first > 0 ? carry.ValidFrom : double.NegativeInfinity;
 
             result = new TrajectoryState { Alive = true, StillUntil = double.NaN };
 
@@ -529,8 +623,39 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 how = new Vector2(zigzag(fallOp, a + 1f) - zigzag(fallOp, a) + fallLean, fallOp.FallSpeed);
             }
 
-            foreach (var op in ops)
+            for (int index = first; index < ops.Length; index++)
             {
+                var op = ops[index];
+
+                // (how far it has got is kept after every op that is over and settled, as long as every one before was too)
+                if (keeping && index > first && fallOp == null)
+                {
+                    carry.Valid = true;
+                    carry.Generation = TraceCarry.CurrentGeneration;
+                    carry.Next = index;
+                    carry.ValidFrom = keptEnd;
+                    carry.Position = position;
+                    carry.V = v;
+                    carry.Acc = acc;
+                    carry.Now = now;
+                    carry.Look = look;
+                    carry.Vanish = vanish;
+                    carry.TurnFrom = turnFrom;
+                    carry.TurnTo = turnTo;
+                    carry.TurnAt = turnAt;
+                    carry.TurnBlend = turnBlend;
+                    carry.ReleasedFrom = releasedFrom;
+                    carry.Pulled = pulled;
+                    carry.Reversed = reversed;
+                    carry.RestoreAt = restoreAt;
+                    carry.RestoreGain = restoreGain;
+                }
+
+                if (keeping && (fallOp != null || !settles(op, Math.Min(settled, time))))
+                    keeping = false;
+                else if (keeping)
+                    keptEnd = Math.Max(keptEnd, Math.Max(op.End, op.Time));
+
                 if ((op.Time <= t0 && !op.Window) || (t0 >= op.BornBefore && !op.WholeBeams))
                     continue; // it did not exist yet when this began
 
@@ -850,7 +975,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     {
                         // (Kokoro's moods: when the mood comes, or when the thing is fired in it - and after whatever froze it has let it go. An aim that also speeds the thing up does that even
                         // before it is placed, keeping its way)
-                        if (op.Kind != TrajectoryOpKind.Gravity && !op.Placed && op.SpeedFactor == 1f)
+                        if (op.Kind != TrajectoryOpKind.Gravity && !op.Placed && (op.SpeedFactor == 1f || op.InFrameOnly))
                             break;
 
                         double from = Math.Max(op.Time, now);
@@ -863,6 +988,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                         // (what has left the screen is left alone: it would come back - aimed, pulled or falling - and with it everything that was ever fired)
                         if (position.X < min.X - 64f || position.X > max.X + 64f || position.Y < min.Y - 64f || position.Y > max.Y + 64f)
+                            break;
+
+                        // (Hatate's photo takes only what is in her frame then: 2026-11-25)
+                        if (op.InFrameOnly && !op.InFrame(position))
                             break;
 
                         if (op.Kind == TrajectoryOpKind.Aim)
@@ -1073,6 +1202,32 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             if (time >= vanish)
                 result.Alive = false;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="op"/> is over by <paramref name="settled"/> and can no longer change what it did (2026-11-25, <see cref="TraceCarry"/>): Kokoro's aims and pulls once placed, falls,
+        /// ricochets that keep no flashes, turns. Anything else is worked out every time, as before.
+        /// </summary>
+        private static bool settles(TrajectoryOp op, double settled)
+        {
+            if (op.End > settled || op.Time > settled || op.Bounces != null)
+                return false;
+
+            switch (op.Kind)
+            {
+                case TrajectoryOpKind.Aim:
+                case TrajectoryOpKind.Pull:
+                    return op.Placed;
+
+                case TrajectoryOpKind.Gravity:
+                case TrajectoryOpKind.Bounce:
+                case TrajectoryOpKind.Turn:
+                case TrajectoryOpKind.Coast:
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         /// <summary>How far a thing that slides has got <paramref name="amount"/> (0..1) of the way (eased at both ends): to the left or the right (<paramref name="side"/> -1 / 1), or up or down for a vertical slide.</summary>

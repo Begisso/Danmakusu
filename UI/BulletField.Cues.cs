@@ -269,6 +269,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var sphere in SphereAct.Schedule(period))
                     list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" });
+                foreach (var sphere in SphereAct.Schedule(period))
+                    list.Add(new Cue { Time = sphere.Start + sphere.Grow, Name = "yuyuko_petals" }); // (and the one thrown over it: 2026-11-25)
             }
 
             // Momiji: Mokou's impact as her piles start to move, the sound of Yuyuko's petals flying off as they crash (2026-11-22)
