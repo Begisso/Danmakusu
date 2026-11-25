@@ -138,6 +138,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Sword] = 4, // Meira (2026-11-24: slides after you leaving thick beams that burst into rings; streams of aimed fans; no pauses)
             [BossMechanic.Statue] = 3, // Narumi Yatadera (2026-11-24: everything at half speed until her waves give it back; homing balls shooting rings; no pauses)
             [BossMechanic.Jealousy] = 4, // Parsee Mizuhashi (2026-11-24: balls leaving trails of Yuyuko's flowers that burst into petals; a clone in the middle whose arrowheads fan back in from the edge)
+            [BossMechanic.Gatekeeper] = 4, // Sara (2026-11-25: everything twice as fast by her, half as fast at the edge; two thick beams closing in on you; gapless rings with narrow gaps)
+            [BossMechanic.Bamboo] = 4, // Mai Teireida (2026-11-25: 36 beams round her, always shown or there; every bullet moves in steps, 45 degrees to either side; no pauses)
+            [BossMechanic.Myoga] = 4, // Satono Nishida (2026-11-25: what leaves the top comes back down, what leaves the bottom sends a talisman at you; streams of stars)
+            [BossMechanic.Satellites] = 3, // Takane Yamashiro (2026-11-25: the bigger the slower, basic bullets twice as fast; big bullets grab the small ones into orbits; no pauses)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

@@ -234,6 +234,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>When above 0 the circle it goes round its hub on grows from nothing to <see cref="Orbit"/> over this long (ms) from <see cref="T0"/> (Kanako's, 2026-11-24: her circles come out of her magic circle's edge).</summary>
             public double OrbitGrow;
 
+            /// <summary>
+            /// When above 0 the circle it goes round its hub on is tilted towards the screen: it is seen as an ellipse this many times as wide across as along, its long axis at <see cref="OrbitTilt"/>
+            /// (radians), where it starts (<see cref="OrbitPhase"/> 0) - an electron round its atom (Takane's, 2026-11-25).
+            /// </summary>
+            public float OrbitFlat;
+
+            public float OrbitTilt;
+
+            /// <summary>
+            /// When not null the hub is bullet <see cref="HubBullet"/> of this ring, wherever that is (on its own clock, through <see cref="HubEffects"/>): what Takane's big bullets have grabbed
+            /// (2026-11-25). The other Hub fields are not used then.
+            /// </summary>
+            public BulletEmitter? HubRing;
+
+            public int HubBullet;
+            public BossEffects? HubEffects;
+
             /// <summary>When above 0 the bullet wanders round its straight line, about this many px to each side, as a firefly does; <see cref="WanderPhase"/> makes it its own (Wriggle's).</summary>
             public float Wander;
 
@@ -2110,6 +2127,34 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Gatekeeper:
+                        // Sara: her closing pairs of beams (her gapless rings, and that everything slows down from her out, are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new GateAct(period));
+
+                        break;
+
+                    case BossMechanic.Bamboo:
+                        // Mai Teireida: where she stays and her sets of 36 beams (her talismans are the planner's, the steps of everything BossOps')
+                        if (period.End > period.ShootStart)
+                            registerStage(new BambooAct(period));
+
+                        break;
+
+                    case BossMechanic.Myoga:
+                        // Satono: what leaves the top comes back down, what leaves the bottom leaves a talisman; her stars
+                        if (period.End > period.ShootStart)
+                            registerStage(new MyogaAct(period));
+
+                        break;
+
+                    case BossMechanic.Satellites:
+                        // Takane: what her big bullets grab (that the bullets fly the slower the bigger they are, and her balls, are the planner's)
+                        if (period.End > period.ShootStart)
+                            registerStage(new SatelliteAct(period));
+
+                        break;
+
                     case BossMechanic.Curse:
                         // Noroiko: her curses, and the sliders' (that the sliders' beams are gone is the planner's)
                         if (period.End > period.ShootStart)
@@ -3234,6 +3279,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Where the hub of a bullet that goes round one is at <paramref name="t"/> (see <see cref="StageBullet.Orbit"/>): turning round its centre, then flying off, and back from HubBackAt.</summary>
         private static Vector2 hubPoint(in StageBullet b, double t)
         {
+            // (Takane's: the big bullet it goes round, where that is - 2026-11-25)
+            if (b.HubRing != null)
+            {
+                double own = b.HubRing.WithoutFrozenTime(b.HubEffects != null ? b.HubEffects.Effective(b.HubRing, t) : t);
+                b.HubRing.Evaluate(b.HubBullet, own, out Vector2 at, out _, out _);
+                return at;
+            }
+
             double turning = Math.Min(t, b.HubUntil) - b.T0;
             Vector2 hub = b.HubCentre + new Vector2(MathF.Cos(b.HubPhase + b.HubOmega * (float)turning), MathF.Sin(b.HubPhase + b.HubOmega * (float)turning)) * b.HubRadius;
 
@@ -3251,6 +3304,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             float angle = b.OrbitPhase + b.OrbitOmega * (float)(orbitClock(b, t) - b.T0);
             float radius = b.OrbitGrow > 0 ? b.Orbit * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
+
+            // (a tilted circle, seen as an ellipse: along its long axis as far out as the circle, across it flatter)
+            if (b.OrbitFlat > 0f)
+            {
+                Vector2 along = new Vector2(MathF.Cos(b.OrbitTilt), MathF.Sin(b.OrbitTilt));
+                Vector2 across = new Vector2(-along.Y, along.X);
+                return hubPoint(b, t) + (along * MathF.Cos(angle) + across * (MathF.Sin(angle) * b.OrbitFlat)) * radius;
+            }
+
             return hubPoint(b, t) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
         }
 
@@ -3882,6 +3944,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     shake = Math.Max(shake, ender.ShakeAt(now));
                 else if (act is AnchorAct anchors)
                     shake = Math.Max(shake, anchors.ShakeAt(now));
+                else if (act is GateAct gate)
+                    shake = Math.Max(shake, gate.ShakeAt(now)); // (Sara's beams: 2026-11-25)
             }
 
             return Math.Max(shake, trainShake(now));

@@ -508,6 +508,22 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         break;
                     }
 
+                    case BossMechanic.Bamboo:
+                    {
+                        // Mai Teireida (2026-11-25): every bullet fired in her section, by its own clock, moves TEIREIDA_SPEED times as fast as it was fired, 45 degrees to the left of its way, for four beats, stands
+                        // four, moves 45 degrees to the right of its way for four, stands four... until her section is over (then its last move goes on). BulletEmitter.ConfigureOps makes the turns and stops.
+                        double beat = Math.Max(period.BeatLength, 1);
+
+                        bullets.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.Zigzag, Time = period.Start, End = period.End, BornAfter = period.Start, BornBefore = period.End, SpeedFactor = DanmakusuBalance.TEIREIDA_SPEED,
+                            TurnAngle = DanmakusuBalance.TEIREIDA_TURN_DEGREES * MathF.PI / 180f, MoveMs = beat * DanmakusuBalance.TEIREIDA_MOVE_BEATS, StopMs = beat * DanmakusuBalance.TEIREIDA_STOP_BEATS,
+                            GoUntil = period.End,
+                        });
+
+                        break;
+                    }
+
                     case BossMechanic.Spoiler:
                         // Hatate (2026-11-22): every photo of hers turns everything that is flying the way from her frame to the player, half as fast (her act places the way as the photo is taken: a point
                         // far off that way, so that every bullet turns parallel to it)

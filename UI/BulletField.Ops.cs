@@ -418,7 +418,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// The moment a stage bullet that nothing traces has got to at <paramref name="t"/>: with Gengetsu or Saki on the field it flies on the bullets' own clock too, as their speed-up is on every bullet on the screen.
         /// (Not what has been laid down step by step, or orbits something: a star at the tip of a beam stays there.)
         /// </summary>
-        private double stageClock(in StageBullet b, double t) => stageOnClock && b.Trail == null && b.A <= 0f ? effects.Effective(b.T0, t) : t; // (what bounces off the walls on legs too, since 2026-11-21: its legs are in its own time)
+        private double stageClock(in StageBullet b, double t) => stageOnClock && b.Trail == null && b.A <= 0f && b.HubRing == null ? effects.Effective(b.T0, t) : t; // (what goes round a ring's bullet goes by that ring's clock: hubPoint) // (what bounces off the walls on legs too, since 2026-11-21: its legs are in its own time)
 
         private bool stageOnClock;
 

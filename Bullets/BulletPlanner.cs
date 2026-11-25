@@ -42,6 +42,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Anchors, BossMechanic.Galaxy, BossMechanic.Snowflake, BossMechanic.Koto, BossMechanic.Web, BossMechanic.Masks, BossMechanic.Dolls, BossMechanic.Patrol, BossMechanic.Starlight,
             BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Sword, BossMechanic.Statue, // (2026-11-24: Meira, Narumi)
+            BossMechanic.Bamboo, BossMechanic.Satellites, // (2026-11-25: Mai Teireida, Takane)
         };
 
         /// <summary>
@@ -55,6 +56,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise, // (2026-11-23: Son Biten's rings of beams, Noroiko's curses, Kogasa's spirals)
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy, // (2026-11-24: Iku's spiralling rings, Meira's fans, Narumi's ball, Parsee's balls and arrowheads)
+            BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites, // (2026-11-25: Sara's gapless rings, Mai Teireida's talismans, Satono's stars, Takane's balls)
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -72,6 +74,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Keyboard, BossMechanic.Vampire, BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
+            BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -98,6 +101,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Komainu, BossMechanic.Starlight, BossMechanic.Mirage, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
+            BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -2036,6 +2040,75 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
+            // Sara (2026-11-25): every SARA_RING_EVERY_BEATS a ring of basic bullets out of the edge of her magic circle, as many as lie there body against body, every SARA_RING_GAP_EVERY-th left out, every second ring
+            // turned half a gap round (a ring holds MAX_RING_BULLETS at most: what is more is a ring of its own). That they slow down as they go is seen to at the end of Plan, with all that is fired in her sections.
+            void addSaraRings(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                float edge = DanmakusuBalance.MAGIC_CIRCLE_RADIUS;
+                int gap = DanmakusuBalance.SARA_RING_GAP_EVERY;
+                int around = Math.Max((int)Math.Floor(MathF.Tau * edge / (2f * radius)), gap * 2);
+                int shot = 0;
+
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.SARA_RING_EVERY_BEATS, shot++)
+                {
+                    float phase = shot % 2 * (gap / 2f) * MathF.Tau / around;
+                    var ways = new List<Vector2>(around);
+
+                    for (int i = 0; i < around; i++)
+                    {
+                        if (i % gap == gap - 1)
+                            continue;
+
+                        float angle = phase + i * MathF.Tau / around;
+                        ways.Add(new Vector2(MathF.Cos(angle), MathF.Sin(angle)));
+                    }
+
+                    for (int first = 0; first < ways.Count; first += DanmakusuBalance.MAX_RING_BULLETS)
+                    {
+                        var part = ways.GetRange(first, Math.Min(DanmakusuBalance.MAX_RING_BULLETS, ways.Count - first)).ToArray();
+                        var ring = createEmitter(t, origin, edge, speedAt(t), part, 0, radius, BulletShape.Circle, followsBoss: true, straight: true);
+                        ring.KeepCount = true; // (gapless with another boss on the screen too)
+                        ring.OwnShot = true;
+                        emitters.Add(ring);
+                    }
+                }
+            }
+
+            // Mai Teireida (2026-11-25): a ring of TEIREIDA_TALISMANS talismans every TEIREIDA_TALISMAN_EVERY_BEATS, every second one turned half a step; they move in steps as everything of her section does (BossOps)
+            void addTeireidaTalismans(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                int shot = 0;
+
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.TEIREIDA_TALISMAN_EVERY_BEATS, shot++)
+                {
+                    float phase = shot % 2 * MathF.PI / DanmakusuBalance.TEIREIDA_TALISMANS;
+                    var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.TEIREIDA_TALISMANS, phase, out _);
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, radius, BulletShape.Talisman, followsBoss: true, straight: true);
+                    ring.Layout = RingShape.Circle;
+                    ring.LayoutPhase = phase;
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
+            // Takane Yamashiro (2026-11-25): a ring of TAKANE_BALLS big balls (TAKANE_BALL_CIRCLES osu! circle radii) every TAKANE_BALL_EVERY_BEATS, every second one turned half a step; how fast they fly is her rule's (the
+            // end of Plan), and what they grab is her act's
+            void addTakaneBalls(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                float ballRadius = DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize) * DanmakusuBalance.TAKANE_BALL_CIRCLES;
+                int shot = 0;
+
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.TAKANE_BALL_EVERY_BEATS, shot++)
+                {
+                    float phase = shot % 2 * MathF.PI / DanmakusuBalance.TAKANE_BALLS;
+                    var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.TAKANE_BALLS, phase, out _);
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, ballRadius, BulletShape.Circle, followsBoss: true, straight: true);
+                    ring.KeepCount = true; // (ten with another boss on the screen too)
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
             // Byakuren remembers where every fifth circle or slider of her section starts; 32 beats later five homing beams like her own (see HeadAct.Beams) start from round that place. The spots
             // follow each other at least 2 beats apart (0, 2, 4, ...): a spot waits for the one before it. She holds 5 spots at a time, over the whole map: with as many waiting to fire the next
             // one is not remembered, and when one has fired there is room again.
@@ -2838,6 +2911,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Parsee's spinner: her clone's arrowheads in place of the spinner's stars (her balls are her act's)
                     addParseeArrows(attackStart, end, bossBeat);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Gatekeeper)
+                {
+                    // Sara's spinner: her gapless rings in place of the spinner's stars (her beams are her act's)
+                    addSaraRings(bossPlanOrigin, attackStart, end, bossBeat);
+                }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Bamboo)
+                {
+                    // Mai Teireida's spinner: her rings of talismans in place of the spinner's stars (her beams are her act's)
+                    addTeireidaTalismans(bossPlanOrigin, attackStart, end, bossBeat);
+                }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Satellites)
+                {
+                    // Takane's spinner: her rings of big balls in place of the spinner's stars
+                    addTakaneBalls(bossPlanOrigin, attackStart, end, bossBeat);
+                }
                 else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
                 {
                     // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
@@ -2870,6 +2958,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addMeiraFans(bossPlanOrigin, attackStart, end, bossBeat); // (Meira's streams of fans, while she does not slide)
                     else if (boss.Mechanic == BossMechanic.Jealousy)
                         addParseeArrows(attackStart, end, bossBeat); // (Parsee's clone's arrowheads; her balls are her act's)
+                    else if (boss.Mechanic == BossMechanic.Gatekeeper)
+                        addSaraRings(bossPlanOrigin, attackStart, end, bossBeat); // (Sara's gapless rings; her beams are her act's)
+                    else if (boss.Mechanic == BossMechanic.Bamboo)
+                        addTeireidaTalismans(bossPlanOrigin, attackStart, end, bossBeat); // (Mai Teireida's rings of talismans; her beams are her act's)
+                    else if (boss.Mechanic == BossMechanic.Satellites)
+                        addTakaneBalls(bossPlanOrigin, attackStart, end, bossBeat); // (Takane's rings of big balls; what they grab is her act's)
                     else if (boss.Mechanic == BossMechanic.Haniwa)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.KEIKI_SQUARE_BULLETS, DanmakusuBalance.KEIKI_SQUARE_EVERY_BEATS); // (Keiki's very dense squares)
                     else if (boss.Mechanic == BossMechanic.Momentum)
@@ -5432,6 +5526,38 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ring.Speed *= DanmakusuBalance.NARUMI_SLOW;
                     ring.Lifetime /= DanmakusuBalance.NARUMI_SLOW;
                     ring.WaveRestores = true;
+                }
+            }
+
+            // Sara (2026-11-25): every ring fired in her sections (anyone's; not one that ricochets, falls, homes, goes round once, is made out of others, is a big sharp ball or a train, nor one that slows down
+            // already) flies SARA_FAST times its speed right by her and slows evenly to SARA_SLOW of it at the edge of the screen ahead of it (BulletEmitter.SlowsFromBoss: where she stands is taken as it
+            // is fired); it lives as much longer
+            foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Gatekeeper))
+            {
+                foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && r.Count > 0 && !r.Ricochet && !r.Falling && !r.Homing && !r.WrapsOnce && !r.Derived
+                                                         && r.Derive == DeriveKind.None && !r.Sharp && r.Shape != BulletShape.Train && !r.SlowsToWall))
+                {
+                    ring.SlowsToWall = true;
+                    ring.SlowsFromBoss = true;
+                    ring.SlowRank = period.Rank;
+                    ring.SlowFrom = DanmakusuBalance.SARA_FAST;
+                    ring.SlowTo = DanmakusuBalance.SARA_SLOW;
+                    ring.Area = ricochetArea;
+                    ring.Lifetime /= DanmakusuBalance.SARA_SLOW;
+                }
+            }
+
+            // Takane (2026-11-25, "bullet speeds depend on size"): every ring fired in her sections (anyone's; not a train, nor one made out of others) flies TAKANE_FAST times its speed when its bullets are no bigger
+            // than a basic one, and as much slower as they are bigger than that (twice as big: half of it); a slower one lives as much longer
+            foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Satellites))
+            {
+                foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && r.Count > 0 && !r.Derived && r.Derive == DeriveKind.None && r.Shape != BulletShape.Train))
+                {
+                    float factor = DanmakusuBalance.TAKANE_FAST / Math.Max(ring.VisualRadius / Math.Max(radius, 1e-3f), 1f);
+                    ring.Speed *= factor;
+
+                    if (factor < 1f)
+                        ring.Lifetime /= factor;
                 }
             }
 

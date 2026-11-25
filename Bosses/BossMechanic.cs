@@ -628,5 +628,29 @@
         /// arrowheads at the player every beat; one that leaves the screen fans half-size basic bullets back in, 120 degrees wide.
         /// </summary>
         Jealousy,
+
+        /// <summary>
+        /// Sara (2026-11-25): every bullet of her section flies at twice its speed by her, slowing evenly to half of it at the edge of the screen. Every sixteen beats two thick beams to her sides, after a
+        /// preview, close in to 87 degrees apart over eight beats (with the Master Spark's sound and a shake) and fade. Gapless rings of basic bullets, every fourth left out, every two beats.
+        /// </summary>
+        Gatekeeper,
+
+        /// <summary>
+        /// Mai Teireida (2026-11-25): no pauses; she stays where she is. Every sixteen beats 36 thin beams from her to the edge of the screen, an eight-beat preview, then eight beats solid. Every bullet of
+        /// her section moves in steps of four beats, by its own clock: twice as fast 45 degrees to the left of its way, stops, 45 degrees to the right, stops... Rings of thirty talismans every two beats.
+        /// </summary>
+        Bamboo,
+
+        /// <summary>
+        /// Satono Nishida (2026-11-25): every bullet that goes out of the top comes back down from there; every one that goes out of the bottom leaves a talisman behind, aimed at the player, flying straight.
+        /// Every quarter beat a Marisa's star comes out somewhere in her magic circle, stands two beats and flies off along the line from her to the player.
+        /// </summary>
+        Myoga,
+
+        /// <summary>
+        /// Takane Yamashiro (2026-11-25): no pauses. The bullets of her section fly the slower the bigger they are (twice their speed for a basic bullet). Every bullet twice as big as a basic one or more
+        /// grabs the smaller ones that come within an osu! circle of it: they go round it on tilted circles, like an atom's. Rings of ten big balls every eight beats.
+        /// </summary>
+        Satellites,
     }
 }

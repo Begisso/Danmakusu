@@ -4439,5 +4439,92 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int PARSEE_FAN_BULLETS = 7;
         public const float PARSEE_FAN_SIZE = 0.5f;
         public const float PARSEE_FAN_SPREAD_DEGREES = 120f;
+
+        /// <summary>
+        /// Sara (2026-11-25, "decrease bullets speed from 2x to 0.5x from her to playfield edge"): every bullet fired in her section flies this many times its speed right by her and slows evenly with the
+        /// distance it goes to this many times it at the edge of the screen ahead of it (where it starts on the way, by how far from her it starts, see BulletEmitter.SlowsFromBoss).
+        /// </summary>
+        public const float SARA_FAST = 2f;
+
+        public const float SARA_SLOW = 0.5f;
+
+        /// <summary>
+        /// Sara: every this many beats of her section two thick beams (this many circle radii from their middle line to each side) from her, to her left and to her right (square to the line from her to the
+        /// player as it was when they were shown), after a see-through preview of this many beats; they appear at once and close in towards the player over this many beats until they are this many degrees
+        /// apart, then fade out over this many beats (harmless by then). Master Spark's sound while they are there, and the screen shakes this much.
+        /// </summary>
+        public const double SARA_EVERY_BEATS = 16;
+
+        public const float SARA_BEAM_CIRCLES = 1f;
+        public const double SARA_PREVIEW_BEATS = 4;
+        public const double SARA_CLOSE_BEATS = 8;
+        public const float SARA_CLOSED_DEGREES = 87f;
+        public const double SARA_FADE_BEATS = 1;
+        public const float SARA_SHAKE = 0.5f;
+
+        /// <summary>Sara: every this many beats a ring of basic bullets, as many as lie body against body round the edge of her magic circle (where they come out), every this many-th left out.</summary>
+        public const double SARA_RING_EVERY_BEATS = 2;
+
+        public const int SARA_RING_GAP_EVERY = 4;
+
+        /// <summary>
+        /// Mai Teireida (2026-11-25): every this many beats this many beams as thin as a slider's from her to the edge of the screen, evenly round her (the player, as they were when the preview came, in the
+        /// middle of a gap): a see-through preview for this many beats, then solid, hurting like a slider body, for this many, fading over this many.
+        /// </summary>
+        public const double TEIREIDA_EVERY_BEATS = 16;
+
+        public const int TEIREIDA_BEAMS = 36;
+        public const double TEIREIDA_PREVIEW_BEATS = 8;
+        public const double TEIREIDA_LIVE_BEATS = 8;
+        public const double TEIREIDA_FADE_BEATS = 0.25;
+
+        /// <summary>
+        /// Mai Teireida: every bullet fired in her section, by its own clock, moves this many times as fast as it was fired this many degrees to the left of its way for this many beats, stands this many
+        /// beats, moves as far to the right of its way, stands, and so on until her section is over (then its last move goes on).
+        /// </summary>
+        public const float TEIREIDA_SPEED = 2f;
+
+        public const float TEIREIDA_TURN_DEGREES = 45f;
+        public const double TEIREIDA_MOVE_BEATS = 4;
+        public const double TEIREIDA_STOP_BEATS = 4;
+
+        /// <summary>Mai Teireida: a ring of this many talismans every this many beats.</summary>
+        public const int TEIREIDA_TALISMANS = 30;
+
+        public const double TEIREIDA_TALISMAN_EVERY_BEATS = 2;
+
+        /// <summary>
+        /// Satono Nishida (2026-11-25): every this many beats a Marisa's star (a soft star, as big as a boss's star) comes out somewhere in her magic circle, stands there this many beats, then flies off along the
+        /// line from her to the player as it is then, at this many times a plain bullet's speed. A bullet that goes out of the bottom leaves a talisman behind, as big as a boss's star, flying straight at
+        /// the player as they are then at this many times a plain bullet's speed.
+        /// </summary>
+        public const double SATONO_STAR_EVERY_BEATS = 0.25;
+
+        public const double SATONO_STAR_STAND_BEATS = 2;
+        public const float SATONO_STAR_SPEED = 1f;
+        public const float SATONO_TALISMAN_SPEED = 1f;
+
+        /// <summary>
+        /// Takane Yamashiro (2026-11-25, "bullet speeds depend on size"): every ring fired in her section flies this many times its speed for a basic bullet, and as much slower as it is bigger (a bullet
+        /// twice as big at half that: never faster than this).
+        /// </summary>
+        public const float TAKANE_FAST = 2f;
+
+        /// <summary>
+        /// Takane: a bullet at least this many times as big as a basic one grabs every smaller one that comes within this many osu! circle radii of its body: the grabbed one goes round it once every this
+        /// many beats on a circle tilted towards the screen, seen as an ellipse this flat, whose long axis points the way it was grabbed from; at most this many on one.
+        /// </summary>
+        public const float TAKANE_BIG = 2f;
+
+        public const float TAKANE_GRAB_CIRCLES = 1f;
+        public const double TAKANE_ORBIT_BEATS = 2;
+        public const float TAKANE_ORBIT_FLAT = 0.35f;
+        public const int TAKANE_MOST_GRABBED = 12;
+
+        /// <summary>Takane: every this many beats a ring of this many big balls, this many circle radii each (half of Nina's), flying by her rule.</summary>
+        public const double TAKANE_BALL_EVERY_BEATS = 8;
+
+        public const int TAKANE_BALLS = 10;
+        public const float TAKANE_BALL_CIRCLES = 1f;
     }
 }

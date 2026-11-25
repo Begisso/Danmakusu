@@ -73,6 +73,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <see cref="TrajectoryOp.MoveMs"/> and stands <see cref="TrajectoryOp.StopMs"/>, by its own clock, until <see cref="TrajectoryOp.GoUntil"/> (see <see cref="BulletEmitter.ConfigureOps"/>).
         /// </summary>
         StopAndGo,
+
+        /// <summary>
+        /// Mai Teireida (2026-11-25): not an op the trace knows - every ring fired between <see cref="TrajectoryOp.BornAfter"/> and <see cref="TrajectoryOp.BornBefore"/> sets off at once
+        /// <see cref="TrajectoryOp.SpeedFactor"/> times as fast, <see cref="TrajectoryOp.TurnAngle"/> to the left of its way, moves <see cref="TrajectoryOp.MoveMs"/>, stands <see cref="TrajectoryOp.StopMs"/>,
+        /// moves as far to the right of its way, stands, and so on by its own clock until <see cref="TrajectoryOp.GoUntil"/> (<see cref="Turn"/>s and freezes: see <see cref="BulletEmitter.ConfigureOps"/>).
+        /// </summary>
+        Zigzag,
+
+        /// <summary>At Time the thing turns by <see cref="TrajectoryOp.TurnAngle"/> (radians, the way the screen turns: positive is clockwise) and goes <see cref="TrajectoryOp.SpeedFactor"/> times as fast.</summary>
+        Turn,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -440,6 +450,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A freeze that the field warns of with a flashing circle round every bullet (Rin's swell).</summary>
         public bool SwellWarn { get; init; }
 
+        /// <summary>Zigzag: how far (radians) each move goes to the side of the thing's own way. Turn: how far it turns.</summary>
+        public float TurnAngle { get; init; }
+
         /// <summary>
         /// (for beams) The op takes whole beams: every beam that started between <see cref="BornAfter"/> and <see cref="BornBefore"/>, every slice of it whenever it was fired - Suwako's and Tsukasa's
         /// bounces (2026-11-21: the slices of a slider that went on past the end of her section flew out, while the ones before them bounced).
@@ -794,6 +807,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         result.Alive = false;
                         result.Position = position;
                         return;
+
+                    case TrajectoryOpKind.Turn:
+                    {
+                        // (Mai Teireida's steps: its way turns, and the first one makes it faster for good; a pull on it stays as it was)
+                        step(ref position, ref v, acc, ref now, Math.Max(op.Time, now));
+                        float c = MathF.Cos(op.TurnAngle), s = MathF.Sin(op.TurnAngle);
+                        v = new Vector2(v.X * c - v.Y * s, v.X * s + v.Y * c) * op.SpeedFactor;
+                        look = op.After ?? look;
+                        break;
+                    }
 
                     case TrajectoryOpKind.TurnBack:
                     {

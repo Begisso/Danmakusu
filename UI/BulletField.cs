@@ -171,6 +171,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private int nextAim;
         private int nextSwirl; // (Mugetsu: the rings of her vortex, which take where she is as they are fired)
         private int[] swirlRings = [];
+        private int nextSlow; // (Sara: the rings that slow down from her out, which take where she is as they are fired)
+        private int[] slowRings = [];
 
         // The rings that are alive: spawned (their time has come) and not retired. Kept in draw order, slowest first, so faster bullets are drawn above slower ones.
         private int[] active = new int[256];
@@ -726,6 +728,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             aimEmitters = aimed.ToArray(); // emitters are sorted by time, so this is too
             swirlRings = Enumerable.Range(0, emitters.Length).Where(i => emitters[i].Swirl != null).ToArray();
+            slowRings = Enumerable.Range(0, emitters.Length).Where(i => emitters[i].SlowsFromBoss).ToArray();
             var trainList = new List<BulletEmitter>();
 
             foreach (var ring in emitters)
@@ -1942,6 +1945,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // (Mugetsu: a ring fired in an attack of hers goes round where she is now, not where she goes after)
             while (nextSwirl < swirlRings.Length && emitters[swirlRings[nextSwirl]].Time <= now)
                 emitters[swirlRings[nextSwirl++]].SnapSwirl();
+
+            // (Sara: a ring fired in her section slows down from where she is now)
+            while (nextSlow < slowRings.Length && emitters[slowRings[nextSlow]].Time <= now)
+            {
+                var ring = emitters[slowRings[nextSlow++]];
+                ring.SnapSlowCentre(bossPositionOf(ring.SlowRank));
+            }
         }
 
         private void aim(BulletEmitter emitter)
@@ -2531,6 +2541,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             while (nextSwirl > 0 && emitters[swirlRings[nextSwirl - 1]].Time > time)
                 nextSwirl--;
+
+            while (nextSlow > 0 && emitters[slowRings[nextSlow - 1]].Time > time)
+                nextSlow--;
 
             while (nextLaserAim > 0 && lasers[nextLaserAim - 1].StartTime > time)
                 nextLaserAim--;

@@ -291,6 +291,40 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public float SlowOver { get; set; }
 
         /// <summary>
+        /// Sara (2026-11-25): with <see cref="SlowsToWall"/>, the speed goes by the distance from her - <see cref="SlowFrom"/> times it right by her, <see cref="SlowTo"/> times it at the edge of the screen
+        /// ahead of the bullet: a bullet starts as fast as where it comes out says (how far from her, of the way from her out to that edge) and slows evenly from there. Where she stands is taken when the ring
+        /// is fired (<see cref="SnapSlowCentre"/>, boss <see cref="SlowRank"/>).
+        /// </summary>
+        public bool SlowsFromBoss { get; set; }
+
+        public int SlowRank { get; set; }
+
+        public Vector2 SlowCentre { get; private set; }
+
+        public bool SlowCentreKnown { get; private set; }
+
+        /// <summary>The ring is fired now, and she stands at <paramref name="centre"/>.</summary>
+        public void SnapSlowCentre(Vector2 centre)
+        {
+            SlowCentre = centre;
+            SlowCentreKnown = true;
+        }
+
+        /// <summary>How far a bullet that would be <paramref name="reach"/> from <paramref name="spawn"/> (<paramref name="spawnPart"/> of it where it comes out) has got with the change of speed.</summary>
+        private float slowed(Vector2 spawn, Vector2 way, float reach, float spawnPart)
+        {
+            if (!SlowsFromBoss)
+                return slowedReach(spawn, way, reach);
+
+            // (Sara's: from where it comes out, which is where it is at once)
+            Vector2 start = spawn + way * spawnPart;
+            float length = toEdge(start, way);
+            float near = SlowCentreKnown ? Vector2.Distance(start, SlowCentre) : 0f;
+            float from = SlowTo + (SlowFrom - SlowTo) * length / Math.Max(near + length, 1f);
+            return spawnPart + slowedOver(Math.Max(reach - spawnPart, 0f), length, from);
+        }
+
+        /// <summary>
         /// The bullets go round once: one that goes out of the screen comes in again where the line it flies along comes into the screen, the same way, and is gone when it goes out a second time. Nothing can destroy them: what would
         /// take one takes a copy of it, once, and the bullet flies on (Daiyousei's; <see cref="Area"/> is the screen).
         /// </summary>
@@ -326,7 +360,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             float reach = scale * RadiusAt(time);
 
             if (SlowsToWall)
-                reach = slowedReach(spawn, way, reach);
+                reach = slowed(spawn, way, reach, scale * SpawnRadius);
 
             return reach > toEdge(spawn, way) + VisualRadius;
         }
@@ -348,13 +382,20 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>How far a bullet that would be <paramref name="reach"/> from <paramref name="spawn"/> has got when it changes speed so: going a distance at a speed that falls evenly with it is an exponential; past the end it goes on at the last speed.</summary>
         private float slowedReach(Vector2 spawn, Vector2 way, float reach)
+            => slowedOver(reach, SlowOver > 0f ? SlowOver : toEdge(spawn, way), SlowFrom);
+
+        /// <summary>How far something gets that would have gone <paramref name="reach"/> at its own speed, going <paramref name="from"/> times that at first and <see cref="SlowTo"/> times it <paramref name="length"/> out.</summary>
+        private float slowedOver(float reach, float length, float from)
         {
-            float length = SlowOver > 0f ? SlowOver : toEdge(spawn, way);
-            float lost = SlowFrom - SlowTo;
-            float atEnd = MathF.Log(SlowFrom / SlowTo) / lost; // (how far it would have gone at its own speed by the time it gets to the end, in those lengths)
+            float lost = from - SlowTo;
+
+            if (MathF.Abs(lost) < 1e-4f)
+                return reach * SlowTo;
+
+            float atEnd = MathF.Log(from / SlowTo) / lost; // (how far it would have gone at its own speed by the time it gets to the end, in those lengths)
             float x = reach / length;
 
-            return x < atEnd ? length * SlowFrom / lost * (1f - MathF.Exp(-lost * x)) : length + (reach - atEnd * length) * SlowTo;
+            return x < atEnd ? length * from / lost * (1f - MathF.Exp(-lost * x)) : length + (reach - atEnd * length) * SlowTo;
         }
 
         /// <summary>A curling bullet is counted from this far out (px): right at the centre the same speed round it would be endlessly fast.</summary>
@@ -967,7 +1008,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 return;
 
             // (Rin's and Aunn's ops go by every ring's own clock: they are made into ops of this ring's own, at its times, among the others)
-            if (Array.Exists(ops, op => op.Kind is TrajectoryOpKind.LaterFreeze or TrajectoryOpKind.StopAndGo))
+            if (Array.Exists(ops, op => op.Kind is TrajectoryOpKind.LaterFreeze or TrajectoryOpKind.StopAndGo or TrajectoryOpKind.Zigzag))
                 ops = withOwnTimers(ops);
 
             var list = new System.Collections.Generic.List<TrajectoryOp>();
@@ -1088,13 +1129,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// The ops with Rin's and Aunn's timers (<see cref="TrajectoryOpKind.LaterFreeze"/>, <see cref="TrajectoryOpKind.StopAndGo"/>) made into this ring's own freezes and turns, at the times its own clock
         /// gives them, among the other ops in the order of their times (a ring fired outside their stretch of time gets none).
         /// </summary>
+        /// <summary>How far a zigzag's moves surely take a bullet out of any screen (px, forward along its way).</summary>
+        private const float zigzag_reach = 1600f;
+
         private TrajectoryOp[] withOwnTimers(TrajectoryOp[] ops)
         {
             var all = new System.Collections.Generic.List<TrajectoryOp>(ops.Length + 8);
 
             foreach (var op in ops)
             {
-                if (op.Kind != TrajectoryOpKind.LaterFreeze && op.Kind != TrajectoryOpKind.StopAndGo)
+                if (op.Kind != TrajectoryOpKind.LaterFreeze && op.Kind != TrajectoryOpKind.StopAndGo && op.Kind != TrajectoryOpKind.Zigzag)
                 {
                     all.Add(op);
                     continue;
@@ -1102,6 +1146,31 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                 if (Time < op.BornAfter || Time >= op.BornBefore)
                     continue;
+
+                if (op.Kind == TrajectoryOpKind.Zigzag)
+                {
+                    // (Mai Teireida, 2026-11-25: it sets off at once, SpeedFactor times as fast, TurnAngle to the left of its way; stands; goes as far to the right of its way; stands... The moves go on until
+                    // her section is over - the last one then goes on - or until it has surely left the screen: forward it gets the cosine of the turn of every move)
+                    double moves = Time + 0.001;
+                    float forward = Math.Max(Speed * op.SpeedFactor * MathF.Cos(op.TurnAngle) * (float)op.MoveMs, 1f);
+                    int most = Math.Clamp((int)Math.Ceiling(zigzag_reach / forward) + 1, 1, 256);
+
+                    for (int k = 0; k < most; k++)
+                    {
+                        float turn = k == 0 ? -op.TurnAngle : k % 2 == 1 ? 2f * op.TurnAngle : -2f * op.TurnAngle;
+                        all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Turn, Time = moves, End = moves, TurnAngle = turn, SpeedFactor = k == 0 ? op.SpeedFactor : 1f });
+
+                        double halt = moves + op.MoveMs;
+
+                        if (halt >= op.GoUntil || k == most - 1)
+                            break;
+
+                        all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = halt, End = halt + op.StopMs });
+                        moves = halt + op.StopMs;
+                    }
+
+                    continue;
+                }
 
                 if (op.Kind == TrajectoryOpKind.LaterFreeze)
                 {
@@ -1798,7 +1867,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 float reach = scale * RadiusAt(time);
 
                 if (SlowsToWall)
-                    reach = slowedReach(spawn, way, reach);
+                    reach = slowed(spawn, way, reach, scale * SpawnRadius);
 
                 position = spawn + way * reach;
 
