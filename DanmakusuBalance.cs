@@ -1107,10 +1107,10 @@ namespace osu.Game.Rulesets.Danmakusu
         /// their own radii out from her; the talismans lie end to end all round each circle, every this many-th one left out. For this many beats the circles turn round her (once every this many beats), their
         /// talismans going round them (once every this many beats); then the circles fly straight away from her at this share of a plain bullet's speed, their talismans still going round them.
         /// </summary>
-        public const double KANAKO_EVERY_BEATS = 4; // (8 until 2026-11-21: "double the shoot out frequency")
+        public const double KANAKO_EVERY_BEATS = 8; // (4 from 2026-11-21 to 2026-11-25: "halve the frequency of circles shooting") (8 until 2026-11-21: "double the shoot out frequency")
 
         public const int KANAKO_CIRCLES = 5;
-        public const float KANAKO_CIRCLE_RADII = 5f; // (2.5 until 2026-11-21: "double the talismans radius")
+        public const float KANAKO_CIRCLE_RADII = 2.5f; // (5 from 2026-11-21 to 2026-11-25: "halve the circles radius") (2.5 until 2026-11-21: "double the talismans radius")
         public const float KANAKO_HUB_OUT = 1.8f;
         public const int KANAKO_SKIP_EVERY = 4;
         public const double KANAKO_SPIN_BEATS = 0; // (2 until 2026-11-21: "Circles do not spin around her. Circles move away!")
@@ -1127,7 +1127,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double KANAKO_GROW_BEATS = 8; // (2 until 2026-11-25: "circles grow speed quadrupple slower")
 
         /// <summary>Kanako (2026-11-25): when her talismans stop turning they fly off straight out from the middle of their circle at this many times a plain bullet's speed; a red arrow beside each warns of it this many beats before.</summary>
-        public const float KANAKO_FLY_SPEED = 1f;
+        public const float KANAKO_FLY_SPEED = 0.5f; // (1 until 2026-11-25, the same day: "talismans fly away in half speed")
         public const double KANAKO_WARN_BEATS = 2;
 
         /// <summary>
@@ -4351,10 +4351,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float KOGASA_ORBIT_DEGREES = 15f;
 
         public const double KOGASA_HOLD_BEATS = 8;
-        public const int KOGASA_MOST_SHOTS = 96; // (48 until 2026-11-24, doubled with the shots)
+        public const int KOGASA_MOST_SHOTS = 48; // (96 on 2026-11-24, doubled with the shots; back 2026-11-25)
 
         /// <summary>Kogasa (2026-11-24, "double the bullets amount coming out of spinning objects"): each of hers shoots this many times as many bullets over its stay as it had (1 before).</summary>
-        public const int KOGASA_SHOTS_FACTOR = 2;
+        public const int KOGASA_SHOTS_FACTOR = 1; // (2 from 2026-11-24 to 2026-11-25: "rollback doubling bullets on Kogasa")
         public static readonly osuTK.Graphics.Color4 KOGASA_RED = new osuTK.Graphics.Color4(0.9f, 0.18f, 0.22f, 1f);
         public static readonly osuTK.Graphics.Color4 KOGASA_BLUE = new osuTK.Graphics.Color4(0.22f, 0.42f, 0.95f, 1f);
 

@@ -14,7 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (2026-11-21). Since 2026-11-24 each comes out of the edge of her magic circle, growing to its size over KANAKO_GROW_BEATS, and its talismans are twice as big (KANAKO_TALISMAN_SIZE).
         // Since 2026-11-25 every circle has two gaps across from each other, a talisman wide (every fourth talisman was left out), its talismans go round it half as fast and it grows four times as slowly; when
         // they stop turning, each talisman flies off straight out from the middle of its circle at KANAKO_FLY_SPEED times a plain bullet's speed (and the circle's way on top), and for KANAKO_WARN_BEATS before
-        // that a red arrow beside every one points that way.
+        // that a red arrow beside every one points that way. Later the same day: the circles half as wide (KANAKO_CIRCLE_RADII), thrown half as often (KANAKO_EVERY_BEATS) and the talismans fly off at
+        // half a plain bullet's speed.
         // She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
         // Like every act's bullets they are a function of time (StageBullet.Orbit).
