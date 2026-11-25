@@ -3099,10 +3099,23 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     for (double t = attackStart + turnOffset; more && t < end; t += burst + pause)
                     {
-                        // (attacks are whole. When there is no room for a whole one after this one, what is left goes to this one: the section ends in a whole pause, or in this attack when a whole pause does not fit)
                         double rest = end - t;
-                        more = rest - burst - pause >= burst;
-                        double length = more ? burst : rest - pause >= burst ? rest - pause : rest;
+                        double length;
+
+                        if (pause <= 0)
+                        {
+                            // (one who never pauses: when there is no room for a whole attack after this one, this one has what is left)
+                            more = rest - burst >= burst;
+                            length = more ? burst : rest;
+                        }
+                        else
+                        {
+                            // (an attack is never longer than the boss's own: what is left after the last whole attack and pause is one more attack, as long as it is, when that is at least half an attack;
+                            // else the last pause has it. 2026-11-25, "some sections are not getting sliced into attacks - attack duration is too long even if boss count is big": what was left went to the
+                            // last attack, so a piece of 47 beats - every piece of the Boss Rush at 124 bosses - was one attack of 31 beats and a pause, since 2026-11-01, when no attack was to be shorter than 16)
+                            length = Math.Min(burst, rest);
+                            more = rest - burst - pause >= burst * 0.5;
+                        }
 
                         if (!first)
                             laserStarts.Add(t);
