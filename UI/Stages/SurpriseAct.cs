@@ -84,7 +84,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (alpha <= 0.01f)
                         continue;
 
-                    Vector2 at = head + turn.Offset(head, t);
+                    Vector2 at = turn.Place(head, t);
                     Vector2 outward = at - middle;
                     float distance = outward.Length;
 
@@ -112,7 +112,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>What stays at <paramref name="t"/> (over, but not yet gone): where it has turned to, and its colour.</summary>
-            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
+            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour, float Degrees)> into)
             {
                 foreach (var (source, head, turn) in held)
                 {
@@ -121,7 +121,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (t < over || t >= turn.Until)
                         continue;
 
-                    into.Add((source, over, turn.Offset(head, t), turn.Way > 0 ? DanmakusuBalance.KOGASA_RED : DanmakusuBalance.KOGASA_BLUE));
+                    into.Add((source, over, Vector2.Zero, turn.Way > 0 ? DanmakusuBalance.KOGASA_RED : DanmakusuBalance.KOGASA_BLUE, turn.Degrees(t))); // (turned round the middle as one piece: 2026-11-25)
                 }
             }
         }

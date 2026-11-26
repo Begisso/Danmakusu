@@ -19,21 +19,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private sealed class CurseAct : StageAct
         {
-            /// <summary>The strokes of 呪 in a box one unit tall (y down): its mouth on the left, and 兄 - a mouth over two legs - on the right.</summary>
-            private static readonly Vector2[][] strokes =
-            {
-                // 口 (left)
-                new[] { new Vector2(-0.48f, -0.16f), new Vector2(-0.48f, 0.2f) },
-                new[] { new Vector2(-0.48f, -0.16f), new Vector2(-0.2f, -0.16f), new Vector2(-0.2f, 0.2f) },
-                new[] { new Vector2(-0.48f, 0.2f), new Vector2(-0.2f, 0.2f) },
-                // 口 (right, top)
-                new[] { new Vector2(-0.06f, -0.48f), new Vector2(-0.06f, -0.06f) },
-                new[] { new Vector2(-0.06f, -0.48f), new Vector2(0.44f, -0.48f), new Vector2(0.44f, -0.06f) },
-                new[] { new Vector2(-0.06f, -0.06f), new Vector2(0.44f, -0.06f) },
-                // 儿 (the legs)
-                new[] { new Vector2(0.08f, -0.06f), new Vector2(0.07f, 0.16f), new Vector2(0f, 0.32f), new Vector2(-0.12f, 0.44f), new Vector2(-0.22f, 0.5f) },
-                new[] { new Vector2(0.28f, -0.06f), new Vector2(0.28f, 0.38f), new Vector2(0.31f, 0.46f), new Vector2(0.38f, 0.49f), new Vector2(0.48f, 0.49f), new Vector2(0.5f, 0.4f) },
-            };
+            /// <summary>The strokes of 呪 (Bullets/CurseGlyph, shared with the rings of her section since 2026-11-25).</summary>
+            private static readonly Vector2[][] strokes = CurseGlyph.STROKES;
 
             /// <summary>One thrown: when, how big (px tall), which way it sets off (0: at the player; else her left or right), and where it starts (a slider's start; NaN: where she is when it is thrown).</summary>
             private readonly struct Throw

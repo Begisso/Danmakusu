@@ -509,7 +509,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (t > zone.EndTime || ObjectsHarmless(t))
                     continue; // (Merlin's attacks: the sliders do not hurt)
 
-                if (zone.Touches(p - zone.FallOffset(t) - (zone.FallSpeed > 0f ? CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN))
+                if (zone.Touches(zone.Local(p, t) - (zone.FallSpeed > 0f ? CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN))
                     return true;
             }
 

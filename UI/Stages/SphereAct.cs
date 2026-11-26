@@ -15,7 +15,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // SAPPHIRE_HOLD_BEATS, is pulled back into her over SAPPHIRE_BACK_BEATS, and the moment it is in it comes again (SAPPHIRE_REST_BEATS, 0), turning the other way. No pauses: what is left of the section
         // at its end gets a shorter one. A section too short for one is one as long as it is.
         // Since 2026-11-25 her stars are half as big, every part of a sphere lasts twice as long, and as each has grown another is thrown over it from her, turning the other way, that is never pulled back: it
-        // grows on, as fast as the first grew in all, until it is wholly past the screen.
+        // grows on, as fast as the first grew in all, until it is wholly past the screen. Later that day: it is thrown with the sphere, as it begins, and its stars are white.
         // Everything is a closed form of time (the stars are beads: the autoplay asks where they are at any moment).
         // ======================================================================================================================================================
 
@@ -192,8 +192,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>
-            /// The sphere thrown over each one once it has grown (2026-11-25, "on top of same sphere there will be thrown another sphere but it just grows away"): it grows from her at as many px a ms as the
-            /// first grew in all over its growing, and is never pulled back - it grows on until it is wholly past the screen. Turning the other way. Returns its sphere (or -1) and how big it is.
+            /// The sphere thrown with each one (2026-11-25, "on top of same sphere there will be thrown another sphere but it just grows away"; with it, not once it has grown, the same day): it grows from her
+            /// at as many px a ms as the first grows in all over its growing, and is never pulled back - it grows on until it is wholly past the screen. Turning the other way, its stars white. Returns its
+            /// sphere (or -1) and how big it is.
             /// </summary>
             private int thrownAt(BulletField f, double t, out float size, out float growing)
             {
@@ -206,7 +207,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int k = 0; k < spheres.Length; k++)
                 {
                     var (start, grow, _, _) = spheres[k];
-                    double thrown = start + grow;
+                    double thrown = start; // (with the sphere itself: 2026-11-25, the same day, "both normal sphere and growing out sphere comes out at the same time" - it was thrown once that had grown)
                     float speed = full / (float)Math.Max(grow, 1);
 
                     if (t < thrown || t >= thrown + gone / speed)
@@ -285,6 +286,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Style = style,
                         Shape = BulletShape.SoftStar, // (Marisa's: the bosses' plump, glowing star - 2026-11-22; the sharp star of the bullets before)
                         Direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle)),
+                        Overlay = over ? BulletRenderer.TINT_WHITE : 0, // (the one that grows away is white: 2026-11-25)
+                        OverlayAmount = over ? 1f : 0f,
                     });
                 }
             }

@@ -250,7 +250,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 var shot = shots[i];
 
                 if (shot.Slider is SliderZone zone)
-                    return zone.Touches(f.characterPosition - zone.FallOffset(now) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS);
+                    return zone.Touches(zone.Local(f.characterPosition, now) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS);
 
                 return Vector2.Distance(f.characterPosition, shot.Position) <= shot.Radius + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
             }
@@ -532,7 +532,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (shot.Slider is SliderZone zone)
                     {
-                        if (t <= zone.EndTime && zone.Touches(p - zone.FallOffset(t) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), zone.Radius * (safeRadii - 1f)))
+                        if (t <= zone.EndTime && zone.Touches(zone.Local(p, t) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), zone.Radius * (safeRadii - 1f)))
                             return true;
                     }
                     else if (t <= shot.Time && Vector2.Distance(p, shot.Position) <= shot.Radius * safeRadii)

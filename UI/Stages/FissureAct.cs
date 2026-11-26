@@ -1355,7 +1355,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bandOutline.Add(bandRight[i]);
 
                 capOutline(bandLineAt(k, 0f), firstSide, bandWidthAt(f, k, 0f), -1f);
-                f.impactStars.AddOutline(bandOutline);
+                f.impactStars.AddOutline(bandOutline, DanmakusuBalance.IMPACT_BAND_FEATHER_PX); // (a wide soft edge: 2026-11-25, the same day - 1.5 px was not seen)
 
                 impactStarsOf(f, k, flash);
                 f.impactStars.ShapesDone();

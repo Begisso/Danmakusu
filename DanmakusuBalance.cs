@@ -635,6 +635,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float MUGETSU_SWIRL_LONGER = 1f;
 
         /// <summary>Mugetsu (2026-11-24): in her attacks every bullet flies this share of its speed (a window of the bullets' clock, as Mystia's).</summary>
+        public const double MUGETSU_WARN_BEATS = 2; // (2026-11-25, "arrows warn about spin": for this many beats before each of her attacks gold arrows show the way round her)
         public const double MUGETSU_SLOWED = 1; // (0.5 until 2026-11-25: "restore bullets normal speed")
 
         /// <summary>Mokou comes back this many beats after the last boss section is over (if the map goes on for at least this many beats more), with her ball and her landings' bullets this many times as big.</summary>
@@ -833,6 +834,14 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_BRANCH_CIRCLES = 4.5f; // (3 until 2026-11-24: "crack branches longer with subbranches")
         public const float SUIKA_IMPACT_MARGIN = 3.2f; // (1.6 until 2026-11-21: "double the impact frames radius")
         public const double SUIKA_IMPACT_FLASH_MS = 60;
+
+        /// <summary>
+        /// How wide the soft edge of an impact frame's white area is, in screen pixels (2026-11-25: 1.5 at first; then, the same day, "fix until impact frame white area edges are gradually smooth"): the
+        /// band round Suika's crack and Sumireko's beam, and every impact star (its tails are thin: less).
+        /// </summary>
+        public const float IMPACT_BAND_FEATHER_PX = 14f;
+
+        public const float IMPACT_STAR_FEATHER_PX = 5f;
         public const double SUIKA_IMPACT_MS = 840; // (420 until 2026-11-21: "impact frames duration doubled")
 
         /// <summary>Suika's impact frame has this many stars beside the crack (2026-11-21, "add stars"), as the World's Ender's has.</summary>
@@ -1251,6 +1260,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double AUNN_STOP_BEATS = 4;
         public const double AUNN_WARN_BEATS = 1;
 
+        /// <summary>Aunn (2026-11-25, "every bullet can stop at most 4 times"): a bullet stops this many times at most, the stand as it is fired the first; then its last move goes on (it stopped until her section was over).</summary>
+        public const int AUNN_MOST_STOPS = 4;
+
         /// <summary>Her bullets move this many times as fast as they were fired (from their first move on; 1 until 2026-11-22).</summary>
         public const float AUNN_MOVE_SPEED = 2f;
 
@@ -1459,7 +1471,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double ARIYA_ROW_EVERY_BEATS = 1;
         public const float ARIYA_COLUMN_GAP = 7f;
         public const float ARIYA_SPEED = 0.8f;
-        public const float ARIYA_ELLIPSE_SIZE = 1.33f;
+        public const float ARIYA_ELLIPSE_SIZE = 0.665f; // (1.33 until 2026-11-26: "grids half the size" - read as her ellipses; the gaps stay as they were, ARIYA_GRID_SIZE)
+
+        /// <summary>Ariya: the gaps of her grids are ARIYA_COLUMN_GAP times this many bullet radii (as big as her ellipses were until 2026-11-26).</summary>
+        public const float ARIYA_GRID_SIZE = 1.33f;
         public const float ARIYA_FLASH_ALPHA = 0.55f;
 
         /// <summary>Kokoro's background: the dim of her mood this dark, and its mask this see-through and this share of the playfield's height tall.</summary>
@@ -4202,7 +4217,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MIMA_TAIL_BEATS = 2;
 
         /// <summary>Mima (2026-11-25): as a moon has faded out its body shoots out this many of Marisa's stars from places all over it, each a way of its own, at this many times a plain bullet's speed (half its edges').</summary>
-        public const int MIMA_BODY_STARS = 40;
+        public const int MIMA_BODY_STARS = 80; // (40 until 2026-11-25, the same day: "stars count in moon body fade out doubled")
         public const float MIMA_BODY_SPEED = 0.5f;
         public const double MIMA_FLASH_MS = 200;
         public const float MIMA_FLASH_SIZE = 1.5f;
@@ -4343,6 +4358,9 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double NOROIKO_STEP_MS = 10;
         public const float NOROIKO_SLIDER_LEAST = 3f;
         public const float NOROIKO_SLIDER_MOST = 10f;
+
+        /// <summary>Noroiko (2026-11-25): every ring of the map's bullets in her section is laid out as 呪 (RingShape.Curse), with this many bullets at least.</summary>
+        public const int NOROIKO_RING_LEAST = 40;
 
         /// <summary>
         /// Kogasa Tatara: the circles and sliders of her section turn round the middle of the playfield this many degrees a beat (every second the other way round) and stay this many beats after they are
@@ -4572,10 +4590,157 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float TAKANE_ORBIT_FLAT = 0.35f;
         public const int TAKANE_MOST_GRABBED = 12;
 
+        /// <summary>
+        /// Tewi Inaba (2026-11-25): every this many beats four big beams (this many circle radii from their middle line to each side) from her, an X round the line to the player - each this many degrees
+        /// from it, two ahead and two behind - after a see-through preview this many beats long; over the swing beats the two of each side turn and slide out into one beam this many circle radii to her
+        /// side, along the line to the player; solid this many beats in all, then they fade.
+        /// </summary>
+        public const double TEWI_EVERY_BEATS = 32;
+
+        public const float TEWI_BEAM_CIRCLES = 0.8f;
+        public const float TEWI_SPREAD_DEGREES = 45f;
+        public const double TEWI_PREVIEW_BEATS = 2;
+        public const double TEWI_SWING_BEATS = 4;
+        public const float TEWI_OFFSET_CIRCLES = 3f;
+        public const double TEWI_LIVE_BEATS = 16;
+        public const double TEWI_FADE_BEATS = 0.5;
+
+        /// <summary>
+        /// Sumireko Usami (2026-11-25): every this many beats a beam this many circle radii wide (four times Matenshi's) comes down from the top over where the player is, after a see-through preview this
+        /// many beats long; solid, it drifts the way of the player this many circle radii a beat for the move beats, then explodes into this many of Marisa's stars, thrown left and right at these many
+        /// times a plain bullet's speed, with Suika's impact frame for this many ms. The screen dims round it this much.
+        /// </summary>
+        public const double SUMIREKO_EVERY_BEATS = 16;
+
+        public const float SUMIREKO_BEAM_CIRCLES = 12f;
+        public const double SUMIREKO_PREVIEW_BEATS = 4;
+        public const double SUMIREKO_MOVE_BEATS = 8;
+        public const float SUMIREKO_DRIFT_CIRCLES = 0.5f;
+        public const int SUMIREKO_STARS = 64;
+        public const float SUMIREKO_STAR_SPEED_LEAST = 0.6f;
+        public const float SUMIREKO_STAR_SPEED_MOST = 1.6f;
+        public const float SUMIREKO_STAR_SIZE = 1.6f;
+        public const double SUMIREKO_IMPACT_MS = 840;
+        public const float SUMIREKO_DIM = 0.55f;
+        public const float SUMIREKO_BLOOM = 0.8f;
+        public const float SUMIREKO_SHAKE = 0.5f;
+        public const int SUMIREKO_IMPACT_STARS = 8;
+
+        /// <summary>
+        /// Orange (2026-11-25): her orange (the user's orange.png) is this many circle radii from its middle to its rind ("4x osu circle"), in ten slices; the first stands this many beats once grown, every
+        /// flight out and back of its slices takes this many beats, arrows warn of every split this many beats before it, and the slices fly this far past the farthest corner of the screen.
+        /// </summary>
+        public const float ORANGE_RADIUS_CIRCLES = 4f;
+
+        public const int ORANGE_SLICES = 10;
+        public const double ORANGE_GROW_BEATS = 4;
+        public const double ORANGE_HOLD_BEATS = 8;
+        public const double ORANGE_FLIGHT_BEATS = 16;
+        public const double ORANGE_WARN_BEATS = 2;
+        public const float ORANGE_BEYOND_CIRCLES = 2f;
+        public const float ORANGE_PREVIEW_ALPHA = 0.45f;
+
         /// <summary>Takane: every this many beats a ring of this many big balls, this many circle radii each (half of Nina's), flying by her rule.</summary>
         public const double TAKANE_BALL_EVERY_BEATS = 8;
 
         public const int TAKANE_BALLS = 10;
         public const float TAKANE_BALL_CIRCLES = 1f;
+
+        /// <summary>
+        /// Yuiman Asama (2026-11-26): every bullet fired in her section comes out of one of this many points that turn round her this many circle radii out, once every this many beats, each firing this many
+        /// degrees from straight out (the way they turn: the streams curl into arcs off her middle); a point's bullets come out two side by side (their middles this many of their radii apart), one pair
+        /// after another this many beats apart, in its colour (this much of it).
+        /// </summary>
+        public const int YUIMAN_POINTS = 4;
+
+        public const float YUIMAN_POINT_CIRCLES = 1.5f;
+        public const double YUIMAN_TURN_BEATS = 8;
+        public const float YUIMAN_AIM_DEGREES = 60f;
+        public const float YUIMAN_PAIR_GAP = 2.4f;
+        public const double YUIMAN_STREAM_GAP_BEATS = 1.0 / 16;
+        public const float YUIMAN_TINT_AMOUNT = 0.85f;
+
+        /// <summary>
+        /// Yuiman Asama: every this many beats of her attacks a ring of this many arrowheads (one at the player), at this many times a plain bullet's speed, flying straight; each lets out a basic bullet this big
+        /// (of a plain one) to its left or right about every this many beats (by a hash: which side, a little earlier or later), flying off at once at this many times a plain bullet's speed, square to the
+        /// arrowhead's way give or take this many degrees.
+        /// </summary>
+        public const double YUIMAN_ARROW_EVERY_BEATS = 8;
+
+        public const int YUIMAN_ARROWS = 10;
+        public const float YUIMAN_ARROW_SPEED = 0.5f;
+        public const double YUIMAN_DROP_EVERY_BEATS = 0.25;
+        public const float YUIMAN_DROP_SIZE = 0.6f;
+        public const float YUIMAN_DROP_SPEED = 1f;
+        public const float YUIMAN_DROP_SPREAD_DEGREES = 25f;
+
+        /// <summary>
+        /// Yachie Kicchou (2026-11-26): every this many beats a ring of this many arrowheads, this many circle radii round, shot from her each its own way (by a hash) at this many times a plain bullet's
+        /// speed; it closes in to its middle and opens out again every this many beats (half in, half out), and each arrowhead's body turns round once every this many beats, every ring one way or the other.
+        /// </summary>
+        public const double YACHIE_RING_EVERY_BEATS = 1;
+
+        public const int YACHIE_RING_ARROWS = 12;
+        public const float YACHIE_RING_CIRCLES = 3f;
+        public const double YACHIE_BREATHE_BEATS = 8;
+        public const float YACHIE_RING_SPEED = 0.6f;
+        public const double YACHIE_SPIN_BEATS = 2;
+        public const float YACHIE_ARROW_SIZE = 1f;
+
+        /// <summary>
+        /// Yachie Kicchou: her lattice of cubes (a rhombille tiling: the user's picture) has edges this many circle radii long; a see-through preview this many beats, solid from the middle out over this
+        /// many, gone again from the middle out over this many; the fronts are soft over this many circle radii; the preview is this solid.
+        /// </summary>
+        public const float YACHIE_CUBE_CIRCLES = 4f;
+
+        public const double YACHIE_PREVIEW_BEATS = 4;
+        public const double YACHIE_ON_BEATS = 8;
+        public const double YACHIE_OFF_BEATS = 8;
+        public const float YACHIE_FRONT_CIRCLES = 1.5f;
+        public const float YACHIE_PREVIEW_ALPHA = 0.3f;
+
+        /// <summary>Rikako Asakura (2026-11-26): the Earth over the screen in her attacks is this solid.</summary>
+        public const float RIKAKO_EARTH_ALPHA = 0.5f;
+
+        /// <summary>
+        /// Rikako Asakura: an asteroid every this many beats, from this many beats before her section on; this many to this many circle radii on its picture's longer side, flying this many to this many
+        /// circle radii a beat, turning at most this many degrees a beat; a bullet bounces off them this many times at most (see Bullets/Asteroids.cs).
+        /// </summary>
+        public const double RIKAKO_ROCK_EVERY_BEATS = 2;
+
+        public const double RIKAKO_ROCK_FILL_BEATS = 16;
+        public const float RIKAKO_ROCK_LEAST_CIRCLES = 2.5f;
+        public const float RIKAKO_ROCK_MOST_CIRCLES = 6f;
+        public const float RIKAKO_ROCK_SPEED_LEAST = 0.75f;
+        public const float RIKAKO_ROCK_SPEED_MOST = 2f;
+        public const float RIKAKO_ROCK_SPIN_DEGREES = 12f;
+        public const int RIKAKO_ROCK_BOUNCES = 4;
+
+        /// <summary>
+        /// Rikako Asakura: her satellite is this many circle radii on its picture's longer side and flies this many circle radii a beat; it turns to the player every this many beats (over as long); a beam
+        /// this many circle radii to each side of its middle line, both ways, every this many beats: a see-through preview this many beats, then solid this many, with the Master Spark's sound and a shake
+        /// this strong.
+        /// </summary>
+        public const float RIKAKO_SATELLITE_CIRCLES = 7f;
+
+        public const float RIKAKO_SATELLITE_SPEED = 1f;
+        public const double RIKAKO_TURN_EVERY_BEATS = 4;
+        public const float RIKAKO_BEAM_CIRCLES = 1.5f;
+        public const double RIKAKO_BEAM_EVERY_BEATS = 16;
+        public const double RIKAKO_BEAM_PREVIEW_BEATS = 4;
+        public const double RIKAKO_BEAM_ON_BEATS = 8;
+        public const float RIKAKO_SHAKE = 0.5f;
+
+        /// <summary>
+        /// Rikako Asakura: the square grid of beams that goes with her satellite: lines this many circle radii apart, see-through this much; every this many beats a grey wave goes out from the satellite, to
+        /// past the farthest corner of the screen in this many beats, this many circle radii thick, this see-through; the grid is solid under it (softly towards its edges).
+        /// </summary>
+        public const float RIKAKO_GRID_CIRCLES = 4f;
+
+        public const float RIKAKO_GRID_ALPHA = 0.15f;
+        public const double RIKAKO_WAVE_EVERY_BEATS = 8;
+        public const double RIKAKO_WAVE_BEATS = 8;
+        public const float RIKAKO_WAVE_CIRCLES = 8f;
+        public const float RIKAKO_WAVE_ALPHA = 0.3f;
     }
 }

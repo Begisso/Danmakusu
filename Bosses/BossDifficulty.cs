@@ -142,6 +142,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Bamboo] = 4, // Mai Teireida (2026-11-25: 36 beams round her, always shown or there; every bullet moves in steps, 45 degrees to either side; no pauses)
             [BossMechanic.Myoga] = 4, // Satono Nishida (2026-11-25: what leaves the top comes back down, what leaves the bottom sends a talisman at you; streams of stars)
             [BossMechanic.Satellites] = 3, // Takane Yamashiro (2026-11-25: the bigger the slower, basic bullets twice as fast; big bullets grab the small ones into orbits; no pauses)
+            [BossMechanic.Hare] = 3, // Tewi Inaba (2026-11-25: an X of four big beams that swings into two parallel ones beside her, sixteen beats; she stays put)
+            [BossMechanic.Psychokinesis] = 4, // Sumireko Usami (2026-11-25: a huge beam over you that drifts your way and explodes into stars, every sixteen beats)
+            [BossMechanic.Citrus] = 3, // Orange (2026-11-25: an orange in the middle whose ten slices fly out and back, two oranges taking turns)
+            [BossMechanic.Pinwheel] = 3, // Yuiman Asama (2026-11-26: everything fired comes out of four turning points in arcs; rings of arrowheads that let bullets out sideways)
+            [BossMechanic.Cubes] = 4, // Yachie Kicchou (2026-11-26: breathing rings of turning arrowheads every beat, a lattice of cubes over the screen solid from the middle out)
+            [BossMechanic.Space] = 4, // Rikako Asakura (2026-11-26: asteroids that bullets bounce off, a satellite with a big two-way beam and a grid that waves make solid)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

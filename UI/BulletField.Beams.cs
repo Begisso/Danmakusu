@@ -433,7 +433,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int i = 0; i < beams; i++)
                 {
                     if (!laserInstances[i].Wood && !laserInstances[i].Immune)
-                        laserInstances[i].Bloom = beamBloom;
+                        laserInstances[i].Bloom = Math.Max(laserInstances[i].Bloom, beamBloom); // (a beam that blooms of itself keeps it: Sumireko's, 2026-11-25)
                 }
             }
 
@@ -538,16 +538,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>(the bench, "long": told of every piece of an act's or a tail's beam that crosses most of the screen - its ends and who drew it)</summary>
         public static Action<Vector2, Vector2, string>? PlainBeamProbe;
 
+        /// <summary>(the bench, ACT_BEAMS=1: told who drew every beam an act or a tail draws)</summary>
+        public static Action<string>? PlainBeamCounter;
+
         /// <summary>(Tools/SectionCheck, temporary) Told of a beam that its gone time ended while a point of it was still on the screen.</summary>
         public static Action<string>? EarlyGoneProbe;
 
         /// <summary>A beam through <paramref name="points"/>, <paramref name="halfWidth"/> wide everywhere (or <paramref name="widths"/> at each point, at most that), that glows like a boss's beam (the beams behind Sekibanki's heads).</summary>
-        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null, Color4? core = null)
+        private void addPlainBeam(List<Vector2> points, float halfWidth, Color4 colour, Color4 border, ref int beams, ref int pointTotal, List<float>? widths = null, List<float>? fades = null, Color4? core = null, float bloom = 0f)
         {
             int length = points.Count;
 
             if (length < 2)
                 return;
+
+            // (the bench's ACT_BEAMS=1: how many beams each act draws - 2026-11-25)
+            PlainBeamCounter?.Invoke(new System.Diagnostics.StackFrame(1).GetMethod()?.DeclaringType?.Name ?? "?");
 
             // (the bench's "long" probe: a piece of a beam an act or a tail draws that crosses most of the screen, and who drew it)
             if (PlainBeamProbe != null)
@@ -598,6 +604,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Colour = colour,
                 BorderColour = border,
                 CoreColour = core ?? default, // (its middle in this colour instead of white: Noroiko's curses, red all through - 2026-11-25)
+                Bloom = bloom, // (the light round it, as Remilia's: Sumireko's beam - 2026-11-25)
                 Speed = 0.01f,
             };
 

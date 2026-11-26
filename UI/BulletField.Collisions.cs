@@ -540,7 +540,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (now > zone.EndTime)
                     continue;
 
-                touching = zone.Touches(characterPosition - zone.FallOffset(now) - (zone.FallSpeed > 0f ? CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS); // (a catch object falls, and lands on the bottom wall: see SliderZone.FallSpeed)
+                touching = zone.Touches(zone.Local(characterPosition, now) - (zone.FallSpeed > 0f ? CatchLanding : Vector2.Zero), DanmakusuBalance.PLAYER_HITBOX_RADIUS); // (a catch object falls, and lands on the bottom wall: see SliderZone.FallSpeed)
             }
 
             // the moon hurts like a slider body

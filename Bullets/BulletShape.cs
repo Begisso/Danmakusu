@@ -68,6 +68,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>A flat ellipse, twice as wide as it is high (Seiga Kaku's rings).</summary>
         Ellipse,
+
+        /// <summary>The character 呪, upright (Noroiko's rings, 2026-11-25: <see cref="CurseGlyph"/>): the bullets lie along its strokes.</summary>
+        Curse,
     }
 
     /// <summary>Which hitsound class a ring belongs to; decides how many bullets it has (see <see cref="DanmakusuBalance.BulletsPerRing"/>).</summary>

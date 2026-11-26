@@ -83,6 +83,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>At Time the thing turns by <see cref="TrajectoryOp.TurnAngle"/> (radians, the way the screen turns: positive is clockwise) and goes <see cref="TrajectoryOp.SpeedFactor"/> times as fast.</summary>
         Turn,
+
+        /// <summary>
+        /// Rikako (2026-11-26): in the window [Time, End] the thing bounces off her asteroids (<see cref="TrajectoryOp.Rocks"/>: circles that fly straight) whenever it flies into one, its speed kept,
+        /// <see cref="TrajectoryOp.MostBounces"/> times at most, never twice in a row off the same one, and only on the screen. What is in one already flies through it, and so does what is pulled or falls
+        /// (it has an acceleration).
+        /// </summary>
+        Rocks,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -437,6 +444,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public double MoveMs { get; init; }
         public double StopMs { get; init; }
         public double GoUntil { get; init; } = double.PositiveInfinity;
+
+        /// <summary>StopAndGo: how many times a thing stops at most, the stand as it is fired too (2026-11-25, Aunn: "every bullet can stop at most 4 times"); then its last move goes on. 0: no limit.</summary>
+        public int MostStops { get; init; }
+
+        /// <summary>Rocks: Rikako's asteroids, in the order they are born (see <see cref="Asteroids"/>), and the longest any of them is there (ms).</summary>
+        public Asteroid[]? Rocks { get; init; }
+
+        public double RocksLongest { get; init; }
+
+        /// <summary>Rocks: how many times a thing bounces off them at most.</summary>
+        public int MostBounces { get; init; }
 
         /// <summary>An <see cref="TrajectoryOpKind.Aim"/> whose Point is where the player is when its time comes (the act of its boss places it): Aunn's moves.</summary>
         public bool PlayerAim { get; init; }
@@ -925,6 +943,85 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         recordBounce(op, now, position, time);
 
                         look = op.After ?? look;
+                        break;
+                    }
+
+                    case TrajectoryOpKind.Rocks:
+                    {
+                        // (Rikako's asteroids: off every one it flies into, by straight lines - what is pulled or falls flies through)
+                        if (op.Rocks == null || op.Rocks.Length == 0 || acc.LengthSquared > 1e-14f)
+                            break;
+
+                        double from = Math.Max(op.Time, now);
+                        double until = Math.Min(op.End, time);
+
+                        if (until <= from)
+                            break;
+
+                        step(ref position, ref v, acc, ref now, from);
+                        var rocks = op.Rocks;
+
+                        // (the rocks that can be there between now and then: born by then, and not before the longest any is there)
+                        int lo = 0, hi = rocks.Length;
+                        double earliest = from - op.RocksLongest;
+
+                        while (lo < hi)
+                        {
+                            int mid = (lo + hi) / 2;
+
+                            if (rocks[mid].Born < earliest)
+                                lo = mid + 1;
+                            else
+                                hi = mid;
+                        }
+
+                        int last = -1;
+
+                        for (int bounce = 0; bounce < Math.Max(op.MostBounces, 1); bounce++)
+                        {
+                            double soonest = double.PositiveInfinity;
+                            int which = -1;
+
+                            for (int r = lo; r < rocks.Length && rocks[r].Born <= until; r++)
+                            {
+                                if (r == last || rocks[r].Gone <= now)
+                                    continue;
+
+                                double enters = Asteroids.Enters(rocks[r], position, v, now, until - now);
+
+                                if (enters < soonest)
+                                {
+                                    soonest = enters;
+                                    which = r;
+                                }
+                            }
+
+                            if (which < 0)
+                                break;
+
+                            // (only on the screen: what has left it is gone, and must not come back off a rock nobody sees)
+                            Vector2 meets = position + v * (float)soonest;
+
+                            if (meets.X < min.X || meets.X > max.X || meets.Y < min.Y || meets.Y > max.Y)
+                                break;
+
+                            step(ref position, ref v, acc, ref now, now + soonest);
+                            Vector2 normal = position - rocks[which].At(now);
+
+                            if (normal.LengthSquared > 1e-6f)
+                            {
+                                normal = Vector2.Normalize(normal);
+                                float into = Vector2.Dot(v, normal);
+
+                                if (into < 0f)
+                                    v -= normal * (2f * into);
+                            }
+
+                            last = which;
+                            recordBounce(op, now, position, time);
+                            look = op.After ?? look;
+                        }
+
                         break;
                     }
 

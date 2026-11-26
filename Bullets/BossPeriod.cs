@@ -115,6 +115,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         public float SpinnerBeamStartHalfWidth { get; init; }
 
+        /// <summary>An osu! circle's radius on this map (what the planner and the ops measure in when the field's own is not at hand: Rikako's asteroids, 2026-11-26).</summary>
+        public float CircleRadius => SpinnerBeamStartHalfWidth > 0f ? SpinnerBeamStartHalfWidth : 32f;
+
         /// <summary>The pull of an arrowhead on this map (what turns it towards the player): the arrowheads that Nazrin makes out of bullets use it.</summary>
         public float ArrowGravity { get; init; }
     }

@@ -43,6 +43,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Creation, BossMechanic.Mirage, BossMechanic.Effigy, BossMechanic.Fossil, BossMechanic.Wind, BossMechanic.Spoiler,
             BossMechanic.Sword, BossMechanic.Statue, // (2026-11-24: Meira, Narumi)
             BossMechanic.Bamboo, BossMechanic.Satellites, // (2026-11-25: Mai Teireida, Takane)
+            BossMechanic.Cubes, // (2026-11-26: Yachie)
         };
 
         /// <summary>
@@ -57,6 +58,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise, // (2026-11-23: Son Biten's rings of beams, Noroiko's curses, Kogasa's spirals)
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy, // (2026-11-24: Iku's spiralling rings, Meira's fans, Narumi's ball, Parsee's balls and arrowheads)
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites, // (2026-11-25: Sara's gapless rings, Mai Teireida's talismans, Satono's stars, Takane's balls)
+            BossMechanic.Cubes, BossMechanic.Pinwheel, // (2026-11-26: Yachie's rings and lattices; Yuiman's arrowheads - what is fired comes out of her points, so the placeholder's spirals doubled what they let out)
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -75,6 +77,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Keyboard, BossMechanic.Vampire, BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
+            BossMechanic.Hare, BossMechanic.Psychokinesis, BossMechanic.Citrus, // (2026-11-25: Tewi, Sumireko and Orange: their spinners shoot their own bullets, without the spinner's beams)
+            BossMechanic.Pinwheel, BossMechanic.Cubes, BossMechanic.Space, // (2026-11-26: Yuiman, Yachie, Rikako)
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -84,6 +88,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Qi, BossMechanic.SevenElements, BossMechanic.Prism, BossMechanic.Dream, BossMechanic.Haste, BossMechanic.Strings, BossMechanic.Haniwa, BossMechanic.Kasha, BossMechanic.Patrol, BossMechanic.Frog,
             BossMechanic.Creation, BossMechanic.Effigy, // (Shinki's wings and Ubame's dolls shoot them again: what her spinner's stars become)
             BossMechanic.Keyboard, BossMechanic.Vampire, BossMechanic.Surprise, // (2026-11-23: Lyrica's, Kurumi's and Kogasa's spinners shoot basic bullets)
+            BossMechanic.Pinwheel, // (2026-11-26: Yuiman's points let them out again)
         };
 
         private static readonly HashSet<BossMechanic> knife_spinner_bullets = new HashSet<BossMechanic> { BossMechanic.TimeStop, BossMechanic.FateSpear, BossMechanic.Destruction, BossMechanic.Blades };
@@ -102,6 +107,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Staff, BossMechanic.Curse, BossMechanic.Surprise,
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
+            BossMechanic.Cubes,
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -3864,7 +3870,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 for (int j = 0; j < shots; j++)
                                 {
                                     double t = over + (turn.Until - over) * (j + 0.5) / shots;
-                                    Vector2 at = from + turn.Offset(hitObject.StackedPosition, t);
+                                    Vector2 at = turn.Place(from, t); // (the object turns as one piece, itself too: 2026-11-25)
                                     Vector2 outward = at - middle;
                                     outward = outward.LengthSquared > 1e-4f ? Vector2.Normalize(outward) : Vector2.UnitX;
 
@@ -3889,7 +3895,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 var positions = new Vector2[beam.BallPositions.Length];
 
                                 for (int p = 0; p < positions.Length; p++)
-                                    positions[p] = beam.BallPositions[p] + turn.Offset(slider.StackedPosition, beam.BallTimes[p]);
+                                    positions[p] = turn.Place(beam.BallPositions[p], beam.BallTimes[p]);
 
                                 laserList[i] = beam.AlongPath(positions);
                             }
@@ -3901,6 +3907,23 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         case BossMechanic.Curse when pass == 0:
                             laserList.RemoveAll(beam => !beam.SpinnerLike && !beam.FollowsBoss && beam.BallPositions.Length > 0 && beam.StartTime >= period.ShootStart - 1 && beam.StartTime < period.End);
                             break;
+
+                        // Noroiko, after everything else (2026-11-25, "her bullets and laserbeams still don't form that japanese symbol, it is just basic bullet"): every ring of the map's bullets in her section
+                        // is laid out as 呪, with NOROIKO_RING_LEAST bullets at least so that its strokes show (not the bosses' own rings, which are their mechanics)
+                        case BossMechanic.Curse when pass == 1:
+                        {
+                            for (int i = 0; i < emitters.Count; i++)
+                            {
+                                var ring = emitters[i];
+
+                                if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.FollowsBoss || ring.Sharp || ring.Shape == BulletShape.Train || ring.Layout == null || ring.Layout == RingShape.Curse)
+                                    continue;
+
+                                emitters[i] = ring.RebuiltAs(RingShape.Curse, Math.Clamp(Math.Max(ring.Count, DanmakusuBalance.NOROIKO_RING_LEAST), 1, DanmakusuBalance.MAX_RING_BULLETS), 0f);
+                            }
+
+                            break;
+                        }
 
                         // Kurumi (2026-11-23): in her section every slider shoots a beam (as a whistled one does) instead of bullets, and every circle a ring of KURUMI_CIRCLE_BEAMS straight beams instead of its
                         // bullets, each fired for KURUMI_BEAM_BEATS from where the circle is (so as long as that, and flying out). What a beam does as it leaves the screen is her act's (VampireAct).

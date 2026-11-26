@@ -17,6 +17,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // and it dies away after; Byakuren's beam sound comes with it.
         // She shoots a row of ellipses down from the top of the screen every ARIYA_ROW_EVERY_BEATS, across the whole screen ARIYA_COLUMN_GAP bullet radii apart, every second row half a gap aside, so that they
         // make a grid; each bounces once off the bottom and flies back up out of the screen. Her own ellipses never stop (2026-11-22; they stopped in a stretch as everything else does).
+        // Since 2026-11-26 her ellipses are half the size (ARIYA_ELLIPSE_SIZE; the gaps stay as they were, ARIYA_GRID_SIZE), and a second grid crosses the screen from the left at the same moments,
+        // columns of ellipses that bounce once off the right side and fly back (column: FossilColumnsAct holds them).
         // ======================================================================================================================================================
 
         private sealed class FossilAct : StageAct
@@ -39,10 +41,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private int soundedRelease = -1;
             private double resetTime = double.NegativeInfinity;
             private readonly List<Vector2> beamPoints = new List<Vector2>();
+            private readonly FossilColumnsAct columns;
 
-            public FossilAct(BossPeriod period, CircleZone[] circles, SliderZone[] sliders)
+            public FossilAct(BossPeriod period, CircleZone[] circles, SliderZone[] sliders, FossilColumnsAct columns)
             {
                 Period = period;
+                this.columns = columns;
                 beat = Math.Max(period.BeatLength, 1);
                 stretches = BossOps.StoneStretches(period);
 
@@ -92,6 +96,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             public override void Reset(BulletField f, double time)
             {
                 ClearBullets();
+                columns.ClearBullets(); // (its own Reset leaves them: they are made again here, whichever act is reset first)
                 nextRow = 0;
                 resetTime = time;
                 soundedRelease = -1;
@@ -104,7 +109,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 // (her rows before that moment are shot again the same way: where they are follows from the time)
                 for (; nextRow < rows.Count && rows[nextRow] <= time; nextRow++)
+                {
                     row(f, nextRow, false);
+                    column(f, nextRow, false);
+                }
             }
 
             public override void Update(BulletField f, double now)
@@ -113,7 +121,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return;
 
                 for (; nextRow < rows.Count && rows[nextRow] <= now; nextRow++)
+                {
                     row(f, nextRow, true);
+                    column(f, nextRow, true);
+                }
 
                 // (the held ones are let go with Byakuren's beam sound)
                 for (; soundedRelease + 1 < stretches.Count && stretches[soundedRelease + 1].End <= now; soundedRelease++)
@@ -132,7 +143,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 double t0 = rows[k];
                 float r = f.stageBaseRadius(Period) * DanmakusuBalance.ARIYA_ELLIPSE_SIZE;
-                float gap = Math.Max(r * DanmakusuBalance.ARIYA_COLUMN_GAP, 4f);
+                float gap = Math.Max(f.stageBaseRadius(Period) * DanmakusuBalance.ARIYA_GRID_SIZE * DanmakusuBalance.ARIYA_COLUMN_GAP, 4f);
                 float speed = stageBulletSpeed(Period) * DanmakusuBalance.ARIYA_SPEED;
                 float top = f.stageMin.Y - r, bottom = f.stageMax.Y;
                 int style = f.comboStyle(k, true, Period.Rank);
@@ -167,6 +178,47 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>
+            /// Column <paramref name="k"/> of her second grid (2026-11-25, "another grid that moves horizontally too"): ellipses down the whole screen, coming in from just left of it, every second column
+            /// half a gap aside; each bounces once off the right side and flies back out to the left. As the rows, at the same moments.
+            /// </summary>
+            private void column(BulletField f, int k, bool live)
+            {
+                double t0 = rows[k];
+                float r = f.stageBaseRadius(Period) * DanmakusuBalance.ARIYA_ELLIPSE_SIZE;
+                float gap = Math.Max(f.stageBaseRadius(Period) * DanmakusuBalance.ARIYA_GRID_SIZE * DanmakusuBalance.ARIYA_COLUMN_GAP, 4f);
+                float speed = stageBulletSpeed(Period) * DanmakusuBalance.ARIYA_SPEED;
+                float left = f.stageMin.X - r, right = f.stageMax.X;
+                int style = f.comboStyle(k + 1, true, Period.Rank);
+                float hit = r * DanmakusuBalance.BULLET_HITBOX_SCALE;
+
+                double bounceAt = t0 + (right - left) / speed;
+                double outAt = bounceAt + (right - left + r) / speed;
+
+                for (float y = f.stageMin.Y + gap * (k % 2 == 0 ? 0.5f : 1f); y < f.stageMax.Y; y += gap)
+                {
+                    columns.AddBullet(new StageBullet
+                    {
+                        T0 = t0,
+                        P0 = new Vector2(left, y),
+                        V = new Vector2(speed, 0f),
+                        Legs = new[]
+                        {
+                            new StageLeg { T = t0, P = new Vector2(left, y), V = new Vector2(speed, 0f) },
+                            new StageLeg { T = bounceAt, P = new Vector2(right, y), V = new Vector2(-speed, 0f) },
+                        },
+                        Radius = r,
+                        Hit = hit,
+                        Style = style,
+                        Shape = BulletShape.Ellipse,
+                        Until = outAt,
+                    });
+
+                    if (live)
+                        f.addFlash(bounceAt, new Vector2(right, y), r * DanmakusuBalance.RICOCHET_FLASH_SIZE);
+                }
+            }
+
             // ---- the held circles and sliders ----
 
             /// <summary>The first held one that can still be there at <paramref name="t"/> (they are in the order they were over; a stretch is the longest any is held).</summary>
@@ -189,7 +241,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>What is held at <paramref name="t"/>, for the <see cref="FallLayer"/>: grey and still where it was (not what is already shown, falling in Urumi's section).</summary>
-            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
+            public void Collect(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour, float Degrees)> into)
             {
                 int shownBefore = into.Count;
 
@@ -206,7 +258,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         shown = ReferenceEquals(into[j].Source, h.Source);
 
                     if (!shown)
-                        into.Add((h.Source, t, Vector2.Zero, null)); // (began now: it does not darken)
+                        into.Add((h.Source, t, Vector2.Zero, null, 0f)); // (began now: it does not darken)
                 }
             }
 
@@ -291,6 +343,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     beamPoints.AddRange(h.Slider.Points);
                     f.addPlainBeam(beamPoints, h.Radius, grey, DanmakusuBalance.BorderColour(grey), ref beams, ref pointTotal);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Ariya's second grid (2026-11-26): its columns of ellipses only - <see cref="FossilAct"/> makes them, and makes them again when time goes back. An act of its own, because they live longer than
+        /// the rows (they cross the screen the long way): among the rows they kept the rows that were long gone from being passed over, every frame.
+        /// </summary>
+        private sealed class FossilColumnsAct : StageAct
+        {
+            public FossilColumnsAct(BossPeriod period)
+            {
+                Period = period;
+                Start = period.ShootStart;
+                End = period.End + Math.Max(period.BeatLength, 1) * 32; // (the last columns fly out after her section)
             }
         }
     }

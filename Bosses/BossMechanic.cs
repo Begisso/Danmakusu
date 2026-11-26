@@ -132,7 +132,11 @@
         /// <summary>Poison clouds linger on the field and slowly expand.</summary>
         Poison,
 
-        /// <summary>Cards, bottles and signs thrown around by telekinesis.</summary>
+        /// <summary>
+        /// Sumireko Usami (built 2026-11-25; a planned "cards, bottles and signs thrown around by telekinesis" until then): every 16 beats a huge beam, four times as wide as Matenshi's, comes down over
+        /// the player after a preview, glowing, the screen dimmed round it, with the Master Spark's sound and a shake; it drifts slowly towards the player's side for eight beats, then explodes into
+        /// Marisa's stars thrown left and right, with Suika's impact frame.
+        /// </summary>
         Psychokinesis,
 
         /// <summary>Junko: every slider of her section is a sliderwhistle, but it shoots its laser from Junko (along the slider's path, as if the slider lay where she is), not from where it is; her own shots are slices of beam. Every slice of a beam is see-through and does not hurt for its first four beats, then it is as usual.</summary>
@@ -652,5 +656,36 @@
         /// grabs the smaller ones that come within an osu! circle of it: they go round it on tilted circles, like an atom's. Rings of ten big balls every eight beats.
         /// </summary>
         Satellites,
+
+        /// <summary>
+        /// Tewi Inaba (2026-11-25): every 32 beats four big beams from her, two to her left and two to her right (an X round the line to the player), after a preview; they swing and slide out into two
+        /// parallel beams to either side of her, along the line to the player, solid for 16 beats in all. She stays where she is meanwhile.
+        /// </summary>
+        Hare,
+
+        /// <summary>
+        /// Orange (2026-11-25): she stands in the middle. A big orange, four osu! circles across, grows there in the warning and stands eight beats; then it splits into its ten slices, which fly
+        /// out of the screen and come back, again and again, each time forming the orange as they meet. While one flies out another grows, and from then on one orange's slices come back as the other's go.
+        /// </summary>
+        Citrus,
+
+        /// <summary>
+        /// Yuiman Asama (2026-11-26): every bullet fired in her section comes out of one of four points that turn round her - red, yellow, green, blue - two side by side, in streams that curl into arcs
+        /// round her, off her middle. Every eight beats of her attacks a ring of ten arrowheads that let basic bullets out to their left and right as they fly.
+        /// </summary>
+        Pinwheel,
+
+        /// <summary>
+        /// Yachie Kicchou (2026-11-26): no pauses. Rings of twelve turning arrowheads, three circle radii round, shot every beat each its own way, that close in to their middle over four beats and open
+        /// out over four, again and again. One giant lattice of cubes in beams after another, standing where she was: see-through, then solid from the middle out, then gone again from the middle out.
+        /// </summary>
+        Cubes,
+
+        /// <summary>
+        /// Rikako Asakura (2026-11-26): the Earth seen from orbit over the screen in her attacks; asteroids fly across all through her section and every bullet bounces off them. Every attack a satellite
+        /// comes in from behind her and flies on across, turning to the player every four beats; a big beam both ways for eight of every sixteen beats; a square grid of beams goes with it, see-through and
+        /// harmless but where its grey waves, sent out every eight beats, go over it.
+        /// </summary>
+        Space,
     }
 }

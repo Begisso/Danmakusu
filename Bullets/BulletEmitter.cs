@@ -1063,9 +1063,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             foreach (var op in list)
             {
-                if (op.Window)
+                if (op.Window && op.Kind != TrajectoryOpKind.Rocks) // (Rikako's asteroids only turn it round on the screen: as long again as it lives, below, is enough - 2026-11-26, her rings lived 8 s more)
                     windowed = true;
-                else
+                else if (!op.Window)
                     reach = Math.Max(reach, op.End - Time);
             }
 
@@ -1212,6 +1212,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     if (stop >= op.GoUntil)
                         break; // (after her section the last move goes on: it flies off)
+
+                    if (op.MostStops > 0 && k + 2 > op.MostStops)
+                        break; // (it has stopped as often as it may - the stand as it was fired is the first: the last move goes on, 2026-11-25)
 
                     all.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = stop, End = stop + op.StopMs, During = op.After, After = op.After });
                     go = stop + op.StopMs;

@@ -38,9 +38,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         public Vector2 Head { get; init; }
 
-        /// <summary>How far down from its points the body is at <paramref name="time"/> (above them before it lands); a body of Kogasa's: how far it has turned round the middle.</summary>
+        /// <summary>How far down from its points the body is at <paramref name="time"/> (above them before it lands).</summary>
         public Vector2 FallOffset(double time)
-            => (FallSpeed > 0f ? new Vector2(0f, (float)(time - LandsAt) * FallSpeed) : Vector2.Zero) + (Orbit is SurpriseOrbit.Turn turn ? turn.Offset(Head, time) : Vector2.Zero);
+            => FallSpeed > 0f ? new Vector2(0f, (float)(time - LandsAt) * FallSpeed) : Vector2.Zero;
+
+        /// <summary>
+        /// Where <paramref name="position"/> is among the zone's own points at <paramref name="time"/> (for <see cref="Touches"/>): above them as far as it has fallen, and - a body of Kogasa's, which turns
+        /// round the middle as one piece, itself turning (2026-11-25) - turned back as far as it has turned.
+        /// </summary>
+        public Vector2 Local(Vector2 position, double time)
+            => (Orbit is SurpriseOrbit.Turn turn ? turn.Unplace(position, time) : position) - FallOffset(time);
 
         public bool Touches(Vector2 position, float extraRadius)
         {

@@ -494,7 +494,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     {
                         // Aunn (2026-11-21): every bullet fired in her section swells to twice its size as it is fired (and hurts as big), then sets off at the player, moves four beats on that way, stands four
                         // beats, sets off at the player again... by its own clock, until her section is over (then its last move goes on). The field warns of every move with an arrow beside every bullet; her act
-                        // places where the player is when each move begins. It moves AUNN_MOVE_SPEED times as fast as it was fired (2026-11-22)
+                        // places where the player is when each move begins. It moves AUNN_MOVE_SPEED times as fast as it was fired (2026-11-22). It stops AUNN_MOST_STOPS times at most, the stand as it is fired
+                        // the first; then its last move goes on (2026-11-25, "every bullet can stop at most 4 times")
                         double beat = Math.Max(period.BeatLength, 1);
                         var swell = SwellSteps(DanmakusuBalance.AUNN_SWELL);
 
@@ -503,6 +504,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             Kind = TrajectoryOpKind.StopAndGo, Time = period.Start, End = period.End, BornAfter = period.Start, BornBefore = period.End, SpeedFactor = DanmakusuBalance.AUNN_MOVE_SPEED,
                             FirstStop = beat * DanmakusuBalance.AUNN_SWELL_BEATS, MoveMs = beat * DanmakusuBalance.AUNN_MOVE_BEATS, StopMs = beat * DanmakusuBalance.AUNN_STOP_BEATS, GoUntil = period.End,
                             WarnMs = beat * DanmakusuBalance.AUNN_WARN_BEATS, Steps = swell, During = swell[^1], After = swell[^1], Blend = beat * DanmakusuBalance.AUNN_SWELL_BEATS,
+                            MostStops = DanmakusuBalance.AUNN_MOST_STOPS,
                         });
 
                         break;
@@ -704,6 +706,23 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                             bullets.Add(moon);
                             beams.Add(moon);
+                        }
+
+                        break;
+                    }
+
+                    case BossMechanic.Space:
+                    {
+                        // Rikako (2026-11-26): all through her section every bullet (not the slices of beams) bounces off her asteroids whenever it flies into one (where they are is Asteroids', closed forms)
+                        var rocks = Asteroids.Of(period);
+
+                        if (rocks.Length > 0)
+                        {
+                            bullets.Add(new TrajectoryOp
+                            {
+                                Kind = TrajectoryOpKind.Rocks, Time = period.Start, End = period.End, Window = true, Rocks = rocks, RocksLongest = Asteroids.Longest(period), MostBounces = DanmakusuBalance.RIKAKO_ROCK_BOUNCES,
+                                Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
+                            });
                         }
 
                         break;

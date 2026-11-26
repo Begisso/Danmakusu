@@ -82,6 +82,96 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             }
         }
 
+        /// <summary>
+        /// (Noroiko's rings, 2026-11-25) <paramref name="count"/> bullets along the strokes of 呪, upright whatever the ring's turn (a ring that aims at the player still turns it): every stroke gets bullets
+        /// by its length, its two ends among them, so that every stroke shows. Distances are shares of the farthest point; nothing is nearer the middle than <see cref="glyph_nearest"/> (those would
+        /// crawl and stay long).
+        /// </summary>
+        private static Vector2[] glyph(int count, out float[]? scales)
+        {
+            var strokes = CurseGlyph.STROKES;
+            var lengths = new float[strokes.Length];
+            float total = 0f, farthest = 0f;
+
+            for (int s = 0; s < strokes.Length; s++)
+            {
+                for (int i = 0; i < strokes[s].Length; i++)
+                {
+                    farthest = Math.Max(farthest, strokes[s][i].Length);
+
+                    if (i > 0)
+                        lengths[s] += Vector2.Distance(strokes[s][i - 1], strokes[s][i]);
+                }
+
+                total += lengths[s];
+            }
+
+            // (how many each stroke has: two at least, the rest by length)
+            var given = new int[strokes.Length];
+            int left = count;
+
+            for (int s = 0; s < strokes.Length; s++)
+            {
+                given[s] = Math.Min(2, left);
+                left -= given[s];
+            }
+
+            for (int n = 0; n < left; n++)
+            {
+                int best = 0;
+                float most = float.MinValue;
+
+                for (int s = 0; s < strokes.Length; s++)
+                {
+                    float room = lengths[s] / given[s];
+
+                    if (room > most)
+                    {
+                        most = room;
+                        best = s;
+                    }
+                }
+
+                given[best]++;
+            }
+
+            var points = new List<Vector2>(count);
+
+            for (int s = 0; s < strokes.Length; s++)
+            {
+                for (int k = 0; k < given[s]; k++)
+                {
+                    float along = given[s] > 1 ? lengths[s] * k / (given[s] - 1) : lengths[s] * 0.5f;
+                    var stroke = strokes[s];
+                    int i = 1;
+
+                    while (i < stroke.Length - 1 && along > Vector2.Distance(stroke[i - 1], stroke[i]))
+                    {
+                        along -= Vector2.Distance(stroke[i - 1], stroke[i]);
+                        i++;
+                    }
+
+                    float piece = Vector2.Distance(stroke[i - 1], stroke[i]);
+                    points.Add(Vector2.Lerp(stroke[i - 1], stroke[i], piece > 0f ? Math.Clamp(along / piece, 0f, 1f) : 0f) / farthest);
+                }
+            }
+
+            var directions = new Vector2[count];
+            scales = new float[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 p = i < points.Count ? points[i] : new Vector2(1f, 0f);
+                float length = p.Length;
+                directions[i] = length > 1e-6f ? p / length : new Vector2(1f, 0f);
+                scales[i] = Math.Max(length, glyph_nearest);
+            }
+
+            return directions;
+        }
+
+        private const float glyph_nearest = 0.15f;
+
         private const int ellipse_corners = 48;
         private const float ellipse_flatness = 0.5f; // (height / width)
         private const float flower_valley = 0.42f; // how far from the middle the gap between two petals is
@@ -110,6 +200,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// </summary>
         public static Vector2[] Create(RingShape shape, int count, float phase, out float[]? scales)
         {
+            if (shape == RingShape.Curse)
+                return glyph(count, out scales);
+
             var directions = new Vector2[count];
             var corners = Corners(shape);
 

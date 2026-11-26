@@ -1139,7 +1139,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     starOutline.Add(starUp[j]);
             }
 
-            impactStars.AddOutline(starOutline);
+            impactStars.AddOutline(starOutline, DanmakusuBalance.IMPACT_STAR_FEATHER_PX);
         }
 
         private readonly List<Vector2> starOutline = new List<Vector2>(), starUp = new List<Vector2>(), starDown = new List<Vector2>();

@@ -245,6 +245,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>With <see cref="OrbitGrow"/>: the circle grows from this far out (px) to <see cref="Orbit"/> instead of from nothing (Takane's grabbed bullets ease out to their orbit, 2026-11-25).</summary>
             public float OrbitFrom;
 
+            /// <summary>When above 0 the circle it goes round its hub on opens out from nothing to <see cref="Orbit"/> and closes in to nothing again every this many ms, from <see cref="T0"/>, as a cosine (Yachie's rings, 2026-11-26).</summary>
+            public double OrbitBreathe;
+
             /// <summary>
             /// When not null the hub is bullet <see cref="HubBullet"/> of this ring, wherever that is (on its own clock, through <see cref="HubEffects"/>): what Takane's big bullets have grabbed
             /// (2026-11-25). The other Hub fields are not used then.
@@ -1113,7 +1116,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public bool FallingObjectsShown { get; set; }
 
         /// <summary>What is falling at <paramref name="t"/>: the object, when it began to fall and how far it has got.</summary>
-        public void FallingObjects(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> into)
+        public void FallingObjects(double t, List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour, float Degrees)> into)
         {
             if (failed)
                 return;
@@ -2166,6 +2169,52 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Hare:
+                        // Tewi (2026-11-25): her X of beams that swings into two parallel ones
+                        if (period.End > period.ShootStart)
+                            registerStage(new HareAct(period));
+
+                        break;
+
+                    case BossMechanic.Psychokinesis:
+                        // Sumireko (2026-11-25): her huge beam that drifts and explodes into stars
+                        if (period.End > period.ShootStart)
+                            registerStage(new PsychokinesisAct(period));
+
+                        break;
+
+                    case BossMechanic.Citrus:
+                        // Orange (2026-11-25): her orange and its flying slices
+                        if (period.End > period.ShootStart)
+                            registerStage(new CitrusAct(period));
+
+                        break;
+
+                    case BossMechanic.Pinwheel:
+                        // Yuiman Asama (2026-11-26): her four turning points that everything fired comes out of, and her arrowheads that let bullets out to the sides
+                        if (period.End > period.ShootStart)
+                        {
+                            var pinwheel = new PinwheelAct(period);
+                            registerStage(pinwheel);
+                            registerStage(new PinwheelArrowsAct(period, pinwheel));
+                        }
+
+                        break;
+
+                    case BossMechanic.Cubes:
+                        // Yachie Kicchou (2026-11-26): her breathing rings of arrowheads and her lattice of cubes
+                        if (period.End > period.ShootStart)
+                            registerStage(new CubesAct(period));
+
+                        break;
+
+                    case BossMechanic.Space:
+                        // Rikako Asakura (2026-11-26): the Earth in her attacks, her asteroids (that bullets bounce off them is BossOps'), her satellites, their beams, grids and waves
+                        if (period.End > period.ShootStart)
+                            registerStage(new SpaceAct(period));
+
+                        break;
+
                     case BossMechanic.Bamboo:
                         // Mai Teireida: where she stays and her sets of 36 beams (her talismans are the planner's, the steps of everything BossOps')
                         if (period.End > period.ShootStart)
@@ -2197,7 +2246,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     case BossMechanic.Fossil:
                         // Ariya: the circles and sliders she holds, her flash and her grid of ellipses (that everything stops is BossOps', that what they would shoot is held the planner's)
                         if (period.End > period.ShootStart)
-                            registerStage(new FossilAct(period, circleZones, sliderZones));
+                        {
+                            // (her second grid's ellipses are an act of their own: they live longer than the rows', and an act's bullets are passed over as gone only from the first one on)
+                            var columns = new FossilColumnsAct(period);
+                            registerStage(new FossilAct(period, circleZones, sliderZones, columns));
+                            registerStage(columns);
+                        }
 
                         break;
 
@@ -3340,6 +3394,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             float angle = b.OrbitPhase + b.OrbitOmega * (float)(orbitClock(b, t) - b.T0);
             float radius = b.OrbitGrow > 0 ? b.OrbitFrom + (b.Orbit - b.OrbitFrom) * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
 
+            if (b.OrbitBreathe > 0)
+                radius *= 0.5f * (1f - MathF.Cos((float)((t - b.T0) / b.OrbitBreathe * Math.Tau)));
+
             // (a tilted circle, seen as an ellipse: along its long axis as far out as the circle, across it flatter)
             if (b.OrbitFlat > 0f)
             {
@@ -3985,6 +4042,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     shake = Math.Max(shake, anchors.ShakeAt(now));
                 else if (act is GateAct gate)
                     shake = Math.Max(shake, gate.ShakeAt(now)); // (Sara's beams: 2026-11-25)
+                else if (act is PsychokinesisAct sumireko)
+                    shake = Math.Max(shake, sumireko.ShakeAt(now)); // (Sumireko's beam: 2026-11-25)
+                else if (act is SpaceAct rikako)
+                    shake = Math.Max(shake, rikako.ShakeAt(now)); // (Rikako's satellite's beam: 2026-11-26)
             }
 
             return Math.Max(shake, trainShake(now));
@@ -4089,6 +4150,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.FallenAngel: // Matenshi too, with her wings
                 case BossMechanic.Onbashira: // Kanako always stands in the middle (2026-11-21)
                 case BossMechanic.Starlight: // Star Sapphire, in the middle of her sphere (2026-11-21)
+                case BossMechanic.Citrus: // Orange, in the middle of her orange (2026-11-25)
                     return true;
 
                 case BossMechanic.Unknown:
@@ -4380,6 +4442,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             drawShionArrows(t);
             drawSakiArrows(t);
             drawKokoroArrows(t);
+            drawMugetsuArrows(t);
             drawSwellWarnings();
             drawGoArrows();
 

@@ -12,7 +12,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
     /// <summary>
     /// Kogasa Tatara (2026-11-23): the circles and sliders of her section turn round the middle of the playfield - every first one clockwise, every second the other way round, KOGASA_ORBIT_DEGREES a beat -
     /// standing where the map has them at the moment they are due (so they are hit where they are, and come there turning), and stay KOGASA_HOLD_BEATS after they are over, still turning. The whole object
-    /// moves (a slider keeps its shape and the way it lies): every part of it as far as its head. The planner (what they shoot), the zones (what hurts) and the playfield (where they are drawn) all go by this.
+    /// turns round the middle as one piece, itself turning as it goes (since 2026-11-25; a slider kept the way it lay until then). The planner (what they shoot), the zones (what hurts), the playfield
+    /// (where they are drawn) and the FallLayer (the ones that stay) all go by this.
     /// </summary>
     public static class SurpriseOrbit
     {
@@ -32,15 +33,31 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 Until = until;
             }
 
-            /// <summary>How far the object is moved at <paramref name="t"/> from where the map has it (its head at <paramref name="head"/>): turned round the middle of the playfield.</summary>
-            public Vector2 Offset(Vector2 head, double t)
+            /// <summary>How far the object has turned round the middle at <paramref name="t"/> (radians; clockwise on the screen when positive).</summary>
+            public float Angle(double t) => Way * DanmakusuBalance.KOGASA_ORBIT_DEGREES * MathF.PI / 180f * (float)((t - Due) / Beat);
+
+            /// <summary>The same in degrees (a drawable's rotation).</summary>
+            public float Degrees(double t) => Angle(t) * 180f / MathF.PI;
+
+            /// <summary>
+            /// Where a point of the object (<paramref name="point"/>, where the map has it) is at <paramref name="t"/>: the whole object turned round the middle of the playfield, itself turning as it goes
+            /// (2026-11-25, "osu objects themselves turn around center too": until then it was only moved, keeping the way it lay).
+            /// </summary>
+            public Vector2 Place(Vector2 point, double t) => turn(point, Angle(t));
+
+            /// <summary>Where on the map a point that is at <paramref name="point"/> at <paramref name="t"/> belongs: the turn undone (for the zones: whether the player touches the turned object).</summary>
+            public Vector2 Unplace(Vector2 point, double t) => turn(point, -Angle(t));
+
+            private static Vector2 turn(Vector2 point, float angle)
             {
                 Vector2 middle = OsuPlayfield.BASE_SIZE / 2f;
-                float angle = Way * DanmakusuBalance.KOGASA_ORBIT_DEGREES * MathF.PI / 180f * (float)((t - Due) / Beat);
                 float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
-                Vector2 from = head - middle;
-                return middle + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos) - head;
+                Vector2 from = point - middle;
+                return middle + new Vector2(from.X * cos - from.Y * sin, from.X * sin + from.Y * cos);
             }
+
+            /// <summary>How far the object's head is moved at <paramref name="t"/> from where the map has it (<paramref name="head"/>).</summary>
+            public Vector2 Offset(Vector2 head, double t) => Place(head, t) - head;
         }
 
         /// <summary>Every circle and slider of the map in one of her sections, and how it turns.</summary>

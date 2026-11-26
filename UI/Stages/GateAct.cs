@@ -184,16 +184,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (alpha < 0.01f)
                         continue;
 
-                    for (int side = -1; side <= 1; side += 2)
-                    {
-                        line.Clear();
-                        line.Add(from[k]);
-                        line.Add(beamRayEnd(f, from[k], wayOf(k, side, t), half));
-                        fades.Clear();
-                        fades.Add(alpha);
-                        fades.Add(alpha);
-                        f.addPlainBeam(line, solid ? half : half * 0.7f, core, border, ref beams, ref pointTotal, null, fades);
-                    }
+                    // (the two as one beam through her, from the end of one to the end of the other: seamless where they meet - 2026-11-26, "double laserbeams are seamless"; they were two beams lying
+                    // over each other there)
+                    line.Clear();
+                    line.Add(beamRayEnd(f, from[k], wayOf(k, -1, t), half));
+                    line.Add(from[k]);
+                    line.Add(beamRayEnd(f, from[k], wayOf(k, 1, t), half));
+                    fades.Clear();
+                    fades.Add(alpha);
+                    fades.Add(alpha);
+                    fades.Add(alpha);
+                    f.addPlainBeam(line, solid ? half : half * 0.7f, core, border, ref beams, ref pointTotal, null, fades);
                 }
             }
 

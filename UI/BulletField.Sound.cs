@@ -68,7 +68,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     foreach (var act in stageActs)
                     {
-                        if ((act is ScorchAct scorch && scorch.Firing(now)) || (act is GateAct gate && gate.Firing(now))) // (Sara's beams too: 2026-11-25)
+                        if ((act is ScorchAct scorch && scorch.Firing(now)) || (act is GateAct gate && gate.Firing(now)) || (act is PsychokinesisAct sumireko && sumireko.Firing(now)) // (Sara's beams too, and Sumireko's: 2026-11-25)
+                            || (act is SpaceAct rikako && rikako.Firing(now))) // (Rikako's satellite: 2026-11-26)
                         {
                             firing = true;
                             otherLaser = true;

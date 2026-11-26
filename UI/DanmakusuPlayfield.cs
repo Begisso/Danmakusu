@@ -659,10 +659,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             foreach (var drawable in HitObjectContainer.AliveObjects)
             {
-                if (drawable is not DrawableOsuHitObject osuObject || drawable.HitObject is not Rulesets.Osu.Objects.OsuHitObject hitObject || !surpriseTurns!.TryGetValue(hitObject.StartTime, out var turned))
+                if (drawable is not DrawableOsuHitObject osuObject || drawable.HitObject is not Rulesets.Osu.Objects.OsuHitObject hitObject)
                     continue;
 
-                osuObject.Position = hitObject.StackedPosition + turned.Turn.Offset(turned.Head, time);
+                if (!surpriseTurns!.TryGetValue(hitObject.StartTime, out var turned))
+                {
+                    // (a drawable that showed one of hers before and now shows another object stands straight again)
+                    if (osuObject.Rotation != 0f)
+                        osuObject.Rotation = 0f;
+
+                    continue;
+                }
+
+                // (the whole object turns round the middle as one piece, itself turning as it goes - 2026-11-25, "osu objects themselves turn around center too"; it kept the way it lay until then. A
+                // slider turns round its head, where its origin is)
+                osuObject.Position = turned.Turn.Place(hitObject.StackedPosition, time);
+                osuObject.Rotation = turned.Turn.Degrees(time);
             }
         }
 

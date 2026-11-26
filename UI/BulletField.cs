@@ -879,6 +879,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (and Kokoro's masks, only when she is on the map: they are drawn when the field loads)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Masks)
                         ? new[] { StageTexture.MaskNeutral, StageTexture.MaskOni, StageTexture.MaskSad, StageTexture.MaskSmile }
+                        : Enumerable.Empty<StageTexture>())
+                    // (Orange's slice: 2026-11-26, it was in no layer's list, so her orange was drawn with no picture - not seen at all)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Citrus)
+                        ? new[] { StageTexture.OrangeSlice }
+                        : Enumerable.Empty<StageTexture>())
+                    // (Rikako's Earth, satellite and asteroids, only when she is on the map: the Earth is a big picture)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Space)
+                        ? new[] { StageTexture.RikakoEarth, StageTexture.RikakoSatellite }.Concat(Enumerable.Range(0, 14).Select(rock => StageTexture.RikakoRock0 + rock))
                         : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
@@ -2812,6 +2820,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             shionArrows.Clear();
             sakiArrows.Clear();
             kokoroArrows.Clear();
+            mugetsuArrows.Clear();
+            float mugetsuLevel = mugetsuWarning(drawTime); // (Mugetsu's vortex is coming: arrows show the way round her - 2026-11-25)
             swellWarnings.Clear();
             goArrows.Clear();
             double kokoroBeat = 0;
@@ -3135,6 +3145,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (Kokoro's warning of her fall: beside every second bullet an orange arrow, the way it will be flying a little into the fall)
                     if (kokoroLevel > 0f && b % DanmakusuBalance.KOKORO_ARROW_EVERY == 0 && direction.LengthSquared > 1e-6f)
                         addKokoroArrow(position, direction.Normalized() * emitter.SpeedOf(b), emitter.VisualRadius, kokoroBeat);
+
+                    // (Mugetsu's warning of her vortex: beside half the bullets of a ring that goes round her - two of every four, one of each way round - the way it will go)
+                    if (mugetsuLevel > 0f && emitter.Swirl != null && b % 4 < 2 && direction.LengthSquared > 1e-6f)
+                        addMugetsuArrow(position, direction.Normalized(), b, emitter.VisualRadius);
 
                     if (look != null && look.SlideSign != 0 && reisenAlpha > 0f)
                     {

@@ -17,6 +17,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // a beat, with a little hop. It likes best a bullet within reach whose leap goes over the player (the player between the cat and it, near the line), and it jumps more often when it is far from the player:
         // every beat when further than it can jump, every half beat when twice as far. The bullet of a jump is chosen a beat before (half the time between its jumps at most), and red arrows point from the cat
         // to it until it leaps. Chen's cat cries once, when it comes out of her (not at every jump). The cat hurts like a slider body, on its leaps too.
+        // Since 2026-11-25 it can jump onto any bullet, the bosses' own too (the acts' bullets: Seat); it was the rings' only.
         // ======================================================================================================================================================
 
         private sealed class FamiliarAct : StageAct
@@ -30,8 +31,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // ---- the cat ----
             private double nextJump; // (when it jumps next: every two beats near the player, more often further off)
-            private BulletEmitter? ridden; // (the ring of the bullet it rides; none: it is on Ellen, or stays where it was)
-            private int riddenBullet;
+            private Seat ridden; // (the bullet it rides - a ring's or an act's; none: it is on Ellen, or stays where it was)
             private bool onEllen = true;
             private Vector2 resting; // (where it stays when what it rode is gone)
             private double leapStart = double.NaN;
@@ -71,12 +71,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 shapes.Forget();
 
                 // (it starts again on Ellen: what it rode before cannot be known again)
-                ridden = null;
+                ridden = default;
                 onEllen = true;
                 leapStart = double.NaN;
                 meowed = time > Start;
                 aiming = false;
-                aimRing = null;
+                aim = default;
                 warnMs = beat * DanmakusuBalance.ELLEN_CAT_WARN_BEATS;
 
                 // (the next jump on the grid of its usual jumps)
@@ -100,13 +100,50 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return alive && float.IsFinite(position.X) && float.IsFinite(position.Y);
             }
 
+            /// <summary>A bullet the cat can sit on: a ring's (<see cref="Ring"/>, <see cref="Bullet"/>) or an act's (<see cref="Act"/>, <see cref="Index"/>: since 2026-11-25).</summary>
+            private struct Seat
+            {
+                public BulletEmitter? Ring;
+                public int Bullet;
+                public StageAct? Act;
+                public int Index;
+
+                public bool Any => Ring != null || Act != null;
+            }
+
+            /// <summary>Where the bullet of <paramref name="seat"/> is at <paramref name="t"/>, if it is there.</summary>
+            private static bool onSeat(BulletField f, in Seat seat, double t, out Vector2 position)
+            {
+                position = default;
+
+                if (seat.Ring != null)
+                    return bulletAt(f, seat.Ring, seat.Bullet, t, out position);
+
+                return seat.Act != null && stageAt(f, seat.Act, seat.Index, t, out position);
+            }
+
+            /// <summary>Where bullet <paramref name="index"/> of <paramref name="act"/> is at <paramref name="t"/>, if it is there (not hidden, harmless or used up).</summary>
+            private static bool stageAt(BulletField f, StageAct act, int index, double t, out Vector2 position)
+            {
+                position = default;
+
+                if (index >= act.Bullets.Count)
+                    return false;
+
+                var bullet = act.Bullets[index];
+
+                if (t < bullet.T0 || t > bullet.Until || bullet.Hidden || bullet.Harmless || f.stageConsumed.Contains(act.Id * 65536 + index))
+                    return false;
+
+                return f.stageBulletAt(bullet, t, out position) && float.IsFinite(position.X) && float.IsFinite(position.Y);
+            }
             /// <summary>Where the cat sits at <paramref name="t"/>, leaving out a leap: on Ellen, on the bullet it rides, or where it stays.</summary>
             private Vector2 seatAt(BulletField f, double t)
             {
                 if (onEllen)
                     return f.bossPositionOf(Period);
 
-                if (ridden != null && bulletAt(f, ridden, riddenBullet, t, out Vector2 position))
+                if (onSeat(f, ridden, t, out Vector2 position))
                     return position;
 
                 return resting;
@@ -140,15 +177,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 // (where it stays if what it rides goes)
-                if (ridden != null && bulletAt(f, ridden, riddenBullet, now, out Vector2 riding))
+                if (onSeat(f, ridden, now, out Vector2 riding))
                     resting = riding;
-                else if (ridden != null)
-                    ridden = null;
+                else if (ridden.Any)
+                    ridden = default;
 
                 // (the bullet of its next jump is chosen when the warning begins, and the arrow points at it until it leaps)
                 if (!aiming && nextJump < End && now >= nextJump - warnMs && now < nextJump)
                 {
-                    aiming = choose(f, now, out aimRing, out aimBullet);
+                    aiming = choose(f, now, out aim);
                     aimedAt = now;
                 }
 
@@ -167,30 +204,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     warnMs = Math.Min(beat * DanmakusuBalance.ELLEN_CAT_WARN_BEATS, every * 0.5);
 
                     // (the bullet warned of, if it is still there; otherwise one chosen now)
-                    BulletEmitter? target = null;
-                    int targetBullet = 0;
+                    Seat target = default;
 
-                    if (aiming && aimRing != null && bulletAt(f, aimRing, aimBullet, now, out _))
-                    {
-                        target = aimRing;
-                        targetBullet = aimBullet;
-                    }
-                    else if (choose(f, now, out var other, out int otherBullet))
-                    {
+                    if (aiming && onSeat(f, aim, now, out _))
+                        target = aim;
+                    else if (choose(f, now, out var other))
                         target = other;
-                        targetBullet = otherBullet;
-                    }
 
                     aiming = false;
-                    aimRing = null;
+                    aim = default;
 
-                    if (target == null)
+                    if (!target.Any)
                         continue; // (nothing nearer the player within reach: it stays)
 
                     leapFrom = from;
                     leapStart = jumpTime;
                     ridden = target;
-                    riddenBullet = targetBullet;
                     onEllen = false;
                     resting = from;
                 }
@@ -198,101 +227,112 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (the warning of its next jump: the bullet it will leap to, chosen when the warning began)
             private bool aiming;
-            private BulletEmitter? aimRing;
-            private int aimBullet;
+            private Seat aim;
             private double aimedAt;
             private double warnMs;
 
-            /// <summary>The bullet the cat would jump to at <paramref name="now"/>: within its reach, best one whose leap goes over the player, else the one nearest the player (if nearer than the cat is).</summary>
-            private bool choose(BulletField f, double now, out BulletEmitter? chosen, out int chosenBullet)
+            /// <summary>
+            /// The bullet the cat would jump to at <paramref name="now"/>: within its reach, best one whose leap goes over the player, else the one nearest the player (if nearer than the cat is). Any bullet:
+            /// a ring's, or one of a boss's own (an act's: Kanako's talismans, Alice's streams... - 2026-11-25, "can jump on any bullet, including bosses"; it was the rings' only).
+            /// </summary>
+            private bool choose(BulletField f, double now, out Seat chosen)
             {
                 Vector2 from = catAt(f, now);
                 Vector2 player = f.characterPosition;
                 float reach = f.circleRadius * DanmakusuBalance.ELLEN_CAT_REACH_CIRCLES;
-                chosen = null;
-                chosenBullet = 0;
+                float best = (from - player).LengthSquared;
+                Seat nearest = default;
 
+                // (best of all, one whose leap goes over the player: the player lies along the way, between where it is and the bullet - "tries to jump over player", 2026-11-14)
+                float bestOver = float.PositiveInfinity;
+                Seat over = default;
+
+                void consider(Vector2 position, Seat seat)
                 {
-                    float best = (from - player).LengthSquared;
+                    if ((position - from).LengthSquared > reach * reach)
+                        return;
 
-                    // (best of all, one whose leap goes over the player: the player lies along the way, between where it is and the bullet - "tries to jump over player", 2026-11-14)
-                    float bestOver = float.PositiveInfinity;
-                    BulletEmitter? over = null;
-                    int overBullet = 0;
+                    float toPlayer = (position - player).LengthSquared;
 
-                    // the bullet within reach that is nearest the player (where the hit check saw them a frame ago, when it did: it is only for choosing)
-                    for (int k = 0; k < f.activeCount; k++)
+                    if (toPlayer < best)
                     {
-                        var ring = f.emitters[f.active[k]];
-
-                        if (ring.Retired || ring.Count == 0 || ring.Shape == BulletShape.Train || now < ring.Time)
-                            continue;
-
-                        var seen = ring.Seen;
-                        ulong gone = ring.ConsumedMask | ring.AbsorbedMask | ring.HiddenMask;
-
-                        for (int b = 0; b < ring.Count && b < 64; b++)
-                        {
-                            ulong bit = 1UL << b;
-
-                            if ((gone & bit) != 0)
-                                continue;
-
-                            Vector2 position;
-
-                            if (seen != null && (seen.Known & bit) != 0)
-                            {
-                                if ((seen.Alive & bit) == 0)
-                                    continue;
-
-                                position = seen.Position[b];
-                            }
-                            else if (!bulletAt(f, ring, b, now, out position))
-                                continue;
-
-                            if ((position - from).LengthSquared > reach * reach)
-                                continue;
-
-                            float toPlayer = (position - player).LengthSquared;
-
-                            if (toPlayer < best)
-                            {
-                                best = toPlayer;
-                                chosen = ring;
-                                chosenBullet = b;
-                            }
-
-                            // (over the player: it lies a good way along the leap, and near its line)
-                            Vector2 leap = position - from;
-                            float length = leap.LengthSquared;
-
-                            if (length > 1f)
-                            {
-                                float along = Vector2.Dot(player - from, leap) / length;
-
-                                if (along > 0.2f && along < 0.85f)
-                                {
-                                    float off = distanceToSegment(player, from, position);
-
-                                    if (off <= f.circleRadius * DanmakusuBalance.ELLEN_CAT_OVER_CIRCLES && off < bestOver)
-                                    {
-                                        bestOver = off;
-                                        over = ring;
-                                        overBullet = b;
-                                    }
-                                }
-                            }
-                        }
+                        best = toPlayer;
+                        nearest = seat;
                     }
 
-                    if (over != null)
+                    // (over the player: it lies a good way along the leap, and near its line)
+                    Vector2 leap = position - from;
+                    float length = leap.LengthSquared;
+
+                    if (length <= 1f)
+                        return;
+
+                    float along = Vector2.Dot(player - from, leap) / length;
+
+                    if (along > 0.2f && along < 0.85f)
                     {
-                        chosen = over;
-                        chosenBullet = overBullet;
+                        float off = distanceToSegment(player, from, position);
+
+                        if (off <= f.circleRadius * DanmakusuBalance.ELLEN_CAT_OVER_CIRCLES && off < bestOver)
+                        {
+                            bestOver = off;
+                            over = seat;
+                        }
                     }
                 }
 
-                return chosen != null;
+                // the rings' bullets (where the hit check saw them a frame ago, when it did: it is only for choosing)
+                for (int k = 0; k < f.activeCount; k++)
+                {
+                    var ring = f.emitters[f.active[k]];
+
+                    if (ring.Retired || ring.Count == 0 || ring.Shape == BulletShape.Train || now < ring.Time)
+                        continue;
+
+                    var seen = ring.Seen;
+                    ulong gone = ring.ConsumedMask | ring.AbsorbedMask | ring.HiddenMask;
+
+                    for (int b = 0; b < ring.Count && b < 64; b++)
+                    {
+                        ulong bit = 1UL << b;
+
+                        if ((gone & bit) != 0)
+                            continue;
+
+                        Vector2 position;
+
+                        if (seen != null && (seen.Known & bit) != 0)
+                        {
+                            if ((seen.Alive & bit) == 0)
+                                continue;
+
+                            position = seen.Position[b];
+                        }
+                        else if (!bulletAt(f, ring, b, now, out position))
+                            continue;
+
+                        consider(position, new Seat { Ring = ring, Bullet = b });
+                    }
+                }
+
+                // the bosses' own bullets (not its own, nor what follows something else round)
+                foreach (var act in f.stageActs)
+                {
+                    if (act == this)
+                        continue;
+
+                    for (int i = 0; i < act.Bullets.Count; i++)
+                    {
+                        if (act.Bullets[i].T0 > now || act.Bullets[i].Until < now)
+                            continue;
+
+                        if (stageAt(f, act, i, now, out Vector2 position))
+                            consider(position, new Seat { Act = act, Index = i });
+                    }
+                }
+
+                chosen = over.Any ? over : nearest;
+                return chosen.Any;
             }
 
             // ---- the beams between the talismans ----
@@ -396,7 +436,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 f.stageFront.Add(StageTexture.CatFace, catAt(f, t) - new Vector2(0f, hop * catRadius(f) * 0.6f), new Vector2(size * (1f + 0.15f * hop)), 0f, alpha, Color4.White);
 
                 // (the warning of its next jump: red arrows (Seija's) from it to the bullet it will leap to, coming in as the warning begins and blinking faster as the jump comes; 2026-11-14)
-                if (aiming && aimRing != null && t >= aimedAt && t < nextJump && bulletAt(f, aimRing, aimBullet, t, out Vector2 target))
+                if (aiming && t >= aimedAt && t < nextJump && onSeat(f, aim, t, out Vector2 target))
                 {
                     Vector2 cat = catAt(f, t);
                     Vector2 way = target - cat;

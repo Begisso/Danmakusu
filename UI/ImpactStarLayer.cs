@@ -46,6 +46,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private Vector2[] outline = new Vector2[1024];
         private int outlineCount;
         private int[] runStarts = new int[64], runCounts = new int[64];
+        private float[] runFeathers = new float[64];
         private int runCount;
 
         public void ClearShapes()
@@ -62,8 +63,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>
         /// The outline of a shape made of pieces (its points round it, either way round, without its first point again at the end): a soft edge is drawn just outside it, a pixel and a half wide on the
         /// screen, half turned inside out at its middle - so that the shape's edge is smooth rather than in steps (2026-11-25, Suika's impact frame: "edges are not smooth as asked several times").
+        /// <paramref name="featherPx"/> is how wide (screen px): the same day, wider - "fix until impact frame white area edges are gradually smooth".
         /// </summary>
-        public void AddOutline(System.Collections.Generic.List<Vector2> points)
+        public void AddOutline(System.Collections.Generic.List<Vector2> points, float featherPx = 1.5f)
         {
             if (points.Count < 3)
                 return;
@@ -75,8 +77,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 Array.Resize(ref runStarts, runStarts.Length * 2);
                 Array.Resize(ref runCounts, runCounts.Length * 2);
+                Array.Resize(ref runFeathers, runFeathers.Length * 2);
             }
 
+            runFeathers[runCount] = featherPx;
             runStarts[runCount] = outlineCount;
             runCounts[runCount++] = points.Count;
 
@@ -116,6 +120,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private Vector2[] outline = new Vector2[1024];
             private int outlineCount;
             private int[] runStarts = new int[64], runCounts = new int[64];
+            private float[] runFeathers = new float[64];
             private int runCount;
             private Vector2[] screen = new Vector2[256], normals = new Vector2[256];
 
@@ -140,15 +145,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     runStarts = new int[Source.runStarts.Length];
                     runCounts = new int[Source.runCounts.Length];
+                    runFeathers = new float[Source.runFeathers.Length];
                 }
 
                 Array.Copy(Source.outline, outline, outlineCount);
                 Array.Copy(Source.runStarts, runStarts, runCount);
                 Array.Copy(Source.runCounts, runCounts, runCount);
+                Array.Copy(Source.runFeathers, runFeathers, runCount);
             }
-
-            /// <summary>How wide the soft edge round a shape is, in pixels of the screen.</summary>
-            private const float feather_px = 1.5f;
 
             protected override void Blit(IRenderer renderer)
             {
@@ -203,7 +207,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Vector2 normal = nb + na;
                         normal = normal.LengthSquared > 1e-6f ? Vector2.Normalize(normal) : na;
                         float stretch = Math.Min(1f / Math.Max(Vector2.Dot(normal, na), 0.5f), 2f);
-                        normals[i] = normal * (feather_px * stretch);
+                        normals[i] = normal * (runFeathers[r] * stretch);
                     }
 
                     for (int i = 0; i < n; i++)

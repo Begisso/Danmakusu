@@ -326,6 +326,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Kogasa's umbrella (Resources/Textures/kogasa_umbrella.png, the user's photo of a purple paper umbrella with an eye and a tongue, unwrapped round its knob into a circle with Tools/Bake `umbrella`): 512 x 512.</summary>
         KogasaUmbrella,
 
+        /// <summary>One slice of Orange's orange (Resources/Textures/orange.png, the user's picture of an orange cut across: ten slices), the top one, cut out of the whole: the picture is the whole orange's square, see-through but for that slice, so that it turns round the orange's middle (2026-11-25): 512 x 512.</summary>
+        OrangeSlice,
+
         /// <summary>Hatate's photo frame (2026-11-22, drawn here after the user's screenshot): a light rim, 3 : 2, with a white cross in its middle; since 2026-11-24 without its glass (<see cref="PhotoGlass"/>).</summary>
         PhotoFrame,
 
@@ -352,6 +355,31 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         ShinkiWingLeft5,
         ShinkiWingLeft6,
         ShinkiWingLeft7,
+
+        /// <summary>Rikako's Earth (Resources/Textures/rikako_earth.jpg, the user's picture of the Earth seen from orbit, 2026-11-26): 1920 x 1080, laid over the whole screen, see-through, in her attacks.</summary>
+        RikakoEarth,
+
+        /// <summary>Rikako's satellite (Resources/Textures/rikako_satellite.png, the user's picture, see-through round it): 496 x 371, its dish facing <see cref="StageLayer.SATELLITE_FORWARD_DEGREES"/>.</summary>
+        RikakoSatellite,
+
+        /// <summary>
+        /// Rikako's asteroids (Resources/Textures/rikako_rock_N.png, cut out of the user's picture of rocks flying apart with Tools/Bake `rocks`: the 16 biggest, less a cluster of crumbs and one with crumbs
+        /// stuck to it), each 256 px on its longer side (<see cref="StageLayer.ROCK_SIZES"/>); how far its hit circle reaches is <see cref="Bullets.Asteroids.HIT_SHARES"/>.
+        /// </summary>
+        RikakoRock0,
+        RikakoRock1,
+        RikakoRock2,
+        RikakoRock3,
+        RikakoRock4,
+        RikakoRock5,
+        RikakoRock6,
+        RikakoRock7,
+        RikakoRock8,
+        RikakoRock9,
+        RikakoRock10,
+        RikakoRock11,
+        RikakoRock12,
+        RikakoRock13,
     }
 
     /// <summary>
@@ -572,6 +600,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
                     StageTexture.KogasaUmbrella => BossCharacter.LoadResource(renderer, "Textures.kogasa_umbrella.png"),
+                    StageTexture.OrangeSlice => bake(renderer, makeOrangeSlice()),
                     StageTexture.PhotoFrame => bake(renderer, makePhotoFrame(false)),
                     StageTexture.PhotoGlass => bake(renderer, makePhotoFrame(true)),
                     StageTexture.BossCircleWhite => whitened(renderer, "Textures.magic_circle.png"),
@@ -607,6 +636,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     >= StageTexture.ShinkiWingRight0 and <= StageTexture.ShinkiWingRight7 => bake(renderer, shinkiWingStrip(false, kind - StageTexture.ShinkiWingRight0)),
                     >= StageTexture.ShinkiWingLeft0 and <= StageTexture.ShinkiWingLeft7 => bake(renderer, shinkiWingStrip(true, kind - StageTexture.ShinkiWingLeft0)),
                     >= StageTexture.SekibankiHead0 and <= StageTexture.SekibankiHead11 => BossCharacter.LoadResource(renderer, $"Textures.sekibanki_head_{kind - StageTexture.SekibankiHead0}.png"),
+                    StageTexture.RikakoEarth => BossCharacter.LoadResource(renderer, "Textures.rikako_earth.jpg"),
+                    StageTexture.RikakoSatellite => BossCharacter.LoadResource(renderer, "Textures.rikako_satellite.png"),
+                    >= StageTexture.RikakoRock0 and <= StageTexture.RikakoRock13 => BossCharacter.LoadResource(renderer, $"Textures.rikako_rock_{kind - StageTexture.RikakoRock0}.png"),
                     _ => null,
                 };
             }
@@ -814,6 +846,108 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
         }
 
+        /// <summary>
+        /// The top slice of Orange's orange (2026-11-25): the user's picture, the fruit found by what is neither see-through nor white, its middle and its radius by the box round it; everything outside the
+        /// slice - the 36 degrees round straight up - and outside the rind see-through, with a soft edge a pixel wide, so that ten of them turned round the middle are the whole orange without a seam.
+        /// </summary>
+        private static Image<Rgba32> makeOrangeSlice()
+        {
+            const int size = 512;
+            var image = new Image<Rgba32>(size, size);
+
+            using var stream = typeof(StageLayer).Assembly.GetManifestResourceStream("osu.Game.Rulesets.Danmakusu.Resources.Textures.orange.png");
+
+            if (stream == null)
+                return image;
+
+            using var source = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
+            int minX = source.Width, minY = source.Height, maxX = -1, maxY = -1;
+
+            for (int y = 0; y < source.Height; y++)
+            {
+                for (int x = 0; x < source.Width; x++)
+                {
+                    var p = source[x, y];
+
+                    if (p.A < 128 || (p.R > 235 && p.G > 235 && p.B > 235))
+                        continue;
+
+                    minX = Math.Min(minX, x);
+                    minY = Math.Min(minY, y);
+                    maxX = Math.Max(maxX, x);
+                    maxY = Math.Max(maxY, y);
+                }
+            }
+
+            if (maxX < minX)
+                return image;
+
+            float cx = (minX + maxX + 1) * 0.5f, cy = (minY + maxY + 1) * 0.5f;
+            float radius = Math.Max(maxX - minX + 1, maxY - minY + 1) * 0.5f;
+            float half = MathF.PI / DanmakusuBalance.ORANGE_SLICES; // (half a slice)
+            float perPixel = radius / (size * 0.5f); // (source pixels to one of ours)
+
+            Rgba32 sample(float x, float y)
+            {
+                int x0 = Math.Clamp((int)MathF.Floor(x), 0, source.Width - 1), y0 = Math.Clamp((int)MathF.Floor(y), 0, source.Height - 1);
+                int x1 = Math.Min(x0 + 1, source.Width - 1), y1 = Math.Min(y0 + 1, source.Height - 1);
+                float fx = Math.Clamp(x - x0, 0f, 1f), fy = Math.Clamp(y - y0, 0f, 1f);
+                var a = source[x0, y0].ToVector4();
+                var b = source[x1, y0].ToVector4();
+                var c = source[x0, y1].ToVector4();
+                var d = source[x1, y1].ToVector4();
+                var v = (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
+                return new Rgba32(v);
+            }
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + 0.5f - size * 0.5f) * perPixel, dy = (y + 0.5f - size * 0.5f) * perPixel;
+                    float distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                    // (inside the rind, and within the slice round straight up: how far inside its edges, in our pixels)
+                    float rim = (radius - distance) / perPixel;
+                    float angle = MathF.Atan2(dy, dx) + MathF.PI / 2f;
+
+                    while (angle > MathF.PI)
+                        angle -= MathF.Tau;
+
+                    while (angle < -MathF.PI)
+                        angle += MathF.Tau;
+
+                    float side = (half - MathF.Abs(angle)) * distance / perPixel;
+                    // (a pixel past its cut edges: two slices side by side cover their seam wholly, the same pale pith drawn twice)
+                    float cover = Math.Clamp(rim + 0.5f, 0f, 1f) * (distance < perPixel ? 1f : Math.Clamp(side + 1.5f, 0f, 1f));
+
+                    if (cover <= 0f)
+                        continue;
+
+                    var p = sample(cx + dx, cy + dy);
+
+                    // (the pale pith between two slices, half of it along each edge of this one, from a little core in the middle out to the pale ring under the rind: the picture's own lines are not
+                    // where ten even slices cut it)
+                    float share = distance / radius;
+                    float pith = Math.Clamp(orange_pith_half / perPixel * radius - side + 0.5f, 0f, 1f) * (1f - Math.Clamp((share - orange_pith_out) / 0.02f, 0f, 1f));
+                    pith = Math.Max(pith, Math.Clamp((orange_core - share) / 0.01f, 0f, 1f));
+
+                    if (pith > 0f)
+                        p = new Rgba32((byte)(p.R + (orange_pith.R - p.R) * pith), (byte)(p.G + (orange_pith.G - p.G) * pith), (byte)(p.B + (orange_pith.B - p.B) * pith), p.A);
+
+                    image[x, y] = new Rgba32(p.R, p.G, p.B, (byte)Math.Clamp((int)(p.A * cover + 0.5f), 0, 255));
+                }
+            }
+
+            return image;
+        }
+
+        // (Orange's slices: the pith, how wide half its line is and how far out it goes - to the pale ring under the rind - as shares of the radius, and the core in the middle)
+        private static readonly Rgba32 orange_pith = new Rgba32(238, 252, 192);
+        private const float orange_pith_half = 0.018f;
+        private const float orange_pith_out = 0.86f;
+        private const float orange_core = 0.07f;
+
         /// <summary>The soft light of <see cref="StageTexture.Glow"/>, for the flashes in the clouds.</summary>
         public static Texture BakeGlow(IRenderer renderer) => bake(renderer, makeGlow());
 
@@ -970,6 +1104,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             return image;
         }
+
+        // ---- Rikako's pictures (2026-11-26) ----
+
+        /// <summary>Which way the satellite's dish faces in its picture (degrees, the screen's way: 0 to the right, 90 down): square to its solar panels, down to the left.</summary>
+        public const float SATELLITE_FORWARD_DEGREES = 126f;
+
+        /// <summary>How big the satellite's picture is for how far its body and panels reach (its longer side over its height).</summary>
+        public const float SATELLITE_ASPECT = 371f / 496f;
+
+        /// <summary>The asteroids' pictures, px (256 on the longer side; how far each one's hit circle reaches is <see cref="Bullets.Asteroids.HIT_SHARES"/>).</summary>
+        public static readonly Vector2[] ROCK_SIZES =
+        {
+            new Vector2(246, 256), new Vector2(256, 246), new Vector2(256, 208), new Vector2(251, 256), new Vector2(256, 254), new Vector2(256, 235), new Vector2(256, 217),
+            new Vector2(256, 256), new Vector2(256, 250), new Vector2(256, 237), new Vector2(256, 225), new Vector2(219, 256), new Vector2(241, 256), new Vector2(239, 256),
+        };
 
         // ---- Shinki's wings (2026-11-22: the user's picture of her old sprite - long white wings, pink towards their scalloped lower edge, three on each side, rubbery: they bend, they have no joints) ----
 

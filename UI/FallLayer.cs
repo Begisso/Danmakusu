@@ -28,7 +28,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         }
 
         private readonly BulletField field;
-        private readonly List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour)> falling = new List<(OsuHitObject, double, Vector2, Color4?)>();
+        private readonly List<(OsuHitObject Source, double Began, Vector2 By, Color4? Colour, float Degrees)> falling = new List<(OsuHitObject, double, Vector2, Color4?, float)>();
         private readonly Dictionary<OsuHitObject, Shown> shown = new Dictionary<OsuHitObject, Shown>();
         private readonly HashSet<OsuHitObject> stillFalling = new HashSet<OsuHitObject>();
 
@@ -50,6 +50,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             var holder = new Container
             {
                 RelativeSizeAxes = Axes.Both,
+                Anchor = Anchor.Centre, // (it turns round the middle of the playfield: Kogasa's)
+                Origin = Anchor.Centre,
                 Clock = new FramedClock(new ManualClock { CurrentTime = source.StartTime - 1 }),
                 Child = drawable,
             };
@@ -68,7 +70,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             stillFalling.Clear();
             field.FallingObjects(time, falling);
 
-            foreach (var (source, began, by, colour) in falling)
+            foreach (var (source, began, by, colour, degrees) in falling)
             {
                 stillFalling.Add(source);
 
@@ -81,6 +83,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 item.Colour = colour ?? DanmakusuBalance.URUMI_FALL_COLOUR;
 
                 item.Holder.Position = by;
+                item.Holder.Rotation = degrees; // (Kogasa's turn round the middle of the playfield, as one piece: 2026-11-25)
                 item.Holder.Colour = new Color4(keep, keep, keep, 1f);
             }
 
