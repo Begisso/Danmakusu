@@ -14,8 +14,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // fired: it comes out of a point, the four in turn, two side by side (YUIMAN_PAIR_GAP of their radius apart), flying YUIMAN_AIM_DEGREES from straight out from her, the way the points turn, at the
         // speed it had, in the point's colour; the pairs a point gets of one ring come out one after another, YUIMAN_STREAM_GAP_BEATS apart. As the points turn the streams curl into arcs round her that
         // miss her middle ("those dissentered arcs").
+        // Since 2026-11-26 she fires her own streams too ("she should shoot bullets from four points in arc streams"): in her attacks every point lets out a pair of her own bullets every
+        // YUIMAN_OWN_EVERY_BEATS, the way it fires, in its colour (where she was is taken as each step comes, and kept).
         // Every YUIMAN_ARROW_EVERY_BEATS of her attacks a ring of YUIMAN_ARROWS arrowheads from her, one at the player, at YUIMAN_ARROW_SPEED a plain bullet's speed, flying straight (they do not
-        // home): PinwheelArrowsAct. Each lets a basic bullet out to its left or its right about every YUIMAN_DROP_EVERY_BEATS while it is on the screen (which side, and a little earlier or later, by a
+        // home): PinwheelArrowsAct. Since 2026-11-26 they are YUIMAN_ARROW_SIZE times as big, glow (YUIMAN_ARROW_BLOOM) and have a soft white halo. Each lets a basic bullet out to its left or its right about every YUIMAN_DROP_EVERY_BEATS while it is on the screen (which side, and a little earlier or later, by a
         // hash), flying off at once, square to the arrowhead's way give or take YUIMAN_DROP_SPREAD_DEGREES ("something like Parsee but bullets leave immediately"). One that has hit lets out no more.
         // (The arrowheads are an act of their own: they live long, and an act's bullets are passed over as gone only from the first one on - behind them every stream bullet was looked at every frame.
         // What they let out goes with the streams, which live about as long.)
@@ -36,6 +38,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly Dictionary<BulletEmitter, long> bases = new Dictionary<BulletEmitter, long>();
             private long counted;
 
+            // (her own streams: every step of her attacks, and where she was at each that has come)
+            private readonly double[] ownTimes;
+            private readonly List<Vector2> ownFrom = new List<Vector2>();
+            private int ownMade;
+
+            /// <summary>Where the bullets of her points go (2026-11-26: acts emptied and used again in turn, see ShotPool; in one act they could fill it in a long section).</summary>
+            public ShotPool? Pool;
+
+            public void Put(StageBullet bullet)
+            {
+                if (Pool != null)
+                    Pool.Add(bullet);
+                else
+                    AddBullet(bullet);
+            }
+
             public PinwheelAct(BossPeriod period)
             {
                 Period = period;
@@ -44,6 +62,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 End = period.End + beat * 32; // (what came out flies on out after her section)
                 AbsorbFrom = period.ShootStart; // (what is fired in her section is hers to let out of her points)
                 AbsorbTo = period.End;
+
+                var times = new List<double>();
+
+                foreach (var (start, end) in BossOps.Attacks(period))
+                {
+                    for (double t = Math.Max(start, period.ShootStart); t < end && times.Count < 20000; t += beat * DanmakusuBalance.YUIMAN_OWN_EVERY_BEATS)
+                        times.Add(t);
+                }
+
+                ownTimes = times.ToArray();
             }
 
             public override void Reset(BulletField f, double time)
@@ -51,16 +79,73 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 bases.Clear();
                 counted = 0;
                 ClearBullets(); // (what the arrowheads let out too: they let it out again)
+
+                // (her own streams: the steps that had come keep where she was, and are made again)
+                int keep = 0;
+
+                while (keep < ownFrom.Count && ownTimes[keep] <= time)
+                    keep++;
+
+                ownFrom.RemoveRange(keep, ownFrom.Count - keep);
+                ownMade = 0;
+            }
+
+            public override void Update(BulletField f, double now)
+            {
+                if (f.failed || now < Start)
+                    return;
+
+                while (ownFrom.Count < ownTimes.Length && ownTimes[ownFrom.Count] <= now)
+                    ownFrom.Add(f.bossPositionOf(Period));
+
+                for (; ownMade < ownFrom.Count; ownMade++)
+                    makeOwn(f, ownMade);
+            }
+
+            /// <summary>Her own step <paramref name="k"/>: a pair out of every point, the way it fires then, in its colour.</summary>
+            private void makeOwn(BulletField f, int k)
+            {
+                double t = ownTimes[k];
+                float radius = f.stageBaseRadius(Period);
+                float speed = stageBulletSpeed(Period);
+
+                for (int p = 0; p < DanmakusuBalance.YUIMAN_POINTS; p++)
+                {
+                    Vector2 way = pointWay(p, t);
+                    Vector2 across = new Vector2(-way.Y, way.X);
+                    Vector2 at = pointAt(ownFrom[k], f, p, t);
+
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector2 v = way * speed;
+
+                        Put(new StageBullet
+                        {
+                            T0 = t,
+                            P0 = at + across * (side * radius * DanmakusuBalance.YUIMAN_PAIR_GAP * 0.5f),
+                            V = v,
+                            Radius = radius,
+                            Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                            Style = f.comboStyle(k * 8 + p * 2 + (side + 1) / 2, true, Period.Rank),
+                            Shape = BulletShape.Circle,
+                            Tint = point_tints[p % point_tints.Length],
+                            TintAmount = DanmakusuBalance.YUIMAN_TINT_AMOUNT,
+                            Until = t + f.stageLife(v),
+                        });
+                    }
+                }
             }
 
             /// <summary>How far round point <paramref name="p"/> is at <paramref name="t"/> (radians): the four evenly round her, turning once every YUIMAN_TURN_BEATS.</summary>
             private float pointAngle(int p, double t)
                 => p * MathF.Tau / DanmakusuBalance.YUIMAN_POINTS + (float)((t - Period.Start) / (beat * DanmakusuBalance.YUIMAN_TURN_BEATS)) * MathF.Tau;
 
-            private Vector2 pointAt(BulletField f, int p, double t)
+            private Vector2 pointAt(BulletField f, int p, double t) => pointAt(f.bossPositionOf(Period), f, p, t);
+
+            private Vector2 pointAt(Vector2 centre, BulletField f, int p, double t)
             {
                 float angle = pointAngle(p, t);
-                return f.bossPositionOf(Period) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (f.circleRadius * DanmakusuBalance.YUIMAN_POINT_CIRCLES);
+                return centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (f.circleRadius * DanmakusuBalance.YUIMAN_POINT_CIRCLES);
             }
 
             /// <summary>Which way point <paramref name="p"/> fires at <paramref name="t"/>: YUIMAN_AIM_DEGREES from straight out, the way the points turn.</summary>
@@ -100,7 +185,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 made.P0 += across * (side * made.Radius * DanmakusuBalance.YUIMAN_PAIR_GAP * 0.5f);
                 made.Tint = point_tints[p % point_tints.Length];
                 made.TintAmount = DanmakusuBalance.YUIMAN_TINT_AMOUNT;
-                AddBullet(made);
+                Put(made);
                 return true;
             }
 
@@ -215,7 +300,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private void makeVolley(BulletField f, Volley volley)
             {
-                float radius = f.stageBaseRadius(Period);
+                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.YUIMAN_ARROW_SIZE; // (twice as big since 2026-11-26, and glowing)
 
                 for (int i = 0; i < volley.Index.Length; i++)
                 {
@@ -231,6 +316,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
                         Style = f.comboStyle(i, true, Period.Rank),
                         Shape = BulletShape.Triangle,
+                        Bloom = DanmakusuBalance.YUIMAN_ARROW_BLOOM,
                         Until = volley.T + f.stageLife(v),
                     });
 
@@ -242,6 +328,33 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             private bool consumed(BulletField f, int index) => DanmakusuBalance.HIDE_BULLETS_AFTER_HIT && f.stageConsumed.Contains(Id * 65536 + index);
+
+            /// <summary>A soft white halo round every arrowhead on the screen (2026-11-26, "more glow").</summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || t < Start)
+                    return;
+
+                foreach (var volley in volleys)
+                {
+                    if (!volley.Made || t < volley.T)
+                        continue;
+
+                    for (int i = 0; i < volley.Index.Length; i++)
+                    {
+                        if (volley.Index[i] >= Bullets.Count)
+                            continue;
+
+                        var arrow = Bullets[volley.Index[i]];
+
+                        if (t >= arrow.Until || consumed(f, volley.Index[i]) || !f.stageBulletAt(arrow, t, out Vector2 at)
+                            || at.X < f.stageMin.X - 60 || at.X > f.stageMax.X + 60 || at.Y < f.stageMin.Y - 60 || at.Y > f.stageMax.Y + 60)
+                            continue;
+
+                        f.stageBack.Add(StageTexture.Glow, at, new Vector2(arrow.Radius * DanmakusuBalance.YUIMAN_ARROW_HALO * 2f), 0f, 0.45f, new Color4(1f, 0.95f, 0.85f, 1f), true);
+                    }
+                }
+            }
 
             /// <summary>The bullets arrowhead <paramref name="i"/> lets out by <paramref name="now"/>, while it is on the screen and has not hit.</summary>
             private void drop(BulletField f, Volley volley, int i, double now)
@@ -274,7 +387,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 outward = turned(new Vector2(-way.Y, way.X) * side, (hash01(Id, number, 163) * 2f - 1f) * spread);
                     Vector2 v = outward * speed;
 
-                    streams.AddBullet(new StageBullet
+                    streams.Put(new StageBullet
                     {
                         T0 = when,
                         P0 = at,

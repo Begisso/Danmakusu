@@ -271,6 +271,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" }); // (the one thrown with it goes at the same moment: 2026-11-25, it had a sound of its own when it was thrown later)
             }
 
+            // Nitori: the sound of Yuyuko's petals flying off the tree as her icosahedron comes, at the start of every attack (2026-11-26)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Icosahedron)
+                    continue;
+
+                foreach (var (start, end) in BossOps.Attacks(period))
+                {
+                    if (end > start && end > period.ShootStart)
+                        list.Add(new Cue { Time = Math.Max(start, period.ShootStart), Name = "yuyuko_petals" });
+                }
+            }
+
             // Momiji: Mokou's impact as her piles start to move, the sound of Yuyuko's petals flying off as they crash (2026-11-22)
             foreach (var period in bosses)
             {

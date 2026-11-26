@@ -229,6 +229,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public bool WaveRestores { get; set; }
 
         /// <summary>
+        /// Iku (2026-11-26, her rework): the ring is five bullets joined by straight beams as a five-pointed star (ThunderAct); the star's beams hurt in every second stretch of IKU_SWAP_BEATS of her section,
+        /// the stars of <see cref="StarPhase"/> 1 in the first, those of 0 in the next.
+        /// </summary>
+        public bool StarLinked { get; set; }
+
+        public int StarPhase { get; set; }
+
+        /// <summary>
         /// Iku (2026-11-24): every this many neighbouring bullets of the ring (0..4, 5..9, ...; what is left over is free) are tied together by straight beams: none of them gets further than half of
         /// <see cref="TetherReach"/> from the middle one of its group, which flies on its own way (so no two of them are further apart than <see cref="TetherReach"/>). 0: not tied.
         /// </summary>
@@ -836,6 +844,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 LayoutPhase = LayoutPhase + phaseShift,
                 OwnShot = OwnShot,
                 WaveRestores = WaveRestores,
+                StarLinked = StarLinked,
+                StarPhase = StarPhase,
                 TetherGroup = TetherGroup,
                 TetherReach = TetherReach,
                 TetherStride = TetherStride,

@@ -323,7 +323,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 int before = mostOnMap;
                 bool wasRead = mapRead;
 
-                mostOnMap = Math.Max(most * least, least);
+                // (never more than the roster has bosses, in whole sections of two or three: 2026-11-26, "max amount of bosses can't be bigger than touhou bosses list")
+                mostOnMap = Math.Max(Math.Min(most * least, BossRoster.All.Count / least * least), least);
                 mapRead = true;
 
                 // (the slider stands at the most the map has room for unless the player has moved it, and stays at the top as the room changes: 2026-11-22, "by default is max allowed one")
@@ -637,6 +638,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 private readonly Sprite head;
                 private readonly SpriteIcon check;
                 private readonly SpriteText number;
+                private readonly Container numberBadge;
                 private readonly FillFlowContainer name;
                 private readonly Container frame;
 
@@ -692,15 +694,28 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                             Colour = Color4.White,
                             Alpha = 0f,
                         },
-                        number = new SpriteText
+                        // (which one it is in the order: bold, on a dark badge over the head's bottom left corner - 2026-11-26, "numbers need to be more visible"; small, with a shadow, before)
+                        numberBadge = new Container
                         {
+                            AutoSizeAxes = Axes.Both,
                             Anchor = Anchor.BottomLeft,
-                            Origin = Anchor.BottomRight,
-                            X = head_size,
-                            Font = FontUsage.Default.With(size: 12),
-                            Shadow = true,
-                            Margin = new MarginPadding(2),
+                            Origin = Anchor.BottomLeft,
+                            Masking = true,
+                            CornerRadius = 4,
+                            BorderThickness = 1.5f,
+                            BorderColour = new Color4(0.55f, 0.85f, 1f, 1f),
+                            Margin = new MarginPadding(1),
                             Alpha = 0f,
+                            Children = new Drawable[]
+                            {
+                                new Box { RelativeSizeAxes = Axes.Both, Colour = new Color4(0f, 0f, 0f, 0.85f) },
+                                number = new SpriteText
+                                {
+                                    Font = FontUsage.Default.With(size: 16, weight: "Bold"),
+                                    Colour = new Color4(1f, 0.92f, 0.35f, 1f),
+                                    Margin = new MarginPadding { Horizontal = 4, Vertical = 0 },
+                                },
+                            },
                         },
                     };
                 }
@@ -748,7 +763,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     background.Alpha = chosen ? 0.85f : 0.5f;
                     check.Alpha = chosen ? 1f : 0f;
                     number.Text = (index + 1).ToString();
-                    number.Alpha = chosen && picker.max > 1 ? 1f : 0f;
+                    numberBadge.Alpha = chosen && picker.max > 1 ? 1f : 0f;
 
                     updateBorder();
                 }

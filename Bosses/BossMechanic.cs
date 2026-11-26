@@ -299,7 +299,8 @@
         /// <summary>
         /// Iku Nagae (2026-11-24): rings of basic bullets twice as big that spiral out round where they were fired, at one speed, every bullet leaving a narrow beam eight beats long behind it. In her section
         /// every five neighbouring bullets of a ring (not one that ricochets) are tied together by straight beams that never get longer than three osu! circles: none can fly further from the others.
-        /// (A placeholder until then: "Lightning lines with a long telegraph".)
+        /// (A placeholder until then: "Lightning lines with a long telegraph".) Reworked 2026-11-26: every ring of her section - the circles', the sliders', hers - is five bullets joined as a five-pointed
+        /// star of straight beams; half the stars hurt and half are harmless, swapping every four beats.
         /// </summary>
         Thunder,
 

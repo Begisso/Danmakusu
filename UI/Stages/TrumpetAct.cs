@@ -59,6 +59,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (2026-11-24: the lanes along the follow points are a circle wide to either side; where her rings go over a safe place they are dimmed dark, and the bullets in one are drawn much darker - Dims.)
         // (2026-11-25: the dim leaves the circles and sliders themselves alone, fades in and out with its place over MERLIN_DIM_FADE_MS, darkening in MERLIN_DIM_STEPS layers; when an attack of hers ends, her
         // rings stop where they are and fade out there over MERLIN_RING_FADE_BEATS, harmless - they went on out of the screen.)
+        // (2026-11-26: a safe place stays MERLIN_SAFE_LINGER_BEATS after its circle is hit, its slider over or its follow points gone; the bullets in one are see-through as well as dark, and her rings are
+        // drawn see-through and darker over one, in short arcs - ringOver, softly towards its edge - instead of dark green arcs laid over them; all of it fades in and out with the place.)
         // ======================================================================================================================================================
 
         private sealed class TrumpetAct : StageAct
@@ -507,6 +509,146 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 f.stageRipple.AddSolidRing(centre, outer, Math.Min(2f * halfWidth, outer), alpha, colour, false);
             }
 
+            private readonly List<(float From, float To)> spans = new List<(float, float)>();
+
+            /// <summary>
+            /// A ring (as <see cref="ring"/>) that is see-through and darker where it goes over a safe place (2026-11-26, "bullets and circles around safe area are transparent. Also both dim and
+            /// transparency fade in fade out"): there it is drawn in short arcs, each MERLIN_SAFE_SEE see-through and darkened as much as the safe places are at its middle - softly towards their edges, and
+            /// fading in and out with them. (Until then dark green arcs were laid over it there: greenOver.)
+            /// </summary>
+            private void ringOver(BulletField f, Vector2 centre, float middle, float alpha, Color4 colour)
+            {
+                spans.Clear();
+
+                if (middle >= 1f)
+                {
+                    foreach (var (spot, safe, _, shown) in safeCircles)
+                    {
+                        if (shown <= 0.01f)
+                            continue;
+
+                        float d = Vector2.Distance(spot, centre);
+
+                        if (MathF.Abs(d - middle) > safe + halfWidth)
+                            continue;
+
+                        float half = halfAngle(middle, d, safe + halfWidth);
+
+                        if (half <= 0f)
+                            continue;
+
+                        if (half >= MathF.PI - 1e-3f)
+                        {
+                            spans.Clear();
+                            spans.Add((0f, MathF.Tau));
+                            break;
+                        }
+
+                        float towards = MathF.Atan2(spot.Y - centre.Y, spot.X - centre.X);
+                        float from = towards - half, to = towards + half;
+                        from = ((from % MathF.Tau) + MathF.Tau) % MathF.Tau;
+                        to = from + 2f * half;
+
+                        if (to > MathF.Tau)
+                        {
+                            spans.Add((from, MathF.Tau));
+                            spans.Add((0f, to - MathF.Tau));
+                        }
+                        else
+                            spans.Add((from, to));
+                    }
+                }
+
+                if (spans.Count == 0)
+                {
+                    ring(f, centre, middle, alpha, colour);
+                    return;
+                }
+
+                // (merged, in order round the ring)
+                spans.Sort((a, b) => a.From.CompareTo(b.From));
+                int kept = 0;
+
+                for (int i = 1; i < spans.Count; i++)
+                {
+                    if (spans[i].From <= spans[kept].To)
+                        spans[kept] = (spans[kept].From, Math.Max(spans[kept].To, spans[i].To));
+                    else
+                        spans[++kept] = spans[i];
+                }
+
+                spans.RemoveRange(kept + 1, spans.Count - kept - 1);
+
+                float cursor = 0f;
+
+                foreach (var (from, to) in spans)
+                {
+                    if (from > cursor)
+                        arc(f, centre, middle, cursor, from - cursor, alpha, colour);
+
+                    int pieces = Math.Clamp((int)MathF.Ceiling((to - from) / 0.06f), 2, 64);
+                    float step = (to - from) / pieces;
+
+                    for (int p = 0; p < pieces; p++)
+                    {
+                        float at = from + (p + 0.5f) * step;
+                        float level = safeLevel(centre + new Vector2(MathF.Cos(at), MathF.Sin(at)) * middle, out float darkLevel);
+                        float darker = darkLevel * DanmakusuBalance.MERLIN_RING_DARK;
+                        var dark = new Color4(colour.R + (safeDim.R - colour.R) * darker, colour.G + (safeDim.G - colour.G) * darker, colour.B + (safeDim.B - colour.B) * darker, 1f);
+                        arc(f, centre, middle, from + p * step, step, alpha * (1f - DanmakusuBalance.MERLIN_SAFE_SEE * level), dark);
+                    }
+
+                    cursor = to;
+                }
+
+                if (cursor < MathF.Tau)
+                    arc(f, centre, middle, cursor, MathF.Tau - cursor, alpha, colour);
+            }
+
+            /// <summary>A piece of a ring: its black outline and its body, from <paramref name="start"/> round <paramref name="sweep"/> (radians).</summary>
+            private void arc(BulletField f, Vector2 centre, float middle, float start, float sweep, float alpha, Color4 colour)
+            {
+                if (alpha <= 0.002f || sweep <= 1e-4f)
+                    return;
+
+                float outer = middle + halfWidth;
+                float edge = Math.Max(halfWidth * 0.25f, 1.5f);
+                f.stageRipple.AddArc(centre, outer + edge, Math.Min(2f * (halfWidth + edge), outer + edge), start, sweep, alpha, Color4.Black);
+                f.stageRipple.AddArc(centre, outer, Math.Min(2f * halfWidth, outer), start, sweep, alpha, colour);
+            }
+
+            /// <summary>
+            /// How much of a safe place <paramref name="p"/> is in (0..1): as far in as it has faded, softly over the outer third of the place; <paramref name="dark"/> the same, but not over the circle or slider
+            /// itself, which the dim leaves alone (2026-11-25, "dim excludes osu objects themselves").
+            /// </summary>
+            private float safeLevel(Vector2 p, out float dark)
+            {
+                float most = 0f;
+                dark = 0f;
+
+                foreach (var (spot, safe, inner, shown) in safeCircles)
+                {
+                    if (shown <= dark)
+                        continue;
+
+                    float d = Vector2.Distance(p, spot);
+
+                    if (d >= safe + halfWidth)
+                        continue;
+
+                    float soft = Math.Max((safe + halfWidth) * 0.35f, 1f);
+                    float level = shown * (1f - smoothStep((d - (safe + halfWidth - soft)) / soft));
+
+                    if (level > most)
+                        most = level;
+
+                    if (d > inner && level > dark)
+                        dark = level;
+                }
+
+                return most;
+            }
+
             /// <summary>How far round one of her circles and sliders the safe place reaches (in its radii): nothing hurts in it.</summary>
             private static float safeRadii => DanmakusuBalance.MERLIN_SAFE_RADII;
 
@@ -518,24 +660,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// round a circle from when it comes until it is hit, along a slider until it ends, round a thrown one while it flies - and (2026-11-21, later) along the follow points from one to the next. Nothing hurts
             /// there (<see cref="Shields"/>: "player is immortal").
             /// </summary>
+            /// <summary>How long a safe place stays after its circle is hit, its slider is over, or the follow points to the next are gone (2026-11-26, "safe spot under osu objects disappears with 4 beat delay").</summary>
+            private double linger => beat * DanmakusuBalance.MERLIN_SAFE_LINGER_BEATS;
+
             private bool inSafePlace(BulletField f, Vector2 p, double t)
             {
+                double stays = linger;
+
                 foreach (var follow in follows)
                 {
-                    if (t >= follow.Shown && t <= follow.Until && distanceToSegment(p, follow.From, follow.To) <= follow.HalfWidth)
+                    if (t >= follow.Shown && t <= follow.Until + stays && distanceToSegment(p, follow.From, follow.To) <= follow.HalfWidth)
                         return true;
                 }
 
-                for (int i = firstSince(t - 20000); i < shots.Count && shots[i].Shown <= t; i++)
+                for (int i = firstSince(t - 20000 - stays); i < shots.Count && shots[i].Shown <= t; i++)
                 {
                     var shot = shots[i];
 
                     if (shot.Slider is SliderZone zone)
                     {
-                        if (t <= zone.EndTime && zone.Touches(zone.Local(p, t) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), zone.Radius * (safeRadii - 1f)))
+                        if (t <= zone.EndTime + stays && zone.Touches(zone.Local(p, t) - (zone.FallSpeed > 0f ? f.CatchLanding : Vector2.Zero), zone.Radius * (safeRadii - 1f)))
                             return true;
                     }
-                    else if (t <= shot.Time && Vector2.Distance(p, shot.Position) <= shot.Radius * safeRadii)
+                    else if (t <= shot.Time + stays && Vector2.Distance(p, shot.Position) <= shot.Radius * safeRadii)
                         return true;
                 }
 
@@ -579,8 +726,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var (centre, radius, _, alpha) in safeCircles)
                 {
+                    // (darker, and see-through too since 2026-11-26: "bullets and circles around safe area are transparent")
                     if (alpha > 0.01f)
-                        into.Add(new StageDim { Centre = centre, Radius = radius * 0.8f, Strength = DanmakusuBalance.MERLIN_SAFE_DIM * alpha });
+                        into.Add(new StageDim { Centre = centre, Radius = radius * 0.8f, Strength = DanmakusuBalance.MERLIN_SAFE_DIM * alpha, See = DanmakusuBalance.MERLIN_SAFE_SEE * alpha });
                 }
             }
 
@@ -589,19 +737,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 safeCircles.Clear();
 
                 double fade = DanmakusuBalance.MERLIN_DIM_FADE_MS;
+                double stays = linger; // (2026-11-26: each stays this long after it would have gone)
 
-                for (int i = firstSince(t - 20000); i < shots.Count && shots[i].Shown <= t; i++)
+                for (int i = firstSince(t - 20000 - stays); i < shots.Count && shots[i].Shown <= t; i++)
                 {
                     var shot = shots[i];
 
                     if (shot.Slider is SliderZone zone)
                     {
-                        if (t > zone.EndTime + fade || zone.Points.Length == 0)
+                        if (t > zone.EndTime + stays + fade || zone.Points.Length == 0)
                             continue;
 
                         float safe = zone.Radius * safeRadii;
                         float gap = Math.Max(safe * 0.6f, 4f);
-                        float shown = dimShown(t - shot.Shown, t - zone.EndTime);
+                        float shown = dimShown(t - shot.Shown, t - zone.EndTime - stays);
                         Vector2 last = zone.Points[0];
                         safeCircles.Add((last, safe, zone.Radius, shown));
 
@@ -614,19 +763,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             }
                         }
                     }
-                    else if (t <= shot.Time + fade)
-                        safeCircles.Add((shot.Position, shot.Radius * safeRadii, shot.Radius, dimShown(t - shot.Shown, t - shot.Time)));
+                    else if (t <= shot.Time + stays + fade)
+                        safeCircles.Add((shot.Position, shot.Radius * safeRadii, shot.Radius, dimShown(t - shot.Shown, t - shot.Time - stays)));
                 }
 
                 // (the lanes along the follow points too, a circle every so often: 2026-11-24, where the rings are dimmed and the bullets darkened)
                 foreach (var follow in follows)
                 {
-                    if (t < follow.Shown || t > follow.Until + fade)
+                    if (t < follow.Shown || t > follow.Until + stays + fade)
                         continue;
 
                     float gap = Math.Max(follow.HalfWidth * 0.6f, 4f);
                     float length = Vector2.Distance(follow.From, follow.To);
-                    float shown = dimShown(t - follow.Shown, t - follow.Until);
+                    float shown = dimShown(t - follow.Shown, t - follow.Until - stays);
 
                     for (float s = 0f; s <= length; s += gap)
                         safeCircles.Add((Vector2.Lerp(follow.From, follow.To, length > 1e-3f ? s / length : 0f), follow.HalfWidth, 0f, shown));
@@ -648,51 +797,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         safeCircles.Add(((a + b) * 0.5f, safe, f.circleRadius, shown));
                         safeCircles.Add((b, safe, f.circleRadius, shown));
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Where the ring round <paramref name="centre"/> (its middle line <paramref name="middle"/> out) goes over a safe place it is green, fading out towards the edges of the place (2026-11-21, "growing circles have
-            /// green gradients around osu object safe spots"): three green arcs over it, each narrower than the last.
-            /// </summary>
-            private void greenOver(BulletField f, Vector2 centre, float middle, float alpha, Color4 green)
-            {
-                if (middle < 1f || safeCircles.Count == 0)
-                    return;
-
-                float outer = middle + halfWidth, thick = Math.Min(2f * halfWidth, outer);
-                int steps = DanmakusuBalance.MERLIN_DIM_STEPS;
-
-                foreach (var (spot, safe, inner, shown) in safeCircles)
-                {
-                    float d = Vector2.Distance(spot, centre);
-
-                    if (shown <= 0.01f || MathF.Abs(d - middle) > safe + halfWidth)
-                        continue;
-
-                    // (how far round each way the ring is in the place, and in the circle or slider itself, which is left alone: 2026-11-25, "dim excludes osu objects themselves")
-                    float outHalf = halfAngle(middle, d, safe + halfWidth * 0.5f);
-                    float inHalf = inner > 0f ? halfAngle(middle, d, Math.Max(inner - halfWidth * 0.5f, 0f)) : 0f;
-                    float towards = d < 1e-3f ? 0f : MathF.Atan2(spot.Y - centre.Y, spot.X - centre.X);
-
-                    // (layer upon layer, each narrower, so it darkens smoothly towards the middle of the place: as dark at its darkest as three layers of MERLIN_RING_GREEN were)
-                    float layer = 1f - MathF.Pow(1f - Math.Clamp(alpha * DanmakusuBalance.MERLIN_RING_GREEN, 0f, 0.999f), 3f / steps);
-
-                    for (int step = 0; step < steps; step++)
-                    {
-                        float reach = outHalf * (1f - step / (float)steps);
-
-                        if (reach <= inHalf)
-                            break;
-
-                        if (inHalf <= 0f)
-                            f.stageRipple.AddArc(centre, outer, thick, towards - reach, 2f * reach, layer * shown, green);
-                        else
-                        {
-                            f.stageRipple.AddArc(centre, outer, thick, towards - reach, reach - inHalf, layer * shown, green);
-                            f.stageRipple.AddArc(centre, outer, thick, towards + inHalf, reach - inHalf, layer * shown, green);
-                        }
                     }
                 }
             }
@@ -771,17 +875,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (decided[i] < 0 || !ringAt(shots[i].Time, t, out float middle, out float shown, out _))
                         continue;
 
-                    ring(f, shots[i].Position, middle, (decided[i] == 1 ? faint : solid) * shown, ringColour);
-                    greenOver(f, shots[i].Position, middle, (decided[i] == 1 ? faint : solid) * shown, safeDim);
+                    ringOver(f, shots[i].Position, middle, (decided[i] == 1 ? faint : solid) * shown, ringColour);
                 }
 
                 foreach (var (time, at, isFaint) in thrownRings)
                 {
                     if (time <= t && t - time <= life && ringAt(time, t, out float middle, out float shown, out _))
-                    {
-                        ring(f, at, middle, (isFaint ? faint : solid) * shown, ringColour);
-                        greenOver(f, at, middle, (isFaint ? faint : solid) * shown, safeDim);
-                    }
+                        ringOver(f, at, middle, (isFaint ? faint : solid) * shown, ringColour);
                 }
 
                 // the follow points from one to the next: green arrows running along them, from the one to the next, above the rings (their see-through beams: DrawBeams)

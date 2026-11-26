@@ -23,15 +23,74 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>How long the freezes that begin between <paramref name="from"/> and <paramref name="to"/> last in all (a frozen bullet lives that much longer).</summary>
         private double freezeSpan(double from, double to)
         {
-            double total = 0;
-
-            foreach (var op in bulletOps)
+            // (by a binary search over the freezes in the order they begin, with what they last added up: 2026-11-26 - it is asked for every traced stage bullet every frame now)
+            if (freezeStarts == null)
             {
-                if (op.Kind == TrajectoryOpKind.Freeze && op.Time >= from && op.Time <= to)
-                    total += op.End - op.Time;
+                var list = new List<(double Start, double Length)>();
+
+                foreach (var op in bulletOps)
+                {
+                    if (op.Kind == TrajectoryOpKind.Freeze)
+                        list.Add((op.Time, op.End - op.Time));
+                }
+
+                list.Sort((a, b) => a.Start.CompareTo(b.Start));
+                freezeStarts = new double[list.Count];
+                freezeSums = new double[list.Count + 1];
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    freezeStarts[i] = list[i].Start;
+                    freezeSums[i + 1] = freezeSums[i] + list[i].Length;
+                }
             }
 
-            return total;
+            if (freezeStarts.Length == 0 || to < from)
+                return 0;
+
+            return freezeSums![firstAtOrAfter(freezeStarts, to, true)] - freezeSums[firstAtOrAfter(freezeStarts, from, false)];
+        }
+
+        private double[]? freezeStarts, freezeSums;
+
+        /// <summary>The first index whose value is at or after <paramref name="value"/> (or after it, <paramref name="after"/>).</summary>
+        private static int firstAtOrAfter(double[] sorted, double value, bool after)
+        {
+            int lo = 0, hi = sorted.Length;
+
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+
+                if (after ? sorted[mid] <= value : sorted[mid] < value)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+
+            return lo;
+        }
+
+        /// <summary>
+        /// How much longer than its own life the freezes can keep a stage bullet that lives from <paramref name="t0"/> to <paramref name="until"/>: those that begin while it lives, and those that begin
+        /// while they hold it (2026-11-26: every freeze of the map was counted for every bullet, so with Cirno all through a long section every bullet of minutes back was traced every frame - 140-300 ms a
+        /// frame with Shinki).
+        /// </summary>
+        private double freezeReach(double t0, double until)
+        {
+            double reach = freezeSpan(t0, until);
+
+            for (int i = 0; i < 4 && reach > 0; i++)
+            {
+                double more = freezeSpan(t0, until + reach);
+
+                if (more <= reach)
+                    break;
+
+                reach = more;
+            }
+
+            return reach;
         }
 
         /// <summary>

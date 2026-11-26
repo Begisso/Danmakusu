@@ -16,7 +16,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // start, a ring for each edge). The next moon grows and lights up the other way round. A moon that has appeared always goes through to its end, also when her section is over. It is white all through with a thin
         // grey line along its edges and a soft white light round it, a flat shape between the beams and the bullets: pieces side by side between its outer edge and its hollow's, so it is sharp at any size and evenly
         // see-through. Where something bounces off it, a white flash shows for a moment. In its last beat its light reaches out twice as far and back, and when its stars fly off it fades out over a beat, harmless.
-        // Since 2026-11-25, as it has faded out, its body shoots out Marisa's stars too, white, from places all over it, each a way of its own, at half a plain bullet's speed (shootBody).
+        // Since 2026-11-25 its body shoots out Marisa's stars too, white, from places all over it, each a way of its own, at half a plain bullet's speed (shootBody): since 2026-11-26 as soon as it starts
+        // to fade out (as it had faded out before).
         // ======================================================================================================================================================
 
         private sealed class HalfMoonAct : StageAct
@@ -142,7 +143,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>
-            /// As a moon has faded out its body shoots out MIMA_BODY_STARS of Marisa's stars (the soft star, white as the moon) from places all over it, chosen by a hash, each a way of its own, at MIMA_BODY_SPEED times
+            /// As a moon starts to fade out (2026-11-26; as it had faded out until then) its body shoots out MIMA_BODY_STARS of Marisa's stars (the soft star, white as the moon) from places all over it, chosen by a hash, each a way of its own, at MIMA_BODY_SPEED times
             /// a plain bullet's speed - half its edges' (2026-11-25, "moon body now shoots out randomly filled marisa stars in random direction too after fading out, half the speed").
             /// </summary>
             private void shootBody(BulletField f, int k, Moon moon, double at)
@@ -217,10 +218,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             f.playStageSound("yuyuko_petals");
                     }
 
-                    if (!bodyOut[k] && now >= goneAt(k) + fadeMs && moons[k] is Moon faded)
+                    // (as soon as it starts to fade: 2026-11-26, "body stars appear right after fading out starts" - after it had faded until then)
+                    if (!bodyOut[k] && now >= goneAt(k) && moons[k] is Moon fading)
                     {
                         bodyOut[k] = true;
-                        shootBody(f, k, faded, goneAt(k) + fadeMs);
+                        shootBody(f, k, fading, goneAt(k));
                     }
                 }
             }

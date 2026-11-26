@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // them, on the border of the nearer one at most (so it jumps across when the cursor is nearer to the other); the circles themselves do not hurt. Everything, bullets and every slice of every beam, that enters a circle is sent
         // at its middle at half its speed, flies on through it, and has its speed back when the circles are gone (one op for both, see BossOps: this act tells it where they are and how big; a thing is taken by the one it enters
         // first, once). Bullets outside both circles are drawn dim. The circles fade out in the pause. She shoots talismans in very dense rings (the planner's).
+        // Since 2026-11-26, for EIKI_WARN_BEATS before each circle comes, EIKI_WARN_ARROWS big red arrows stand round the player and round where they are mirrored, on the circle's edge, pointing in.
         // ======================================================================================================================================================
 
         private sealed class JudgementAct : StageAct
@@ -139,15 +140,56 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Draw(BulletField f, double t)
             {
+                if (f.failed)
+                    return;
+
+                drawWarning(f, t);
+
                 int k = circleAt(t);
 
-                if (f.failed || k < 0)
+                if (k < 0)
                     return;
 
                 float level = presence(k, t);
 
                 drawCircle(f, centres[k], level, t);
                 drawCircle(f, mirrors[k], level, t);
+            }
+
+            /// <summary>
+            /// For EIKI_WARN_BEATS before a circle comes (2026-11-26, "before green circle spawns - big red arrow warnings pointing at its centre, they are round circle"): EIKI_WARN_ARROWS big red arrows
+            /// round where it will be - on its edge, pointing in at its middle - round the player (it is placed round them) and round where it will be mirrored, blinking faster as it comes.
+            /// </summary>
+            private void drawWarning(BulletField f, double t)
+            {
+                double warn = Math.Max(Period.BeatLength, 1) * DanmakusuBalance.EIKI_WARN_BEATS;
+
+                for (int k = 0; k < attacks.Count; k++)
+                {
+                    var (start, end) = attacks[k];
+
+                    if (end <= start || t >= start || t < start - warn)
+                        continue;
+
+                    double left = (start - t) / warn;
+                    float level = smoothStep((1 - left) / 0.25) * (0.6f + 0.4f * MathF.Cos((float)(1 - left) * MathF.PI * 6f));
+                    Vector2 centre = f.characterPosition;
+                    float reach = radius(f);
+                    float arrow = f.circleRadius * DanmakusuBalance.EIKI_WARN_ARROW_SIZE;
+                    var red = new Color4(1f, 0.2f, 0.15f, 1f);
+
+                    foreach (var middle in new[] { centre, f.stageMin + f.stageMax - centre })
+                    {
+                        for (int a = 0; a < DanmakusuBalance.EIKI_WARN_ARROWS; a++)
+                        {
+                            float angle = a * MathF.Tau / DanmakusuBalance.EIKI_WARN_ARROWS;
+                            Vector2 outward = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                            f.stageRipple.Add(StageTexture.SeijaArrow, middle + outward * reach,new Vector2(arrow), angle * 180f / MathF.PI + 180f, level, red);
+                        }
+                    }
+
+                    break;
+                }
             }
 
             private static void drawCircle(BulletField f, Vector2 centre, float level, double t)

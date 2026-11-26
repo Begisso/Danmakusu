@@ -16,8 +16,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>A bullet that has bounced off the border during Seija's reversal.</summary>
         public static readonly BulletLook Red = new BulletLook { Overlay = BulletRenderer.TINT_RED, OverlayAmount = 1f };
 
-        /// <summary>What has turned round in Kanako's section (2026-11-20).</summary>
+        /// <summary>What has turned round in Kanako's section (2026-11-20; blue since 2026-11-26, "returned ones blue").</summary>
         public static readonly BulletLook DarkBlue = new BulletLook { Overlay = BulletRenderer.TINT_DARK_BLUE, OverlayAmount = 1f };
+
+        /// <summary>Kanako (2026-11-26, "all boss bullets are colored red, returned ones blue"): what a boss shoots in her section, until it turns round; and what has turned round.</summary>
+        public static readonly BulletLook KanakoRed = new BulletLook { Overlay = BulletRenderer.TINT_RED, OverlayAmount = 1f };
+
+        public static readonly BulletLook KanakoBlue = new BulletLook { Overlay = BulletRenderer.TINT_BLUE, OverlayAmount = 1f };
 
         /// <summary>
         /// Kokoro's moods (2026-11-20), in turn: purple arrowheads, blue ellipses, aquamarine stars, orange (each its own shape), every one glowing in its colour.
@@ -388,9 +393,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case BossMechanic.Onbashira:
                     {
                         // Kanako: in her section everything a boss shoots turns round the first time it has wholly left the screen, and flies back the way it came, dark blue
-                        var turn = new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, After = DarkBlue };
-                        bullets.Add(turn);
-                        beams.Add(turn);
+                        // (since 2026-11-26 the bullets are red until then and blue after, "all boss bullets are colored red, returned ones blue"; the beams stay as they were, dark blue once turned)
+                        bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, During = KanakoRed, After = KanakoBlue });
+                        beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, After = DarkBlue });
                         break;
                     }
 
@@ -802,14 +807,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case BossMechanic.Galaxy:
                     {
                         // Megumu: every eight beats every bullet on the screen turns into a star like Marisa's (a freeze that takes no time and leaves it a star) and ricochets once off the border before the next turn
+                        // (since 2026-11-26 every second bullet of a ring, "halve the amount of star bullets": the others fly on as they were)
                         double gap = Math.Max(period.BeatLength, 1) * DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS;
 
                         foreach (double mark in LunaMarks(period, DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS))
                         {
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark, BornBefore = mark, SkipSharp = true, After = MarisaStar });
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark, BornBefore = mark, SkipSharp = true, After = MarisaStar, EveryOther = true });
                             bullets.Add(new TrajectoryOp
                             {
-                                Kind = TrajectoryOpKind.Bounce, Time = mark, End = mark + gap, BornBefore = mark, SkipSharp = true, After = MarisaStar,
+                                Kind = TrajectoryOpKind.Bounce, Time = mark, End = mark + gap, BornBefore = mark, SkipSharp = true, After = MarisaStar, EveryOther = true,
                                 Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
                             });
                         }

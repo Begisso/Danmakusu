@@ -14,7 +14,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // thick beam (MEIRA_TRACE_WIDTH circle radii each side) stays where she went, hurting like a slider body. In the rest of the round she stands and shoots streams of fans at the player (the planner's).
         // When the next round begins (or her section ends) the beams of the round go: every MEIRA_SLICE_CIRCLES circle radii along them a ring of MEIRA_SLICE_BULLETS basic bullets, MEIRA_SLICE_SIZE as big as
         // a plain one, flies out from there.
-        // Since 2026-11-24 each slide goes only MEIRA_SLIDE_SHARE of the way to where Elly would stop (as it starts: "trace laserbeam length halved"), and every one is heard (Kagerou's swing).
+        // Since 2026-11-24 every slide is heard (Kagerou's swing). Since 2026-11-26 ("moves right into player position 3 times with half speed instead") each slide goes straight into where the
+        // player was as it started, all the way, at half the speed it had, as long as until the next one begins (from 2026-11-24 it went half the way to where Elly would stop, after the player); the
+        // beam behind her is half as thick.
         // Where she slides depends on where the player is, so it is followed step by step (MEIRA_STEP_MS) and kept: going back in time takes the steps back.
         // ======================================================================================================================================================
 
@@ -25,8 +27,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public double Start;
                 public double Until;
                 public readonly List<Vector2> Steps = new List<Vector2>(); // (a place every MEIRA_STEP_MS from its start)
-                public bool Stopped; // (she got near enough: the rest of it she stands)
-                public float Budget = float.PositiveInfinity; // (how far it may go: MEIRA_SLIDE_SHARE of the way to where Elly would stop, as it starts)
+                public bool Stopped; // (she got there: the rest of it she stands)
+                public Vector2 Target; // (where the player was as it started: she goes straight there)
             }
 
             private readonly double beat;
@@ -75,8 +77,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.MEIRA_TRACE_WIDTH;
 
-            private static float near(BulletField f) => (f.stageMax.Y - f.stageMin.Y) * DanmakusuBalance.ELLY_RADIUS * DanmakusuBalance.ELLY_NEAR;
-
             public override void Reset(BulletField f, double time)
             {
                 // (back to the step she was at then; the slides after it are made again)
@@ -123,9 +123,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var slide = new Slide { Start = slideStarts[index], Until = slideEnds[index] };
                     slide.Steps.Add(slides.Count > 0 ? slides[^1].Steps[^1] : standing);
 
-                    // (half the way she would go, as it starts: 2026-11-24, "trace laserbeam length halved")
-                    float wanted = Vector2.Distance(f.characterPosition, slide.Steps[0]) - near(f);
-                    slide.Budget = Math.Max(wanted, 0f) * DanmakusuBalance.MEIRA_SLIDE_SHARE;
+                    // (since 2026-11-26 straight into where the player is as it starts, all the way: "moves right into player position 3 times with half speed instead". From 2026-11-24 she went
+                    // half the way to where Elly would stop, after the player)
+                    slide.Target = Vector2.Clamp(f.characterPosition, f.stageMin, f.stageMax);
 
                     slides.Add(slide);
                     extend(f, slide, now);
@@ -146,39 +146,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            /// <summary>She goes on in <paramref name="slide"/> step by step until <paramref name="now"/> (or its end), after where the player is, and stops as near as Elly comes.</summary>
+            /// <summary>She goes on in <paramref name="slide"/> step by step until <paramref name="now"/> (or its end), straight to where the player was as it started, and stops there.</summary>
             private void extend(BulletField f, Slide slide, double now)
             {
                 double step = DanmakusuBalance.MEIRA_STEP_MS;
                 double until = Math.Min(now, slide.Until);
-                float reach = near(f);
-
-                float gone = 0f;
-
-                for (int i = 1; i < slide.Steps.Count; i++)
-                    gone += Vector2.Distance(slide.Steps[i - 1], slide.Steps[i]);
 
                 while (!slide.Stopped && slide.Start + slide.Steps.Count * step <= until)
                 {
                     Vector2 at = slide.Steps[^1];
-                    Vector2 toPlayer = f.characterPosition - at;
-                    float away = toPlayer.Length;
+                    Vector2 toTarget = slide.Target - at;
+                    float away = toTarget.Length;
 
-                    if (away <= reach || gone >= slide.Budget - 0.01f)
+                    if (away <= 0.5f)
                     {
                         slide.Stopped = true;
                         break;
                     }
 
-                    float move = Math.Min(Math.Min(speed * (float)step, away - reach), slide.Budget - gone);
-                    gone += move;
-                    Vector2 next = at + toPlayer * (move / away);
+                    float move = Math.Min(speed * (float)step, away);
+                    Vector2 next = at + toTarget * (move / away);
                     slide.Steps.Add(Vector2.Clamp(next, f.stageMin, f.stageMax));
                 }
             }
 
-            /// <summary>Where she is in a slide at <paramref name="t"/>: along its steps, standing after the last.</summary>
-            private static Vector2 placeIn(Slide slide, double t)
+            /// <summary>
+            /// Where she is in a slide at <paramref name="t"/>: along its steps; after the last one made, on towards where it goes (its end is known as it starts: the autoplay sees it coming, 2026-11-26),
+            /// standing once there or once the slide is over.
+            /// </summary>
+            private Vector2 placeIn(Slide slide, double t)
             {
                 double u = (t - slide.Start) / DanmakusuBalance.MEIRA_STEP_MS;
 
@@ -186,7 +182,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return slide.Steps[0];
 
                 int i = (int)Math.Floor(u);
-                return i + 1 < slide.Steps.Count ? Vector2.Lerp(slide.Steps[i], slide.Steps[i + 1], (float)(u - i)) : slide.Steps[^1];
+
+                if (i + 1 < slide.Steps.Count)
+                    return Vector2.Lerp(slide.Steps[i], slide.Steps[i + 1], (float)(u - i));
+
+                Vector2 last = slide.Steps[^1];
+
+                if (slide.Stopped)
+                    return last;
+
+                double lastAt = slide.Start + (slide.Steps.Count - 1) * DanmakusuBalance.MEIRA_STEP_MS;
+                double moving = Math.Min(t, slide.Until) - lastAt;
+                Vector2 toTarget = slide.Target - last;
+                float away = toTarget.Length;
+
+                if (moving <= 0 || away < 0.5f)
+                    return last;
+
+                return last + toTarget * (Math.Min(speed * (float)moving, away) / away);
             }
 
             public override bool BossAt(BulletField f, double now, out Vector2 position)

@@ -26,6 +26,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private long counted;
             private readonly List<LaserEmitter> beams = new List<LaserEmitter>();
 
+            /// <summary>Where her streams' bullets go (2026-11-26: acts emptied and used again in turn, see ShotPool; they were all this act's own).</summary>
+            public ShotPool? Pool;
+
             public CreationAct(BulletField f, BossPeriod period)
             {
                 Period = period;
@@ -248,7 +251,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (presence(t) < 0.5f)
                     return false; // (her wings are not out yet, or not any more)
 
-                // (every bullet comes out twice, of two wings in turn: 2026-11-25, "double the bullets count" - with the gap halved, every stream is twice as dense)
+                // (every bullet comes out SHINKI_BULLET_COPIES times, of as many wings in turn: twice since 2026-11-25, "double the bullets count" - with the gap halved, every stream is twice as dense; four times since 2026-11-26)
                 int copies = DanmakusuBalance.SHINKI_BULLET_COPIES;
 
                 if (!bases.TryGetValue(emitter, out long first))
@@ -269,7 +272,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float angle = streamAngle(w, at);
                     Vector2 velocity = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * stored.Speed;
 
-                    AddBullet(f.makeStageBullet(stored, emitter, bullet, at, wingMiddle(f, w, at), velocity));
+                    // (into the pool of acts since 2026-11-26: in one act they filled it after about 90 s of a section, and nothing more came out)
+                    var made = f.makeStageBullet(stored, emitter, bullet, at, wingMiddle(f, w, at), velocity);
+
+                    if (Pool != null)
+                        Pool.Add(made);
+                    else
+                        AddBullet(made);
                 }
 
                 return true;

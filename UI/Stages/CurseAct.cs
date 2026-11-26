@@ -13,15 +13,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // one to her left and one to her right. Each flies off that way at NOROIKO_SPEED_FROM times a plain bullet's speed and for NOROIKO_HOMING_BEATS speeds up evenly to NOROIKO_SPEED_TO times it, turning
         // towards the player as it goes (at most NOROIKO_TURN_DEGREES a beat); then it flies straight on out of the screen. Every slider of her section throws one too instead of its beam, from where it
         // starts, at the player, as big as the slider is (its widest, NOROIKO_SLIDER_LEAST..MOST circle radii). Every stroke hurts like a slider body.
+        // Since 2026-11-26 (the user's picture: "I still don't see symbols after asking for 10 times ... they are white, they glow, they bloom") a curse is the picture of 呪 (Resources/Textures/
+        // noroiko_curse.png, Tools/Bake glyph), white, over a soft white glow and a wider bloom; its ink hurts (Bullets/CurseMask, the same picture in cells). A slider's is as big as the slider is long in
+        // time, NOROIKO_SLIDER_CIRCLES_PER_BEAT circle radii a beat.
         // Where a curse goes depends on where the player has been, so it is followed step by step (NOROIKO_STEP_MS) as the game goes and kept: going back in time takes the steps back. Asked about a time not
         // followed yet (the autoplay), it flies straight on from the last step.
         // ======================================================================================================================================================
 
         private sealed class CurseAct : StageAct
         {
-            /// <summary>The strokes of 呪 (Bullets/CurseGlyph, shared with the rings of her section since 2026-11-25).</summary>
-            private static readonly Vector2[][] strokes = CurseGlyph.STROKES;
-
             /// <summary>One thrown: when, how big (px tall), which way it sets off (0: at the player; else her left or right), and where it starts (a slider's start; NaN: where she is when it is thrown).</summary>
             private readonly struct Throw
             {
@@ -58,7 +58,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly double beat;
             private readonly Throw[] throws;
             private readonly List<Flight> flights = new List<Flight>();
-            private readonly List<Vector2> line = new List<Vector2>(8);
 
             public CurseAct(BulletField f, BossPeriod period, SliderZone[] sliderZones)
             {
@@ -92,8 +91,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         high = Vector2.ComponentMax(high, point);
                     }
 
-                    float extent = Math.Max(high.X - low.X, high.Y - low.Y) + zone.Radius * 2f;
-                    float sliderSize = Math.Clamp(extent, f.circleRadius * DanmakusuBalance.NOROIKO_SLIDER_LEAST, f.circleRadius * DanmakusuBalance.NOROIKO_SLIDER_MOST);
+                    // (as big as the slider is long in time since 2026-11-26, "its size grows proportionally to slider duration": NOROIKO_SLIDER_CIRCLES_PER_BEAT circle radii a beat - it was as big as
+                    // the slider was wide)
+                    float lasts = (float)((zone.EndTime - zone.StartTime) / beat);
+                    float sliderSize = Math.Clamp(f.circleRadius * DanmakusuBalance.NOROIKO_SLIDER_CIRCLES_PER_BEAT * lasts, f.circleRadius * DanmakusuBalance.NOROIKO_SLIDER_LEAST, f.circleRadius * DanmakusuBalance.NOROIKO_SLIDER_MOST);
                     list.Add(new Throw(zone.StartTime, sliderSize, 0, zone.Points[0]));
                 }
 
@@ -107,8 +108,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private double homing => beat * DanmakusuBalance.NOROIKO_HOMING_BEATS;
 
             public override double MechanicsEnd => throws.Length > 0 ? throws[^1].T + homing : double.NegativeInfinity;
-
-            private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.NOROIKO_STROKE_CIRCLES;
 
             public override void Reset(BulletField f, double time)
             {
@@ -255,15 +254,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private static bool onScreen(BulletField f, Vector2 at, float size)
                 => at.X > f.stageMin.X - size && at.X < f.stageMax.X + size && at.Y > f.stageMin.Y - size && at.Y < f.stageMax.Y + size;
 
-            public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
+            /// <summary>
+            /// Every curse as the picture of 呪 (2026-11-26, the user's picture: "I still don't see symbols ... they are white, they glow, they bloom"; drawn in thick red beams until then): white, over a
+            /// soft white glow and a wider bloom, as big as it is thrown.
+            /// </summary>
+            public override void Draw(BulletField f, double t)
             {
                 if (f.failed || flights.Count == 0)
                     return;
-
-                var core = new Color4(1f, 0.32f, 0.3f, 1f);
-                var glow = new Color4(1f, 0.62f, 0.58f, 1f);
-                var border = DanmakusuBalance.BorderColour(new Color4(0.62f, 0.02f, 0.06f, 1f));
-                float half = halfWidth(f);
 
                 foreach (var flight in flights)
                 {
@@ -277,26 +275,74 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!onScreen(f, at, thrown.Size))
                         continue;
 
-                    foreach (var stroke in strokes)
-                    {
-                        line.Clear();
-
-                        foreach (var point in stroke)
-                            line.Add(at + point * thrown.Size);
-
-                        f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal, null, null, glow); // (red all through: with a white middle, as other beams, a thin curse looked like a white slider beam - 2026-11-25)
-                    }
+                    float shown = smoothStep((t - thrown.T) / 120.0);
+                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_BLOOM_SIZE), 0f, DanmakusuBalance.NOROIKO_BLOOM_ALPHA * shown, Color4.White, true);
+                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_GLOW_SIZE), 0f, DanmakusuBalance.NOROIKO_GLOW_ALPHA * shown, Color4.White, true);
+                    f.stageFront.Add(StageTexture.CurseGlyph, at, new Vector2(thrown.Size), 0f, shown, Color4.White);
                 }
             }
 
-            /// <summary>Every stroke hurts like a slider body.</summary>
+            // ---- where the picture is ink: how far every cell of its square is from the nearest inked one (in cells; 0 in the ink) ----
+
+            private static readonly float[,] inkDistance = makeInkDistance();
+
+            private static float[,] makeInkDistance()
+            {
+                var rows = CurseMask.ROWS;
+                int n = rows.Length;
+                var ink = new List<(int X, int Y)>();
+
+                for (int y = 0; y < n; y++)
+                {
+                    for (int x = 0; x < rows[y].Length; x++)
+                    {
+                        if (rows[y][x] == '#')
+                            ink.Add((x, y));
+                    }
+                }
+
+                var distance = new float[n, n];
+
+                for (int y = 0; y < n; y++)
+                {
+                    for (int x = 0; x < n; x++)
+                    {
+                        float best = float.MaxValue;
+
+                        foreach (var (ix, iy) in ink)
+                            best = Math.Min(best, (ix - x) * (ix - x) + (iy - y) * (iy - y));
+
+                        distance[x, y] = ink.Count > 0 ? MathF.Sqrt(best) : float.MaxValue;
+                    }
+                }
+
+                return distance;
+            }
+
+            /// <summary>How far <paramref name="p"/> is from the ink of a curse at <paramref name="at"/>, <paramref name="size"/> px tall (px; about a cell's width finer).</summary>
+            private static float inkAway(Vector2 p, Vector2 at, float size)
+            {
+                int n = inkDistance.GetLength(0);
+                float cell = size / n;
+                Vector2 local = (p - at) / size + new Vector2(0.5f);
+                float cx = local.X * n, cy = local.Y * n;
+
+                // (outside its square: as far as the nearest cell of its edge, and how far out of it)
+                float outX = cx < 0 ? -cx : cx > n ? cx - n : 0f, outY = cy < 0 ? -cy : cy > n ? cy - n : 0f;
+                int x = Math.Clamp((int)cx, 0, n - 1), y = Math.Clamp((int)cy, 0, n - 1);
+                float inside = inkDistance[x, y];
+
+                return (inside + MathF.Sqrt(outX * outX + outY * outY)) * cell;
+            }
+
+            /// <summary>The ink of every curse hurts like a slider body.</summary>
             public override bool Hurts(BulletField f, double now)
             {
                 if (f.failed || flights.Count == 0)
                     return false;
 
                 Vector2 player = f.characterPosition;
-                float reach = halfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                float reach = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
 
                 foreach (var flight in flights)
                 {
@@ -307,18 +353,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     Vector2 at = placeOf(f, flight, now);
 
-                    // (nowhere near it: not looked at stroke by stroke)
-                    if (Vector2.Distance(player, at) > thrown.Size * 0.75f + reach)
+                    // (nowhere near it: its ink is not looked at)
+                    if (MathF.Abs(player.X - at.X) > thrown.Size * 0.5f + reach || MathF.Abs(player.Y - at.Y) > thrown.Size * 0.5f + reach)
                         continue;
 
-                    foreach (var stroke in strokes)
-                    {
-                        for (int i = 0; i + 1 < stroke.Length; i++)
-                        {
-                            if (distanceToSegment(player, at + stroke[i] * thrown.Size, at + stroke[i + 1] * thrown.Size) <= reach)
-                                return true;
-                        }
-                    }
+                    if (inkAway(player, at, thrown.Size) <= reach + thrown.Size / inkDistance.GetLength(0) * 0.5f)
+                        return true;
                 }
 
                 return false;

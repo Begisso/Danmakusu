@@ -18,6 +18,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // half a plain bullet's speed.
         // She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
+        // Since 2026-11-26 ("all boss bullets are colored red, returned ones blue") her talismans, and every bullet a boss shoots in her section, are red until they turn round and blue after; and her
+        // volleys come from the middle, where she goes, also the first (it came from where the boss before her stood, as she took her place: BulletField.shotPlaceOf).
         // Like every act's bullets they are a function of time (StageBullet.Orbit).
         // ======================================================================================================================================================
 
@@ -71,7 +73,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 for (; next < volleys.Count && volleys[next] <= now; next++)
                 {
-                    Vector2 from = f.bossPositionOf(Period);
+                    Vector2 from = f.bossPositionOf(Period); // (where she goes, as she stands in the middle: her first volley came from the boss before her until 2026-11-26)
                     Vector2 toPlayer = f.characterPosition - from;
                     float aim = toPlayer.LengthSquared > 1f ? MathF.Atan2(toPlayer.Y, toPlayer.X) : MathF.PI / 2f;
                     thrownFrom[next] = (from, aim);
@@ -142,8 +144,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             OrbitGrow = beat * DanmakusuBalance.KANAKO_GROW_BEATS,
                             Spin = ringOmega, // (each lies along its circle: end to end with the next)
                             SpinPhase = phase + turn * MathF.PI / 2f,
+                            Tint = BulletRenderer.TINT_RED, // (red until it turns, blue after: 2026-11-26, "all boss bullets are colored red, returned ones blue")
+                            TintAmount = 1f,
                             Tint2At = outAt,
-                            Tint2 = BulletRenderer.TINT_DARK_BLUE,
+                            Tint2 = BulletRenderer.TINT_BLUE,
                             Tint2Amount = 1f,
                             Tint2Over = 200,
                             Grow = 200,
@@ -174,8 +178,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 Style = style,
                                 Shape = BulletShape.Talisman,
                                 Face = stageSpun(talisman, stopAt),
-                                Tint = blue ? BulletRenderer.TINT_DARK_BLUE : 0,
-                                TintAmount = blue ? 1f : 0f,
+                                Tint = blue ? BulletRenderer.TINT_BLUE : BulletRenderer.TINT_RED,
+                                TintAmount = 1f,
                                 Until = stopAt + f.stageLife(flight) * 2.5, // (it may come back once, across the screen)
                             });
                         }

@@ -14,6 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // meet as the orange again and fly out again at once, and so on. While the first one's slices fly out a second orange grows in the middle over half a flight; it splits as they turn back, so
         // from then on one orange's slices come back as the other's go, and an orange is whole in the middle every half flight. For ORANGE_WARN_BEATS before every split a red arrow on every slice points
         // the way it will fly. The slices (and a whole orange) hurt like a slider body; one that is growing does not. When her section is over the slices go on out and are gone.
+        // Since 2026-11-26 everything turns round the middle once in ORANGE_SPIN_BEATS, clockwise (the slices fly out along their turning ways, so they sweep round), a flight takes twice as long, and
+        // for ORANGE_WARN_BEATS before a slice comes back in over the edge of the screen a red arrow just inside the edge points in where it will come.
         // Everything is a closed form of time.
         // ======================================================================================================================================================
 
@@ -55,11 +57,29 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return Vector2.Distance(low, high) * 0.5f + radius(f) + f.circleRadius * DanmakusuBalance.ORANGE_BEYOND_CIRCLES;
             }
 
-            /// <summary>The way slice <paramref name="s"/> points and flies (its middle): straight up for the first, then round.</summary>
-            private static Vector2 wayOf(int s)
+            /// <summary>How far everything has turned round the middle at <paramref name="t"/> (radians, clockwise on the screen: 2026-11-26, "Orange spins").</summary>
+            private float spinAt(double t) => (float)((t - Start) / (beat * DanmakusuBalance.ORANGE_SPIN_BEATS) * Math.Tau);
+
+            /// <summary>The way slice <paramref name="s"/> points and flies (its middle) at <paramref name="t"/>: straight up for the first, then round, all turned as far as the spin has come.</summary>
+            private Vector2 wayOf(int s, double t)
             {
-                float angle = -MathF.PI / 2f + s * MathF.Tau / DanmakusuBalance.ORANGE_SLICES;
+                float angle = -MathF.PI / 2f + s * MathF.Tau / DanmakusuBalance.ORANGE_SLICES + spinAt(t);
                 return new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            }
+
+            /// <summary>How far from the middle the edge of the screen is along <paramref name="way"/>.</summary>
+            private static float edgeAlong(BulletField f, Vector2 centre, Vector2 way)
+            {
+                Vector2 low = f.hasScreenBounds ? f.screenMin : f.stageMin, high = f.hasScreenBounds ? f.screenMax : f.stageMax;
+                float best = float.MaxValue;
+
+                if (MathF.Abs(way.X) > 1e-5f)
+                    best = Math.Min(best, ((way.X > 0 ? high.X : low.X) - centre.X) / way.X);
+
+                if (MathF.Abs(way.Y) > 1e-5f)
+                    best = Math.Min(best, ((way.Y > 0 ? high.Y : low.Y) - centre.Y) / way.Y);
+
+                return Math.Max(best, 0f);
             }
 
             /// <summary>
@@ -147,12 +167,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float alpha = solid ? 1f : DanmakusuBalance.ORANGE_PREVIEW_ALPHA * size + (1f - DanmakusuBalance.ORANGE_PREVIEW_ALPHA) * smoothStep((size - 0.9f) / 0.1f);
 
+                    float spinDegrees = spinAt(t) * 180f / MathF.PI;
+
                     for (int s = 0; s < DanmakusuBalance.ORANGE_SLICES; s++)
                     {
-                        float degrees = s * 360f / DanmakusuBalance.ORANGE_SLICES;
-                        f.stageBack.Add(StageTexture.OrangeSlice, centre + wayOf(s) * distance, new Vector2(picture * size), degrees, alpha, Color4.White);
+                        float degrees = s * 360f / DanmakusuBalance.ORANGE_SLICES + spinDegrees;
+                        f.stageBack.Add(StageTexture.OrangeSlice, centre + wayOf(s, t) * distance, new Vector2(picture * size), degrees, alpha, Color4.White);
                     }
                 }
+
+                float arrow = f.circleRadius * 1.2f;
+                var red = new Color4(1f, 0.2f, 0.15f, 1f);
 
                 // (the warning of the next split: a red arrow on every slice of the orange about to split, pointing the way it will fly, blinking faster as it comes)
                 double next = nextSplit(t);
@@ -163,19 +188,56 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (stateOf(f, j, t, out float distance, out _, out _))
                     {
-                        double left = (next - t) / (beat * DanmakusuBalance.ORANGE_WARN_BEATS);
-                        float level = smoothStep((1 - left) / 0.25) * (0.6f + 0.4f * MathF.Cos((float)(1 - left) * MathF.PI * 6f));
-                        float arrow = f.circleRadius * 1.2f;
-                        var red = new Color4(1f, 0.2f, 0.15f, 1f);
+                        float level = warnLevel((next - t) / (beat * DanmakusuBalance.ORANGE_WARN_BEATS));
 
                         for (int s = 0; s < DanmakusuBalance.ORANGE_SLICES; s++)
                         {
-                            Vector2 way = wayOf(s);
+                            Vector2 way = wayOf(s, t);
                             f.stageRipple.Add(StageTexture.SeijaArrow, centre + way * (distance + r * 0.62f), new Vector2(arrow * 2.2f), MathF.Atan2(way.Y, way.X) * 180f / MathF.PI, level, red);
                         }
                     }
                 }
+
+                // (2026-11-26, "warn about incoming ... slices with red arrows": for ORANGE_WARN_BEATS before a slice comes back in over the edge of the screen, a red arrow just inside the edge where it
+                // will come in, pointing in - it turns with the spin, as the slice does)
+                if (t < ends)
+                {
+                    float far = farOut(f);
+                    double half = flightMs * 0.5;
+
+                    for (int j = 0; j < 2; j++)
+                    {
+                        double split = j == 0 ? firstSplit : firstSplit + half;
+
+                        if (t < split)
+                            continue;
+
+                        double cycle = split + Math.Floor((t - split) / flightMs) * flightMs;
+
+                        for (int s = 0; s < DanmakusuBalance.ORANGE_SLICES; s++)
+                        {
+                            Vector2 way = wayOf(s, t);
+                            float edge = edgeAlong(f, centre, way);
+
+                            if (edge >= far)
+                                continue;
+
+                            // (on its way back its tip is at the edge when far * sin(pi u) = edge, u past a half)
+                            double comesIn = cycle + (1 - Math.Asin(edge / far) / Math.PI) * flightMs;
+                            double left = (comesIn - t) / (beat * DanmakusuBalance.ORANGE_WARN_BEATS);
+
+                            if (left <= 0 || left > 1 || comesIn >= ends)
+                                continue;
+
+                            Vector2 at = centre + way * Math.Max(edge - arrow * 1.3f, 0f);
+                            f.stageRipple.Add(StageTexture.SeijaArrow, at, new Vector2(arrow * 2.2f), MathF.Atan2(-way.Y, -way.X) * 180f / MathF.PI, warnLevel(left), red);
+                        }
+                    }
+                }
             }
+
+            /// <summary>How bright a warning arrow is with <paramref name="left"/> of its time left (1 → 0): fading in, then blinking faster as it comes.</summary>
+            private static float warnLevel(double left) => smoothStep((1 - left) / 0.25) * (0.6f + 0.4f * MathF.Cos((float)(1 - left) * MathF.PI * 6f));
 
             /// <summary>A slice hurts like a slider body (its wedge, as far out as the rind; a growing orange does not).</summary>
             public override bool Hurts(BulletField f, double now)
@@ -194,7 +256,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     for (int s = 0; s < DanmakusuBalance.ORANGE_SLICES; s++)
                     {
-                        Vector2 way = wayOf(s);
+                        Vector2 way = wayOf(s, now);
                         Vector2 apex = centre + way * distance;
                         Vector2 to = player - apex;
                         float length = to.Length;

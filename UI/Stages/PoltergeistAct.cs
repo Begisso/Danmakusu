@@ -34,7 +34,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly Dictionary<(BulletEmitter, int), Seen>[] seen;
             private readonly Dictionary<BulletEmitter, int> ringOrder = new Dictionary<BulletEmitter, int>();
             private readonly List<(double Time, Vector2 Where)> bounces = new List<(double, Vector2)>();
-            private double resetTime = double.NegativeInfinity;
 
             public PoltergeistAct(BulletField f, BossPeriod period)
             {
@@ -99,8 +98,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     done[i] = false;
                     seen[i].Clear();
                 }
-
-                resetTime = time;
             }
 
             /// <summary>Takes nothing: notes every bullet on the screen at a mark (that was fired before it) and where it is.</summary>
@@ -164,8 +161,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         stopped++;
                     }
 
-                    if (stopped > 0 && now - marks[m] < 250 && marks[m] > resetTime)
-                        f.playStageSound("sakuya_stop");
+                    // (no sound as they stop since 2026-11-26: Sakuya's time stop ticked, "remove ticking sound from stop")
                 }
             }
 

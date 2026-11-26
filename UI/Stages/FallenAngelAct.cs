@@ -14,7 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // small and standing up behind her, as if folded; with the sound of Yuyuko's tree growing they come out of her over four beats, each turning out about its shoulder and growing to full, then sway a little,
         // slowly, the two together; they close again over the last beat of her section. The wings hurt like a slider body (StageLayer.WingDistance: the picture's solid part).
         // Every bullet fired in her section while her wings are out (anyone's, counted ring by ring: every MATENSHI_FROM_WINGS_EVERY-th, every second until 2026-11-20) does not come out where it was fired: it comes out of her wings - the two in turn, the places spread evenly over what each wing
-        // covers (StageLayer.WING_SPOTS) - as a glowing white feather (the user's picture), flying straight away from her at the speed it had.
+        // covers (StageLayer.WING_SPOTS) - as a glowing white feather (the user's picture), flying straight away from her at the speed it had (since 2026-11-26 away from a place below her,
+        // MATENSHI_FEATHER_PIVOT_SCREEN of the screen's height, so that feathers go up over her too: from her middle nothing went up between her wings).
         // Her own shot: every four beats two straight beams three circle radii wide, straight down: one over where the player is, one at a place of its own (by its number): for four beats a see-through preview,
         // then they grow down from the top of the screen to the bottom in a quarter of a beat and hurt like a slider body for four beats.
         // ======================================================================================================================================================
@@ -313,7 +314,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 var stored = f.makeStored(emitter, t);
                 float big = emitter.BigScale(bullet);
-                Vector2 outward = position - f.bossPositionOf(Period);
+
+                // (straight away from a place below her, so that the feathers from high on her wings fly up over her too: 2026-11-26, "she has blind spot for feathers on top of her" - straight
+                // away from her middle, nothing went up between her wings)
+                Vector2 pivot = f.bossPositionOf(Period) + new Vector2(0f, (f.stageMax.Y - f.stageMin.Y) * DanmakusuBalance.MATENSHI_FEATHER_PIVOT_SCREEN);
+                Vector2 outward = position - pivot;
                 Vector2 velocity = (outward.LengthSquared > 1e-4f ? Vector2.Normalize(outward) : -Vector2.UnitY) * stored.Speed;
 
                 AddBullet(new StageBullet

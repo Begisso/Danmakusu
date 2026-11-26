@@ -27,6 +27,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // 2026-11-25: the lava picture is laid flat over the ground, the same size on every crack and going on across their corners and where they meet (it was laid along each crack: sheared at its
         // jags and as big as the crack was wide); the crust is as thick on every crack (SUIKA_CRUST_CIRCLES); the branches and twigs end in a point; the impact frame's band and stars have soft edges (a
         // strip a pixel and a half wide round them, ImpactStarLayer.AddOutline); the stars come over the last beat before it explodes (two).
+        // 2026-11-26: the branches longer (SUIKA_BRANCH_CIRCLES), every one with two twigs and one near its root, the longer ones a fourth near the tip; the band's soft edge 60 px wide (14).
         // ======================================================================================================================================================
 
         private sealed class FissureAct : StageAct
@@ -487,8 +488,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // only the longer ones had one)
                     list.Add(new Branch { Along = 0.35f + 0.2f * hash01(k, number, 105), Turn = -side * (35f + 20f * hash01(k, number, 106)) * MathF.PI / 180f, Length = branchLength * 0.45f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 500 });
 
+                    // (since 2026-11-26, "longer branches, more sub-branches": every one has the second twig, and the longer ones a third near the tip, the first way again; one close to the root too)
+                    list.Add(new Branch { Along = 0.65f + 0.15f * hash01(k, number, 108), Turn = side * (30f + 20f * hash01(k, number, 109)) * MathF.PI / 180f, Length = branchLength * 0.35f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 700 });
+                    list.Add(new Branch { Along = 0.12f + 0.1f * hash01(k, number, 110), Turn = side * (40f + 20f * hash01(k, number, 111)) * MathF.PI / 180f, Length = branchLength * 0.3f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 800 });
+
                     if (branchLength > f.circleRadius * DanmakusuBalance.SUIKA_BRANCH_CIRCLES * 0.8f)
-                        list.Add(new Branch { Along = 0.65f + 0.15f * hash01(k, number, 108), Turn = side * (30f + 20f * hash01(k, number, 109)) * MathF.PI / 180f, Length = branchLength * 0.35f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 700 });
+                        list.Add(new Branch { Along = 0.85f + 0.07f * hash01(k, number, 112), Turn = -side * (30f + 20f * hash01(k, number, 113)) * MathF.PI / 180f, Length = branchLength * 0.25f, Width = 0.6f, Parent = parent, Seed = k * 1000 + number + 900 });
                 }
             }
 

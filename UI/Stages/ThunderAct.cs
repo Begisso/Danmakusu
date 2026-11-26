@@ -16,6 +16,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Since 2026-11-25 a group of five is joined as a five-pointed star (every second one to the next, and back), its beams gold all through and twice as thick (IKU_LINK_WIDTH) - the user saw none.
         // All of it is worked out from the rings' closed forms; where each bullet was at the moments of the grid that have come (IKU_TRACE_STEP_BEATS apart) is kept, as that does not change (going back in
         // time drops what is after it): worked out again for every frame it cost 7 ms a frame, and as much again for the autoplay.
+        // 2026-11-26, her rework ("All osu objects and sliders including her too - shoots ring of 5 bullets, but they are all connected with straight laserbeams forming a star. Half of the stars are
+        // harmless at start for 4 beats, others are harmful, interchanging every 4 beats"): every ring of her section is IKU_STAR_POINTS bullets (the planner: BulletEmitter.StarLinked), joined here by
+        // straight gold beams as a five-pointed star that grows as they fly out; in every second stretch of IKU_SWAP_BEATS of her section the beams of half the stars hurt like a slider body and those of
+        // the other half are see-through (IKU_HARMLESS_ALPHA) and harmless, then the other way round (BulletEmitter.StarPhase), fading from one to the other. Her own rings no longer curl nor leave beams
+        // behind them, and nothing is tied (the traces and ties above are left for no ring now).
         // ======================================================================================================================================================
 
         private sealed class ThunderAct : StageAct
@@ -43,6 +48,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly Kept[] kept;
             private readonly BulletEmitter[] traced;
             private readonly BulletEmitter[] tied;
+            private readonly BulletEmitter[] stars; // (2026-11-26: the rings of five joined as stars)
+
+            /// <summary>Do the beams of star <paramref name="ring"/> hurt at <paramref name="t"/>? In every second stretch of IKU_SWAP_BEATS of her section, half the stars in the one, half in the other.</summary>
+            private bool harmful(BulletEmitter ring, double t)
+            {
+                long stretch = (long)Math.Floor((t - Period.ShootStart) / (beat * DanmakusuBalance.IKU_SWAP_BEATS));
+                return ((stretch + ring.StarPhase) & 1) == 1;
+            }
+
+            /// <summary>The five points of star <paramref name="ring"/> at <paramref name="t"/>, in the order its beam joins them, into <see cref="line"/>; a bullet that is gone breaks it (false: nothing of it).</summary>
+            private bool starLine(BulletField f, BulletEmitter ring, double t, double now, List<(int From, int To)> runs)
+            {
+                line.Clear();
+                runs.Clear();
+                int runStart = 0;
+
+                foreach (int m in star_order)
+                {
+                    if (!there(ring, m, now) || !place(f, ring, m, t, out Vector2 at))
+                    {
+                        if (line.Count - runStart >= 2)
+                            runs.Add((runStart, line.Count));
+
+                        runStart = line.Count;
+                        continue;
+                    }
+
+                    line.Add(at);
+                }
+
+                if (line.Count - runStart >= 2)
+                    runs.Add((runStart, line.Count));
+
+                return runs.Count > 0;
+            }
+
+            private readonly List<(int From, int To)> starRuns = new List<(int, int)>();
+            private readonly List<Vector2> piece = new List<Vector2>(8);
             private readonly double beat;
             private readonly List<Vector2> line = new List<Vector2>(64);
             private readonly List<float> fades = new List<float>(64);
@@ -56,6 +99,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 var tracedList = new List<BulletEmitter>();
                 var tiedList = new List<BulletEmitter>();
+                var starList = new List<BulletEmitter>();
                 double last = period.End;
 
                 foreach (var ring in f.emitters)
@@ -69,12 +113,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (ring.TetherGroup > 1)
                         tiedList.Add(ring);
 
-                    if (ring.LeavesTrace || ring.TetherGroup > 1)
+                    if (ring.StarLinked && ring.Count == DanmakusuBalance.IKU_STAR_POINTS)
+                        starList.Add(ring);
+
+                    if (ring.LeavesTrace || ring.TetherGroup > 1 || ring.StarLinked)
                         last = Math.Max(last, ring.Time + ring.Lifetime * 2 + traceMs); // (its life is by its own clock: slowed, it lasts longer)
                 }
 
                 traced = tracedList.ToArray();
                 tied = tiedList.ToArray();
+                stars = starList.ToArray();
                 kept = Array.ConvertAll(traced, ring => new Kept(ring, step));
                 Start = period.ShootStart;
                 End = last;
@@ -239,6 +287,33 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var ring in tied)
                     drawLinks(f, ring, t, link, linkCore, linkBorder, ref beams, ref pointTotal);
+
+                // (the stars: gold, solid while they hurt, see-through while they do not - fading between the two over a sixth of a beat)
+                double swap = beat * DanmakusuBalance.IKU_SWAP_BEATS, soft = beat / 6;
+
+                foreach (var ring in stars)
+                {
+                    if (ring.Time > t || t > ring.Time + ring.Lifetime * 2 || !starLine(f, ring, t, t, starRuns))
+                        continue;
+
+                    double into = ((t - Period.ShootStart) % swap + swap) % swap;
+                    float edge = smoothStep(into / soft) * smoothStep((swap - into) / soft);
+                    float solid = harmful(ring, t) ? DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * edge : DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * (1f - edge);
+
+                    foreach (var (from, to) in starRuns)
+                    {
+                        piece.Clear();
+                        fades.Clear();
+
+                        for (int i = from; i < to; i++)
+                        {
+                            piece.Add(line[i]);
+                            fades.Add(solid);
+                        }
+
+                        f.addPlainBeam(piece, link, linkCore, linkBorder, ref beams, ref pointTotal, null, fades, linkCore);
+                    }
+                }
             }
 
             // (a group of five is joined as a five-pointed star, every second one to the next and back to the first: 2026-11-25, "star-forming laserbeam connections" - they were a chain in ring order)
@@ -359,6 +434,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         shape.EndRun();
                     }
                 }
+
+                // (the stars whose beams hurt then, near where it looks)
+                foreach (var ring in stars)
+                {
+                    if (ring.Time > t || ring.Time > now || t > ring.Time + ring.Lifetime * 2 || !harmful(ring, t) || !starNear(f, ring, t, around, range + linkReach)
+                        || !starLine(f, ring, t, now, starRuns))
+                        continue;
+
+                    foreach (var (from, to) in starRuns)
+                    {
+                        for (int i = from; i < to; i++)
+                            shape.Point(line[i], linkReach);
+
+                        shape.EndRun();
+                    }
+                }
             }
 
             /// <summary>
@@ -376,6 +467,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float d = Vector2.Distance(around, ring.Origin);
 
                 return d + reach >= inner && d - reach <= outer;
+            }
+
+            /// <summary>Can a beam of star <paramref name="ring"/> be within <paramref name="reach"/> of <paramref name="around"/> at <paramref name="t"/>? Its beams cross its middle, so: within its outer circle (as <see cref="ringNear"/>, without the inner).</summary>
+            private static bool starNear(BulletField f, BulletEmitter ring, double t, Vector2 around, float reach)
+            {
+                if (ring.Ops != null || ring.Swirl != null || ring.Curl != 0f || ring.Origins != null || ring.Waves || ring.SlowsToWall || ring.Gravity != 0f || ring.Falling || ring.WrapsOnce
+                    || (ring.Deflections != null && ring.Deflections.Count > 0))
+                    return true;
+
+                double own = ring.WithoutFrozenTime(f.effects.Effective(ring, t));
+                return Vector2.Distance(around, ring.Origin) - reach <= ring.RadiusAt(own);
             }
 
             /// <summary>Does anything of hers hurt a character at <paramref name="player"/> at <paramref name="now"/>? (the hit check: once a frame, at once)</summary>
@@ -438,6 +540,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                             previous = at;
                             had = true;
+                        }
+                    }
+                }
+
+                // (the stars whose beams hurt now)
+                foreach (var ring in stars)
+                {
+                    if (ring.Time > now || now > ring.Time + ring.Lifetime * 2 || !harmful(ring, now) || !starNear(f, ring, now, player, linkReach)
+                        || !starLine(f, ring, now, now, starRuns))
+                        continue;
+
+                    foreach (var (from, to) in starRuns)
+                    {
+                        for (int i = from; i + 1 < to; i++)
+                        {
+                            if (distanceToSegment(player, line[i], line[i + 1]) <= linkReach)
+                                return true;
                         }
                     }
                 }

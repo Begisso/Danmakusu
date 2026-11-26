@@ -387,6 +387,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>With <see cref="Outside"/>: nothing inside a second circle as big round this is dim either (Eiki's mirrored one).</summary>
             public Vector2? Second;
+
+            /// <summary>The bullets in it are this see-through too (0..1, softly towards its edge as its dark): Merlin's safe places (2026-11-26).</summary>
+            public float See;
         }
 
         private readonly List<StageDim> stageDims = new List<StageDim>();
@@ -431,10 +434,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (away >= outer || instanceBuffer[i].Undimmed)
                         continue;
 
-                    float level = dim.Strength * (away <= dim.Radius ? 1f : 1f - smoothStep((away - dim.Radius) / Math.Max(outer - dim.Radius, 1f)));
+                    float share = away <= dim.Radius ? 1f : 1f - smoothStep((away - dim.Radius) / Math.Max(outer - dim.Radius, 1f));
+                    float level = dim.Strength * share;
 
                     if (level > instanceBuffer[i].Shade)
                         instanceBuffer[i].Shade = level;
+
+                    if (dim.See * share > instanceBuffer[i].Fade)
+                        instanceBuffer[i].Fade = dim.See * share;
                 }
             }
         }
@@ -564,7 +571,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Is a traced stage bullet surely gone at <paramref name="t"/>? (Its own clock is past its life plus every freeze there is: no op keeps it longer than that.)</summary>
         private bool tracedStageBulletGone(in StageBullet bullet, double t, double allFreezes)
-            => effects.Effective(bullet.T0, t) > bullet.Until + allFreezes;
+            => effects.Effective(bullet.T0, t) > bullet.Until + Math.Min(allFreezes, freezeReach(bullet.T0, bullet.Until)); // (only the freezes that can reach it: 2026-11-26)
 
         /// <summary>
         /// What of an act hurts at one moment - runs of points (a beam: every point as far as it reaches there, and the box round the run) - worked out once for that moment and kept until the act's next
@@ -2008,6 +2015,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Freeze:
+                        // Cirno: the acts' bullets her freeze takes away burst into shards as it lets go (the rings' shards are the planner's: 2026-11-26)
+                        if (attacks.Exists(a => a.End > a.Start))
+                            registerStage(new ShardsAct(this, period, bosses));
+
+                        break;
+
                     case BossMechanic.Icosahedron:
                         // Nitori's icosahedron of beams in every attack, what it comes apart into, and her arcs
                         if (period.End > period.ShootStart && attacks.Exists(a => a.End > a.Start))
@@ -2081,7 +2095,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     case BossMechanic.Creation:
                         // Shinki: her wings, the streams that come out of them and where her beams start (that the beams are fired from her wings, straight, is the planner's)
                         if (period.End > period.ShootStart)
-                            registerStage(new CreationAct(this, period));
+                        {
+                            var creation = new CreationAct(this, period);
+                            registerStage(creation);
+                            creation.Pool = new ShotPool(this, period, period.ShootStart, period.End + Math.Max(period.BeatLength, 1) * DanmakusuBalance.LIFE_MOST_BEATS);
+                        }
 
                         break;
 
@@ -2197,6 +2215,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             var pinwheel = new PinwheelAct(period);
                             registerStage(pinwheel);
                             registerStage(new PinwheelArrowsAct(period, pinwheel));
+                            pinwheel.Pool = new ShotPool(this, period, period.ShootStart, period.End + Math.Max(period.BeatLength, 1) * 32);
                         }
 
                         break;
@@ -4087,7 +4106,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Where the boss shoots from at <paramref name="time"/>: the Sun, which turns round Hecatia in all her attacks; otherwise the boss herself.</summary>
         private Vector2 stageShotOrigin(double time, int rank = 0)
         {
-            Vector2 boss = bossPositionOf(rank);
+            Vector2 boss = shotPlaceOf(rank); // (a boss who stands in the middle: from where she goes - 2026-11-26)
 
             foreach (var act in worldsActs)
             {

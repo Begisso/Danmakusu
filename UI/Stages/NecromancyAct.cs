@@ -16,6 +16,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // screen (each one curling the other way from the last; legs every few px, so all of it is worked out when the bullet turns and known before it comes), and a train of its copies as long as it goes in YOSHIKA_TRAIN_BEATS
         // follows it end to end along the same legs, as the body of Aunn's beam follows its head. (Until then its copies stood where it left them for eight beats - since the curve, rings
         // of talismans standing all over the screen: the user's "why circles stopped".)
+        // Since 2026-11-26 ("talismans out of field live for 4 beats. Also return her echoing talismans mechanics, retain size") a returning talisman lives YOSHIKA_RETURN_LIFE_BEATS, and instead of the
+        // train it leaves its echoes again: copies as big as it is, standing where it left them, end to end from the wall, for YOSHIKA_ECHO_BEATS each (leaveEchoes).
         // ======================================================================================================================================================
 
         private sealed class NecromancyAct : StageAct
@@ -135,8 +137,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (speed < 1e-4f)
                     return false;
 
-                // (straight back the way it came, out of the screen: 2026-11-25, "remove spinning" - from 2026-11-22 it went round a big loop and a small one first, as Aunn's beams do)
-                double until = crossed + f.stageLife(velocity);
+                // (straight back the way it came: 2026-11-25, "remove spinning" - from 2026-11-22 it went round a big loop and a small one first, as Aunn's beams do. It lives YOSHIKA_RETURN_LIFE_BEATS
+                // since 2026-11-26, "talismans out of field live for 4 beats": until then until it had left the screen)
+                double until = Math.Min(crossed + f.stageLife(velocity), crossed + beat * DanmakusuBalance.YOSHIKA_RETURN_LIFE_BEATS);
                 b.Legs = new[] { new StageLeg { T = crossed, P = wall, V = velocity } };
                 b.AlphaFrom = until - DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
                 b.AlphaOver = DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
@@ -148,41 +151,59 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (Bullets.Count == index)
                     return false;
 
-                followTrain(f, b, speed, crossed);
+                leaveEchoes(f, b, wall, velocity, crossed, until);
                 return true;
             }
 
             /// <summary>
-            /// Yoshika's: the train behind a returning talisman (2026-11-22; it left copies standing on its way for eight beats, and its loops stood on the screen as rings): as long as it goes in YOSHIKA_TRAIN_BEATS, copies
-            /// one every talisman's length (end to end), each going along the very same legs a length later than the one before it, out of the wall where it came back - the body of a snake following its head, as Aunn's
-            /// beams do - and on out of the screen. The legs are shared (<see cref="StageBullet.LegsDelay"/>).
+            /// Yoshika's echoes (back since 2026-11-26, "return her echoing talismans mechanics, retain size"; 2026-11-13 to 2026-11-22, then a train that followed it): as it goes it leaves copies of itself
+            /// standing behind it, one every talisman's length (end to end, no gap), as big as it is, facing its way, each for YOSHIKA_ECHO_BEATS from when it was left (fading over YOSHIKA_ECHO_FADE_MS), from the
+            /// wall until it is gone or leaves the screen. All of them are known as it turns (it flies straight), so the autoplay sees them coming.
             /// </summary>
-            private void followTrain(BulletField f, StageBullet talisman, float speed, double crossed)
+            private void leaveEchoes(BulletField f, StageBullet talisman, Vector2 wall, Vector2 velocity, double crossed, double until)
             {
+                float speed = velocity.Length;
                 float length = talisman.Radius * DanmakusuBalance.TALISMAN_LENGTH_FACTOR * 2f; // (a talisman from end to end, along its way)
 
-                if (length < 0.5f)
+                if (length < 0.5f || speed < 1e-4f)
                     return;
 
-                int cars = Math.Clamp((int)Math.Round(speed * beat * DanmakusuBalance.YOSHIKA_TRAIN_BEATS / length), 0, 64);
+                Vector2 way = velocity / speed;
+                double lives = beat * DanmakusuBalance.YOSHIKA_ECHO_BEATS;
 
-                for (int k = 1; k <= cars; k++)
+                for (int k = 1; k <= 64; k++)
                 {
-                    double delay = k * length / speed;
+                    double left = crossed + k * length / speed;
 
-                    var car = talisman;
-                    car.LegsDelay = delay;
-                    car.T0 = crossed + delay;
-                    car.AlphaFrom = talisman.AlphaFrom + delay;
-                    car.Until = talisman.Until + delay;
+                    if (left >= until)
+                        break;
+
+                    Vector2 at = wall + way * (k * length);
+
+                    if (outside(f, at))
+                        break;
+
+                    var echo = talisman;
+                    echo.Legs = null;
+                    echo.LegsDelay = 0;
+                    echo.T0 = left;
+                    echo.P0 = at;
+                    echo.V = Vector2.Zero;
+                    echo.Face = way;
+                    echo.KeepFace = true;
+                    echo.Until = left + lives;
+                    echo.AlphaFrom = echo.Until - DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
+                    echo.AlphaOver = DanmakusuBalance.YOSHIKA_ECHO_FADE_MS;
 
                     int count = Bullets.Count;
-                    AddBullet(car);
+                    AddBullet(echo);
 
                     if (Bullets.Count == count)
                         break; // (the act is full)
                 }
             }
+
+            // (the train that followed it, 2026-11-22 to 2026-11-26 - copies going along the same legs a talisman's length after each other, StageBullet.LegsDelay - gave way to the echoes again)
         }
     }
 }

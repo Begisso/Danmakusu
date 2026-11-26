@@ -16,9 +16,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // turn; they fade in as her section begins and out as it ends. Every bullet that flies into one bounces off it (BossOps: TrajectoryOpKind.Rocks); they do not hurt.
         // The satellites: as each attack begins a satellite (the user's picture, RIKAKO_SATELLITE_CIRCLES circle radii across) comes in slowly from behind her, from out of the screen - on the line from the
         // player through her - and flies on that way, at RIKAKO_SATELLITE_SPEED circle radii a beat, straight, until it has left the screen on the other side; it fades in over two beats. It faces the
-        // player as it comes and turns to face the player again every RIKAKO_TURN_EVERY_BEATS (over as long: it changes its mind only then, "can only change direction every 4 beats"). Every
+        // player as it comes and is given the way to the player again every RIKAKO_TURN_EVERY_BEATS (it changes its mind only then, "can only change direction every 4 beats"); since 2026-11-26 it
+        // turns towards that way evenly, at RIKAKO_TURN_DEGREES_PER_BEAT (it eased over the four beats before). Every
         // RIKAKO_BEAM_EVERY_BEATS a big beam (RIKAKO_BEAM_CIRCLES circle radii to each side of its middle line) both ways out of it, ahead and behind, along the way it faces, turning with it: a see-through
-        // preview for RIKAKO_BEAM_PREVIEW_BEATS, then solid for RIKAKO_BEAM_ON_BEATS, with the Master Spark's sound and a shake (RIKAKO_SHAKE).
+        // preview for RIKAKO_BEAM_PREVIEW_BEATS, then solid for RIKAKO_BEAM_ON_BEATS, with the Master Spark's sound and a shake (RIKAKO_SHAKE). Since 2026-11-26 the beam is narrow where it leaves the
+        // satellite and widens as Marisa's spark does (RIKAKO_BEAM_ROOT, over RIKAKO_BEAM_GROW_CIRCLES), and the satellite is drawn over it (and over the bullets).
         // A square grid of beams (lines RIKAKO_GRID_CIRCLES circle radii apart) over the whole screen goes with every satellite, turned and moved with it: see-through (RIKAKO_GRID_ALPHA) and harmless.
         // Every RIKAKO_WAVE_EVERY_BEATS of its flight the satellite sends out a thick grey wave (RIKAKO_WAVE_CIRCLES circle radii, see-through), with Byakuren's beam sound, that runs out to past the
         // farthest corner of the screen in RIKAKO_WAVE_BEATS; under it the grid turns solid - softly at the wave's edges - and goes see-through again behind it. Solid, the grid and the beam hurt like a
@@ -48,6 +50,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private readonly List<Vector2> line = new List<Vector2>();
             private readonly List<float> fades = new List<float>();
+            private readonly List<float> beamWidths = new List<float>();
+            private readonly List<float> stops = new List<float>();
 
             public SpaceAct(BossPeriod period)
             {
@@ -206,30 +210,47 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Vector2 positionOf(BulletField f, Satellite s, double t) => s.From + s.Way * (speed(f) * (float)(t - s.Came));
 
-            /// <summary>Which way satellite <paramref name="s"/> faces at <paramref name="t"/> (radians): turning from one way it was given to the next over each stretch between turns.</summary>
+            /// <summary>
+            /// Which way satellite <paramref name="s"/> faces at <paramref name="t"/> (radians): from each turn on it turns towards the way it was given then, evenly, at RIKAKO_TURN_DEGREES_PER_BEAT, the
+            /// nearer way round, until it faces it or the next turn comes (2026-11-26, "spin speed halved and constant": it eased over the four beats from one way to the next before). After the last way
+            /// it has been given it goes on turning towards it.
+            /// </summary>
             private float facingOf(Satellite s, double t)
             {
                 if (s.Targets.Count == 0)
                     return MathF.Atan2(s.Way.Y, s.Way.X);
 
-                int n = (int)Math.Floor((t - s.Came) / turnMs);
+                float facing = s.Targets[0];
+                double rate = DanmakusuBalance.RIKAKO_TURN_DEGREES_PER_BEAT * Math.PI / 180.0 / beat;
 
-                if (n <= 0)
-                    return s.Targets[0];
+                for (int n = 1; n < s.Targets.Count; n++)
+                {
+                    double from = s.Came + n * turnMs;
 
-                if (n >= s.Targets.Count)
-                    return s.Targets[^1]; // (a turn not taken yet: as it faces after the last one)
+                    if (t <= from)
+                        break;
 
-                float from = s.Targets[n - 1], to = s.Targets[n];
-                float turn = to - from;
+                    double until = n == s.Targets.Count - 1 ? t : Math.Min(t, from + turnMs);
+                    float turn = s.Targets[n] - facing;
 
-                while (turn > MathF.PI)
-                    turn -= MathF.Tau;
+                    while (turn > MathF.PI)
+                        turn -= MathF.Tau;
 
-                while (turn < -MathF.PI)
-                    turn += MathF.Tau;
+                    while (turn < -MathF.PI)
+                        turn += MathF.Tau;
 
-                return from + turn * smoothStep((t - (s.Came + n * turnMs)) / turnMs);
+                    float most = (float)(rate * (until - from));
+                    facing += Math.Clamp(turn, -most, most);
+                }
+
+                return facing;
+            }
+
+            /// <summary>How wide the beam is (of its whole half width) this far from the satellite along it: from RIKAKO_BEAM_ROOT at it, widening ever more slowly, to all of it RIKAKO_BEAM_GROW_CIRCLES out.</summary>
+            private float beamWidthAt(BulletField f, float along)
+            {
+                float x = Math.Clamp(MathF.Abs(along) / (f.circleRadius * DanmakusuBalance.RIKAKO_BEAM_GROW_CIRCLES), 0f, 1f);
+                return DanmakusuBalance.RIKAKO_BEAM_ROOT + (1f - DanmakusuBalance.RIKAKO_BEAM_ROOT) * (1f - (1f - x) * (1f - x));
             }
 
             /// <summary>How much of satellite <paramref name="s"/> is seen at <paramref name="t"/>: it fades in over two beats as it comes, and out over the last beat before it is gone.</summary>
@@ -374,7 +395,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 at = positionOf(f, s, t);
                     float size = satelliteSize(f);
                     float degrees = facingOf(s, t) * 180f / MathF.PI - StageLayer.SATELLITE_FORWARD_DEGREES;
-                    f.stageBack.Add(StageTexture.RikakoSatellite, at, new Vector2(size, size * StageLayer.SATELLITE_ASPECT), degrees, shown, Color4.White);
+                    f.stageFront.Add(StageTexture.RikakoSatellite, at, new Vector2(size, size * StageLayer.SATELLITE_ASPECT), degrees, shown, Color4.White); // (over its beam: 2026-11-26)
 
                     for (int w = Math.Max(1, (int)Math.Floor((t - s.Came - runs) / every)); s.Came + w * every <= t; w++)
                     {
@@ -489,13 +510,50 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (alpha < 0.01f || !clip(f, at, u, half + 4f, out float back, out float ahead))
                         continue;
 
+                    // (one seamless line from the far end behind it, through it, to the far end ahead: narrow where it leaves the satellite, widening as Marisa's spark does - 2026-11-26)
+                    float width = beam == 2 ? half : half * 0.7f;
+                    float grow = f.circleRadius * DanmakusuBalance.RIKAKO_BEAM_GROW_CIRCLES;
                     line.Clear();
                     fades.Clear();
-                    line.Add(at + u * back);
-                    line.Add(at + u * ahead);
-                    fades.Add(alpha);
-                    fades.Add(alpha);
-                    f.addPlainBeam(line, beam == 2 ? half : half * 0.7f, new Color4(1f, 0.97f, 0.9f, 1f), DanmakusuBalance.BorderColour(new Color4(0.55f, 0.35f, 0.85f, 1f)), ref beams, ref pointTotal, null, fades,
+                    beamWidths.Clear();
+
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        float end = side < 0 ? back : ahead;
+
+                        if (side * end <= 0f)
+                            continue; // (the satellite is past the edge on this side)
+
+                        // (from the far end in towards the satellite on the side behind, out from it on the side ahead; the growing part in short steps)
+                        stops.Clear();
+                        stops.Add(end);
+
+                        for (int k = 8; k >= 0; k--)
+                        {
+                            float d = grow * k / 8f;
+
+                            if (d < MathF.Abs(end))
+                                stops.Add(side * d);
+                        }
+
+                        if (side > 0)
+                            stops.Reverse();
+
+                        foreach (float d in stops)
+                        {
+                            if (side > 0 && line.Count > 0 && d == 0f)
+                                continue; // (the satellite's own point is there already)
+
+                            line.Add(at + u * d);
+                            fades.Add(alpha);
+                            beamWidths.Add(width * beamWidthAt(f, d));
+                        }
+                    }
+
+                    if (line.Count < 2)
+                        continue;
+
+                    f.addPlainBeam(line, width, new Color4(1f, 0.97f, 0.9f, 1f), DanmakusuBalance.BorderColour(new Color4(0.55f, 0.35f, 0.85f, 1f)), ref beams, ref pointTotal, beamWidths, fades,
                         bloom: beam == 2 ? 0.5f : 0f);
                 }
             }
@@ -510,7 +568,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float room = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
                 float gap = f.circleRadius * DanmakusuBalance.RIKAKO_GRID_CIRCLES;
                 float gridReach = gridHalf(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + room;
-                float beamReach = beamHalf(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + room;
 
                 foreach (var s in satellites)
                 {
@@ -523,8 +580,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 local = player - at;
                     float lu = Vector2.Dot(local, u), lv = local.X * -u.Y + local.Y * u.X;
 
-                    // (the beam: the whole line through it)
-                    if (beamAt(s, now, out double into) == 2 && into < beat * (DanmakusuBalance.RIKAKO_BEAM_ON_BEATS - 0.25) && MathF.Abs(lv) <= beamReach)
+                    // (the beam: the whole line through it, narrower near it)
+                    if (beamAt(s, now, out double into) == 2 && into < beat * (DanmakusuBalance.RIKAKO_BEAM_ON_BEATS - 0.25)
+                        && MathF.Abs(lv) <= beamHalf(f) * beamWidthAt(f, lu) * DanmakusuBalance.BULLET_HITBOX_SCALE + room)
                         return true;
 
                     // (the grid, where a wave is over the player)

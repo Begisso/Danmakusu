@@ -1042,6 +1042,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     case TrajectoryOpKind.TurnBack:
                     {
+                        // (Kanako: what a boss shoots in her section looks so until it turns round - red, 2026-11-26)
+                        if (op.During != null)
+                            look = op.During;
+
                         // (Kanako: min and max are the screen less the thing, so the screen and as much more as the thing is lies as far out again)
                         if (op.GlassMax.X <= op.GlassMin.X)
                             break; // (the screen is not known yet)

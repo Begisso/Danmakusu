@@ -14,6 +14,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // beam renderer, all together, so they are one piece of wood); the screen shakes a little (1..2 px) while the tree grows. In every attack sakura flowers (five pink ellipses in a star, with a bloom; the bullets round them
         // are darkened) grow on it; when the attack ends their petals fly away as pink petal bullets, and the next attack grows new ones. When she goes the tree grows backwards until it is gone. The wood and the petals hurt
         // like a slider body. Everything that leaves the top of the screen meanwhile turns into purple petals and falls (see BossOps).
+        // A bullet that leaves the bottom grows a flower only in her attacks since 2026-11-26 (one that left in a pause counted for the next attack).
         // ======================================================================================================================================================
 
         private sealed class TreeAct : StageAct
@@ -532,17 +533,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 int attack = activeAttack(t);
 
-                // (one that goes out in a pause counts for the next attack, from when that starts: it does not wait for it outside the screen)
+                // (only in her attacks since 2026-11-26, "flower gathering is forever enabled": one that went out in a pause counted for the next attack from 2026-11-01 on, so the tree gathered all the time)
                 if (attack < 0)
-                {
-                    for (int j = attacks.Count - 1; j >= 0 && attacks[j].Start > t; j--)
-                        attack = j;
-
-                    if (attack < 0)
-                        return;
-
-                    t = attacks[attack].Start;
-                }
+                    return;
 
                 // (only part of the bullets bring a flower)
                 // (a ring can have far more than 64 bullets: the number of a bullet is the whole of the low part of its key, so two bullets never share one and one of them is never left without its flower)

@@ -230,6 +230,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The bullets' and beams' ops (see <see cref="BossOps"/>); the ones that mirror or send to a point are kept at the centre of the screen.</summary>
         private readonly TrajectoryOp[] bulletOps;
 
+        /// <summary>(the beams' ops: those that are not the bullets' too need the screen of their own - Kanako's turn of the beams, 2026-11-26)</summary>
+        private readonly TrajectoryOp[] beamOpsKept;
+
         /// <summary>The attacks of Remilia (start, end): bullets and background turn red during each.</summary>
         private readonly (double Start, double End)[] remiliaWindows;
         private readonly (double Start, double End)[] stampedeWindows;
@@ -318,6 +321,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // what the bosses' mechanics do to the bullets and beams that are flying: Seija's bounce, Cirno's freeze, Yukari's pause, Sakuya's time stop (see BossOps)
             BossOps.Build(bosses, out bulletOps, out var laserOps);
+            beamOpsKept = laserOps;
 
             if (bulletOps.Length > 0)
             {
@@ -886,7 +890,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         : Enumerable.Empty<StageTexture>())
                     // (Rikako's Earth, satellite and asteroids, only when she is on the map: the Earth is a big picture)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Space)
-                        ? new[] { StageTexture.RikakoEarth, StageTexture.RikakoSatellite }.Concat(Enumerable.Range(0, 14).Select(rock => StageTexture.RikakoRock0 + rock))
+                        ? new[] { StageTexture.RikakoEarth }.Concat(Enumerable.Range(0, 14).Select(rock => StageTexture.RikakoRock0 + rock))
                         : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
@@ -908,9 +912,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 stageBulletsUnder = new StageLayer(96, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (the balls Mokou throws in a break and in a spinner: above the bullets and above her)
                 stageBullets = new StageLayer(96, false, StageTexture.Orb, StageTexture.OrbGlow, StageTexture.Glow) { Grows = true }, // (Mokou's big circles: above the bullets and above her, over the balls she throws)
                 stageBats = new StageLayer(512, false, StageTexture.Bat0, StageTexture.Bat1, StageTexture.Bat2, StageTexture.Bat3, StageTexture.Bat4, StageTexture.Bat5, StageTexture.Bat6, StageTexture.Bat7, StageTexture.Butterfly) { Grows = true }, // (Koakuma's bats: above the bullets)
-                stageFront = new StageLayer(160, false, StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
+                stageFront = new StageLayer(160, false, new[] { StageTexture.Earth, StageTexture.Moon, StageTexture.Sun, StageTexture.Ufo, StageTexture.Glow, StageTexture.YinYang, StageTexture.ByakurenStar, StageTexture.ByakurenStarGlow, StageTexture.BigStar,
                     StageTexture.SekibankiHead0, StageTexture.SekibankiHead1, StageTexture.SekibankiHead2, StageTexture.SekibankiHead3, StageTexture.SekibankiHead4, StageTexture.SekibankiHead5,
-                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo, StageTexture.PhotoFrame, StageTexture.PhotoGlass) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames)
+                    StageTexture.SekibankiHead6, StageTexture.SekibankiHead7, StageTexture.SekibankiHead8, StageTexture.SekibankiHead9, StageTexture.SekibankiHead10, StageTexture.SekibankiHead11, StageTexture.CatFace, StageTexture.Fumo, StageTexture.BossCircleWhite, StageTexture.RumiaFumo, StageTexture.PhotoFrame, StageTexture.PhotoGlass }
+                    // (Rikako's satellite, over its beam: 2026-11-26, only when she is on the map)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Space) ? new[] { StageTexture.RikakoSatellite } : Enumerable.Empty<StageTexture>())
+                    // (Noroiko's 呪, the same day)
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Curse) ? new[] { StageTexture.CurseGlyph } : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames, Rikako's satellites, Noroiko's curses)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
                 bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
@@ -1537,6 +1545,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             bossWanted = holdStill(currentBoss, now, bossWanted, 0);
             bossWanted2 = holdStill(secondBoss, now, bossWanted2, 1);
             bossWanted3 = holdStill(thirdBoss, now, bossWanted3, 2);
+
+            // (a boss who stands in the middle shoots from where she goes, not from where she glides from: 2026-11-26, "central bosses perform their first initial attack out of centre" - as she takes
+            // her place from the boss before her the first shots came out of where that one stood)
+            noteShotPlace(0, currentBoss, now, bossWanted);
+            noteShotPlace(1, secondBoss, now, bossWanted2);
+            noteShotPlace(2, thirdBoss, now, bossWanted3);
             if (currentBoss != null && chenThrows.Length > 0 && chenPosition(currentBoss, now, out Vector2 chen))
             {
                 // Chen is thrown: she is wherever her flight (and her stillness in the pauses) puts her, with no gliding
@@ -2282,7 +2296,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 var laser = lasers[nextLaserAim++];
 
                 if (laser.FollowsBoss)
-                    laser.Origin = bossPositionOf(laser.BossRank) + laser.BossOffset;
+                    laser.Origin = shotPlaceOf(laser.BossRank) + laser.BossOffset; // (a boss who stands in the middle: from where she goes - 2026-11-26)
 
                 // (osu!catch: a stream's beams come out of a wall of the screen, where the window has it now)
                 if (laser.WallSide != 0)
@@ -2736,6 +2750,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         op.Point = middle;
                 }
                 else if (op.Kind is TrajectoryOpKind.Glass or TrajectoryOpKind.TurnBack)
+                {
+                    op.GlassMin = newMin;
+                    op.GlassMax = newMax;
+                }
+            }
+
+            // (a turn of the beams that is not the bullets' own: Kanako's since 2026-11-26)
+            foreach (var op in beamOpsKept)
+            {
+                if (op.Kind == TrajectoryOpKind.TurnBack)
                 {
                     op.GlassMin = newMin;
                     op.GlassMax = newMax;

@@ -1981,22 +1981,23 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             // Iku Nagae (2026-11-24): every IKU_RING_EVERY_BEATS a ring of IKU_RING_BULLETS basic bullets, IKU_BULLET_SIZE times as big, that curl round where they were fired (all one way, IKU_CURL times as fast
             // round as out: a spiral) at a plain bullet's speed along it; every bullet leaves a narrow beam behind it (ThunderAct). That every five of a ring are tied is seen to at the end of Plan.
+            // (2026-11-26, her rework: "All osu objects and sliders including her too - shoots ring of 5 bullets, but they are all connected with straight laserbeams forming a star": her rings are of
+            // IKU_STAR_POINTS bullets flying straight out, every next one half a gap further round; that they are stars is seen to at the end of Plan, with everything fired in her section. Until then
+            // they were rings of IKU_RING_BULLETS curling round where they were fired, every bullet leaving a narrow beam behind it)
             void addIkuRings(Vector2 origin, double startTime, double endTime, double beatMs)
             {
-                float curl = DanmakusuBalance.IKU_CURL;
+                int points = DanmakusuBalance.IKU_STAR_POINTS;
                 int shot = 0;
 
                 for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.IKU_RING_EVERY_BEATS, shot++)
                 {
-                    float phase = shot * MathF.PI / DanmakusuBalance.IKU_RING_BULLETS; // (every next ring half a gap further round)
-                    var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.IKU_RING_BULLETS, phase, out _);
-                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t) / MathF.Sqrt(1f + curl * curl), directions, 0, radius * DanmakusuBalance.IKU_BULLET_SIZE, BulletShape.Circle,
+                    float phase = shot * MathF.PI / points; // (every next ring half a gap further round)
+                    var directions = RingLayout.Create(RingShape.Circle, points, phase, out _);
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, radius * DanmakusuBalance.IKU_BULLET_SIZE, BulletShape.Circle,
                         followsBoss: true, straight: true);
                     ring.Layout = RingShape.Circle;
                     ring.LayoutPhase = phase;
-                    ring.Curl = curl;
-                    ring.CurlsTogether = true;
-                    ring.LeavesTrace = true;
+                    ring.KeepCount = true; // (five with another boss on the screen too: a star)
                     ring.OwnShot = true;
                     emitters.Add(ring);
                 }
@@ -2853,6 +2854,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     BossMechanic.Purification or BossMechanic.Frog => beatmap.HitObjects.OfType<Slider>().Any(s => s.StartTime >= attackStart && s.StartTime < end) ? BulletShape.Circle : BulletShape.Slice,
                     BossMechanic.Kasha => BulletShape.Circle, // Rin's round bullets
                     BossMechanic.Patrol => BulletShape.Circle, // Momiji's too
+                    BossMechanic.Hare => BulletShape.Ellipse, // Tewi's rings of ellipses, twice as often (2026-11-26: TEWI_OWN_INTERVAL, below)
 
                     _ => BulletShape.SoftStar,
                 };
@@ -3023,7 +3025,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         bool hearts = boss.Mechanic == BossMechanic.Unconscious || boss.Mechanic == BossMechanic.Recollection;
                         starSizeBoost = hearts ? DanmakusuBalance.KOISHI_HEART_SIZE_FACTOR : boss.Mechanic == BossMechanic.TimeStop ? DanmakusuBalance.SAKUYA_KNIFE_SIZE_FACTOR : boss.Mechanic == BossMechanic.Volley ? DanmakusuBalance.SEIRAN_SIZE_FACTOR : boss.Mechanic == BossMechanic.Tide ? DanmakusuBalance.WAKASAGI_STAR_SIZE : 1f;
                         bossStraight = boss.Mechanic == BossMechanic.Freeze || boss.Mechanic == BossMechanic.Winter || boss.Mechanic == BossMechanic.Volley || boss.Mechanic == BossMechanic.Dowsing;
-                        double sparse = hearts ? DanmakusuBalance.KOISHI_HEART_INTERVAL_FACTOR : boss.Mechanic == BossMechanic.Tide ? DanmakusuBalance.WAKASAGI_STAR_INTERVAL : boss.Mechanic == BossMechanic.Fortune ? DanmakusuBalance.JOON_OWN_INTERVAL : 1; // (Wakasagihime's stars are small and come twice as often)
+                        double sparse = hearts ? DanmakusuBalance.KOISHI_HEART_INTERVAL_FACTOR : boss.Mechanic == BossMechanic.Tide ? DanmakusuBalance.WAKASAGI_STAR_INTERVAL : boss.Mechanic == BossMechanic.Fortune ? DanmakusuBalance.JOON_OWN_INTERVAL
+                            : boss.Mechanic == BossMechanic.Hare ? DanmakusuBalance.TEWI_OWN_INTERVAL : 1; // (Wakasagihime's stars are small and come twice as often; Tewi's rings too, 2026-11-26)
 
                         // Yukari's own bullets: half as many, half as often (Kyouko's are her own, see addKyoukoRings)
                         if (boss.Mechanic == BossMechanic.Gaps)
@@ -3782,8 +3785,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             {
                                 var beam = laserList[k];
 
+                                // (since 2026-11-26, "she keeps ignoring laserbeams that were already spawned before her", also one that began before her section and is still being fired as it begins:
+                                // it spins from when it has all been fired, if that is in her section - those were left alone, neither held nor spun)
+                                double spinsFrom = Math.Max(period.ShootStart, beam.EndTime);
+
                                 if (beam.SpinnerLike || beam.Rotates || beam.HoldUntil > 0 || beam.SelfSpin != 0f || beam.SpinFrom > 0 || beam.BallPositions.Length < 2 || beam.StartTime >= period.ShootStart - 1
-                                    || beam.EndTime > period.ShootStart || beam.EndTime + beam.Lifetime <= period.ShootStart)
+                                    || spinsFrom >= period.End || beam.EndTime + beam.Lifetime <= spinsFrom)
                                     continue;
 
                                 float extent = 0f;
@@ -3794,7 +3801,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 if (extent < 2f)
                                     continue;
 
-                                laserList[k] = beam.SpunFrom(period.ShootStart, (held++ % 2 == 0 ? 1f : -1f) * spin);
+                                laserList[k] = beam.SpunFrom(spinsFrom, (held++ % 2 == 0 ? 1f : -1f) * spin);
                             }
 
                             break;
@@ -4097,11 +4104,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 if (colour != DanmakusuBalance.DOREMY_COPY_COLOUR || copied is not (HitCircle or Slider))
                                     continue;
 
-                                double at = copied.GetEndTime();
-                                Vector2 from = copied is Slider endsAt ? endsAt.StackedEndPosition : copied.StackedPosition;
+                                // (since 2026-11-26, "5 dots on clones when come out should preserve their color and gradient and come out exactly from their positions": out of the very places the
+                                // dots sat in - a slider's from its head, as its head is hit and they go, not from its end - and as big as they were)
+                                double at = copied.StartTime;
+                                Vector2 from = copied.StackedPosition;
                                 var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.DOREMY_DOTS, -MathF.PI / 2f, out _);
-                                var dots = createEmitter(at, from, DanmakusuBalance.BulletRadius(difficulty.CircleSize) * DanmakusuBalance.DOREMY_DOT_SPREAD, speedAt(at), directions, copied.ComboIndexWithOffsets, radius,
-                                    BulletShape.Circle, straight: true);
+                                var dots = createEmitter(at, from, DanmakusuBalance.BulletRadius(difficulty.CircleSize) * DanmakusuBalance.DOREMY_DOT_SPREAD, speedAt(at), directions, copied.ComboIndexWithOffsets,
+                                    DanmakusuBalance.BulletRadius(difficulty.CircleSize), BulletShape.Circle, straight: true);
                                 dots.Tint = UI.BulletRenderer.TINT_WHITE;
                                 dots.KeepCount = true;
                                 copies.Add(dots);
@@ -4768,7 +4777,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 // (they burst when the freeze lets go: with Kokoro's fall that may be when it begins - see BossOps.UnfreezeAt)
                                 double end = BossOps.UnfreezeAt(bossList, period, start, attackEnd).End;
                                 // (Utsuho's big balls cannot be destroyed: they are frozen too, but do not burst)
-                                var parents = emitters.Where(ring => !ring.Derived && ring.Derive == DeriveKind.None && !ring.Sharp && ring.Time < start && ring.Time + Math.Min(ring.Lifetime, 15000) > start).ToList();
+                                // (since 2026-11-26, "not all frozen bullets explode to shards": every ring that still lives as the freeze comes - one fired more than 15 s before was left out, and so was
+                                // every ring made out of others, though they freeze and are gone when it lets go - but not what burst out of an earlier freeze, which is not frozen; the bullets of the
+                                // acts burst in ShardsAct)
+                                var parents = emitters.Where(ring => ring.Derive != DeriveKind.Explode && !ring.Sharp && ring.Count > 0 && ring.Time < start && ring.Time + ring.Lifetime > start).ToList();
 
                                 foreach (var parent in parents)
                                 {
@@ -5557,20 +5569,32 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
-            // Iku (2026-11-24): in her sections every IKU_TETHER_GROUP neighbouring bullets of a ring (anyone's; not one that ricochets, homes or is made out of others) are tied together: none gets further than
-            // half of IKU_TETHER_CIRCLES osu! circles from the middle one of its group (BulletEmitter.Evaluate); ThunderAct draws the beams between them. They leave the screen that much later.
+            // Iku (2026-11-26, her rework: "All osu objects and sliders including her too - shoots ring of 5 bullets, but they are all connected with straight laserbeams forming a star. Half of the stars are
+            // harmless at start for 4 beats, others are harmful, interchanging every 4 beats"): every ring fired in her sections (anyone's: the circles', the sliders', hers; not one that ricochets, homes, is
+            // made out of others, a train or a big sharp ball, nor one whose outline is not known) is IKU_STAR_POINTS bullets, as a circle, joined as a star by ThunderAct; every second one starts harmful.
+            // (From 2026-11-24 every five neighbouring bullets of a ring - every second one - were tied together, no further apart than IKU_TETHER_CIRCLES osu! circles.)
             {
-                float reach = DanmakusuBalance.OsuCircleRadius(difficulty.CircleSize) * 2f * DanmakusuBalance.IKU_TETHER_CIRCLES;
+                int counted = 0;
 
                 foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Thunder))
                 {
-                    foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && !r.Derived && r.Derive == DeriveKind.None && !r.Ricochet && !r.Homing
-                                                             && r.Shape != BulletShape.Train && r.Count >= (DanmakusuBalance.IKU_TETHER_GROUP - 1) * DanmakusuBalance.IKU_EVERY + 1 && r.TetherGroup == 0))
+                    for (int i = 0; i < emitters.Count; i++)
                     {
-                        ring.TetherGroup = DanmakusuBalance.IKU_TETHER_GROUP;
-                        ring.TetherStride = DanmakusuBalance.IKU_EVERY; // (every second bullet: 2026-11-24)
-                        ring.TetherReach = reach;
-                        ring.Lifetime += reach * 0.5f / Math.Max(ring.Speed, 1e-3f);
+                        var ring = emitters[i];
+
+                        if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.Derived || ring.Derive != DeriveKind.None || ring.Ricochet || ring.Homing || ring.Sharp
+                            || ring.Shape == BulletShape.Train || ring.Count == 0 || ring.Layout == null || ring.StarLinked)
+                            continue;
+
+                        var star = ring.Count == DanmakusuBalance.IKU_STAR_POINTS && ring.Layout == RingShape.Circle ? ring : ring.RebuiltAs(RingShape.Circle, DanmakusuBalance.IKU_STAR_POINTS, 0f);
+
+                        if (star.Count != DanmakusuBalance.IKU_STAR_POINTS)
+                            continue;
+
+                        star.StarLinked = true;
+                        star.StarPhase = counted++ % 2;
+                        star.KeepCount = true;
+                        emitters[i] = star;
                     }
                 }
             }

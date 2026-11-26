@@ -380,6 +380,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         RikakoRock11,
         RikakoRock12,
         RikakoRock13,
+
+        /// <summary>Noroiko's 呪 (Resources/Textures/noroiko_curse.png, white, baked from the user's picture by Tools/Bake glyph: 2026-11-26).</summary>
+        CurseGlyph,
     }
 
     /// <summary>
@@ -639,6 +642,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.RikakoEarth => BossCharacter.LoadResource(renderer, "Textures.rikako_earth.jpg"),
                     StageTexture.RikakoSatellite => BossCharacter.LoadResource(renderer, "Textures.rikako_satellite.png"),
                     >= StageTexture.RikakoRock0 and <= StageTexture.RikakoRock13 => BossCharacter.LoadResource(renderer, $"Textures.rikako_rock_{kind - StageTexture.RikakoRock0}.png"),
+                    StageTexture.CurseGlyph => BossCharacter.LoadResource(renderer, "Textures.noroiko_curse.png"),
                     _ => null,
                 };
             }

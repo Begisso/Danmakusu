@@ -16,6 +16,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // flies straight on out; every NARUMI_RING_EVERY_BEATS of its homing it shoots a ring of NARUMI_RING_BULLETS basic bullets, which start at her half speed too and get theirs back from her waves.
         // (2026-11-24: the bullets start at a quarter of their speed, a wave every four beats, twice as fast, and what it goes over flies at NARUMI_BOOST times its own speed - its own before. 2026-11-25,
         // "initial bullets speed 0.25x, wave speed buff 2x": what a wave goes over flies NARUMI_BOOST times as fast as it was flying - half its own speed.)
+        // (2026-11-26, "Narumi waves are not working at all. Let her affect all bullets that already were spawned too": a wave takes every ring's bullet it goes over - fired in her section or before it,
+        // whatever ops act on it - and it flies on from there as a bullet of this act, the way it went, NARUMI_BOOST times as fast as it was flying. It pushed only the rings fired in her section that
+        // could be pushed, and no ring that a boss's op acts on can be: with other bosses on the map, nearly none.)
         // Where a ball goes depends on where the player has been: it is followed step by step (NARUMI_STEP_MS) and kept; going back in time takes the steps back. Where a wave starts is taken when it is sent.
         // ======================================================================================================================================================
 
@@ -37,7 +40,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly bool[] known;
             private readonly double[] throwTimes;
             private readonly List<Ball> balls = new List<Ball>();
-            private readonly Dictionary<(BulletEmitter, int), double> restored = new Dictionary<(BulletEmitter, int), double>();
             private readonly List<int> own = new List<int>(); // (the bullets of the balls' rings in Bullets: they get their speed back here)
 
             public StatueAct(BulletField f, BossPeriod period)
@@ -85,16 +87,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         known[k] = false;
                 }
 
-                var gone = new List<(BulletEmitter, int)>();
-
-                foreach (var (key, at) in restored)
-                {
-                    if (at > time)
-                        gone.Add(key);
-                }
-
-                foreach (var key in gone)
-                    restored.Remove(key);
+                // (what the waves took is taken again as the rings are looked at again from when they were fired)
 
                 // (back to the step at the time gone back to; its bullet and its rings are made again)
                 balls.RemoveAll(b => b.T > time);
@@ -336,17 +329,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return true;
             }
 
-            /// <summary>A bullet of the rings fired in her section that a wave goes over gets its own speed back, flying on the way it went (once).</summary>
-            public override bool Pushes(BulletField f, double t, Vector2 from, Vector2 to, BulletEmitter emitter, int bullet, out Vector2 position, out Vector2 direction, out float speed)
+            /// <summary>
+            /// A bullet of any ring that a wave goes over - fired in her section or before it - flies on the way it went at NARUMI_BOOST times the speed it had (once). Since 2026-11-26 ("Narumi waves are
+            /// not working at all. Let her affect all bullets that already were spawned too") it is taken from its ring and flies on as a bullet of this act: until then the wave pushed only the rings
+            /// fired in her section, and only those that could be pushed - not one that any boss's op acts on, which with other bosses on the map was nearly every one.
+            /// </summary>
+            public override bool Takes(BulletField f, double t, Vector2 from, Vector2 to, BulletEmitter emitter, int bullet)
             {
-                position = to;
-                direction = Vector2.UnitX;
-                speed = 0f;
-
-                if (f.failed || !emitter.WaveRestores || !emitter.CanBeDeflected || restored.ContainsKey((emitter, bullet)))
+                if (f.failed || emitter.Shape == BulletShape.Train || emitter.Homing || emitter.Falling)
                     return false;
 
                 double before = Math.Min(ScanPrevious, t);
+                float reach = Vector2.Distance(f.stageMin, f.stageMax) + 50f;
 
                 for (int k = 0; k < waves.Length && waves[k] <= t; k++)
                 {
@@ -356,17 +350,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float now = waveSpeed * (float)(t - waves[k]);
                     float then = waveSpeed * (float)Math.Max(before - waves[k], 0);
 
-                    if (now > Vector2.Distance(f.stageMin, f.stageMax) + 50f)
+                    if (now > reach)
                         continue; // (long gone)
 
                     if (Vector2.Distance(to, centres[k]) > now || Vector2.Distance(from, centres[k]) <= then)
                         continue; // (not gone over in this step)
 
+                    var stored = f.makeStored(emitter, t);
+                    float speed = seenSpeed(stored, emitter, from, to, ScanPrevious, t);
+
+                    if (speed < 1e-4f)
+                        return false; // (it stands still: something holds it)
+
                     Vector2 way = to - from;
-                    direction = way.LengthSquared > 1e-8f ? Vector2.Normalize(way) : emitter.Directions[bullet].LengthSquared > 1e-8f ? Vector2.Normalize(emitter.Directions[bullet]) : Vector2.UnitX;
-                    speed = emitter.SpeedOf(bullet) * DanmakusuBalance.NARUMI_BOOST; // (twice the speed it has, a quarter of its own: half of its own - 2026-11-25; twice its own on 2026-11-24)
-                    restored[(emitter, bullet)] = t;
-                    return true;
+                    Vector2 direction = way.LengthSquared > 1e-8f ? Vector2.Normalize(way) : emitter.Directions[bullet].LengthSquared > 1e-8f ? Vector2.Normalize(emitter.Directions[bullet]) : Vector2.UnitX;
+                    var again = f.makeStageBullet(stored, emitter, bullet, t, to, direction * speed * DanmakusuBalance.NARUMI_BOOST); // (twice the speed it has: 2026-11-25)
+
+                    int count = Bullets.Count;
+                    AddBullet(again);
+                    return Bullets.Count > count;
                 }
 
                 return false;

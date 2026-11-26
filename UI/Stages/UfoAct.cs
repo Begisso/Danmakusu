@@ -16,6 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // UFOs took in (it is shared out evenly between them), turning 60 degrees to its even angle (straight out) over the first half of the shooting and shooting straight out for the rest. The turning goes the same way for both phases of an attack and the other way in the next attack (also when that is in the next section).
         // While the UFOs pull and shoot the playfield shakes and the place round them is darkened; the shot bullets glow. Bullets are pulled into, and shot out of, points spread evenly over the whole
         // start of the cone (the UFO's width). Each bullet flies straight on in the direction it was shot in. Going back in time does not reset any of the UFOs' phases.
+        // Since 2026-11-26, for NUE_PREVIEW_BEATS before they are sent, see-through UFOs (NUE_PREVIEW_ALPHA) with faint cones stand where they will land, until the real ones land on them.
         // ======================================================================================================================================================
 
         private sealed class UfoAct : StageAct
@@ -430,14 +431,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Draw(BulletField f, double t)
             {
-                if (t < Start)
-                    return;
-
                 float baseWidth = width(f);
                 float length = DanmakusuBalance.NUE_CONE_LENGTH * f.circleRadius;
                 float tangent = MathF.Tan(halfAngle);
                 float apex = baseWidth * 0.5f / tangent;
                 float total = apex + length;
+
+                // (2026-11-26, "warn about UFOs spawn with previews": for NUE_PREVIEW_BEATS before they are sent, and until they land, see-through UFOs stand where they will land, their cones faint,
+                // fading in, and out as the real ones land on them)
+                double previewFrom = Start - Beat * DanmakusuBalance.NUE_PREVIEW_BEATS;
+
+                if (t >= previewFrom && t < landed && !f.failed)
+                {
+                    float ghost = DanmakusuBalance.NUE_PREVIEW_ALPHA * smoothStep((t - previewFrom) / Math.Max(Beat * 0.5, 1)) * smoothStep((landed - t) / 150.0);
+
+                    for (int k = 0; k < Count && ghost > 0.002f; k++)
+                    {
+                        Vector2 p = pullPlace(f, k, landed);
+                        float facing = pullAim(f, k, landed);
+                        Vector2 axis = new Vector2(MathF.Cos(facing), MathF.Sin(facing));
+
+                        f.stageFront.Add(StageTexture.Ufo, p, new Vector2(baseWidth, baseWidth * 132f / 256f), facing * 180f / MathF.PI - 90f, ghost, ufo_colours[k % ufo_colours.Length]);
+                        f.stageBack.Add(StageTexture.Cone, p - axis * apex + axis * (total * 0.5f), new Vector2(total, 2f * total * tangent), facing * 180f / MathF.PI,
+                            DanmakusuBalance.NUE_CONE_ALPHA * DanmakusuBalance.NUE_CONE_WARN_SHARE * ghost / DanmakusuBalance.NUE_PREVIEW_ALPHA, new Color4(0.8f, 0.95f, 1f, 1f));
+                    }
+                }
+
+                if (t < Start)
+                    return;
+
                 float alpha = alphaOf(t);
 
                 if (alpha <= 0.002f)

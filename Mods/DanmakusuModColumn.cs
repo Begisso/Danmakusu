@@ -54,8 +54,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         private bool panelMoved;
         private float osuPanelWidth = 400;
 
-        /// <summary>(how wide the panel is over this column: four boss tiles of the picker's own width, 168, and the panel's room round them)</summary>
-        private const float panel_width = 760;
+        /// <summary>(how wide the panel is over this column: 760 until 2026-11-26, four boss tiles of the picker's own width, 168, and the panel's room round them; then "should be longer to the right")</summary>
+        private const float panel_width = 1100;
 
         protected override void UpdateAfterChildren()
         {

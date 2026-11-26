@@ -342,6 +342,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Where the boss with this <see cref="BossPeriod.Rank"/> is (his shots come from it): what a boss's mechanic hangs on is its own boss.</summary>
         private Vector2 bossPositionOf(int rank) => rank == 2 ? bossPosition3 : rank == 1 ? bossPosition2 : bossPosition;
 
+        // (where a boss who stands in the middle - a spinner's, or one whose mechanic keeps her there - is going, rank by rank, this frame; NaN when the boss there does not stand in the middle)
+        private readonly Vector2[] centralShotPlace = { new Vector2(float.NaN), new Vector2(float.NaN), new Vector2(float.NaN) };
+
+        /// <summary>Notes where the boss of <paramref name="rank"/> goes when she stands in the middle (and no act or throw puts her somewhere): her shots come from there (2026-11-26).</summary>
+        private void noteShotPlace(int rank, BossPeriod? period, double now, Vector2 wanted)
+        {
+            bool central = period != null && (period.Kind == BossKind.Spinner || bossAtCentre(period, now))
+                           && !(stageActs.Count > 0 && stageBossPosition(period, now, out _)) && !(chenThrows.Length > 0 && chenPosition(period, now, out _));
+            centralShotPlace[rank] = central ? wanted : new Vector2(float.NaN);
+        }
+
+        /// <summary>Where the shots of the boss of <paramref name="rank"/> come from: where she is, or where she goes if she stands in the middle (2026-11-26: as she took her place her first shots came from the boss before her).</summary>
+        private Vector2 shotPlaceOf(int rank) => float.IsNaN(centralShotPlace[rank].X) ? bossPositionOf(rank) : centralShotPlace[rank];
+
+        /// <summary>As <see cref="shotPlaceOf(int)"/> for the boss of <paramref name="period"/> (a boss who has left shoots from where she lingers).</summary>
+        private Vector2 shotPlaceOf(BossPeriod period) => hasLeft(period) ? lingerOf(period.Rank) : shotPlaceOf(period.Rank);
+
         /// <summary>Where the boss with this rank is drawn (without the delay of the shots).</summary>
         private Vector2 bossVisualOf(int rank) => rank == 2 ? bossVisualPosition3 : rank == 1 ? bossVisualPosition2 : bossVisualPosition;
 
@@ -395,8 +412,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// </summary>
         private Vector2 bossVisualOf(BossPeriod period) => hasLeft(period) ? lingerOf(period.Rank) : bossVisualOf(period.Rank);
 
-        /// <summary>Where the shots of the boss of <paramref name="period"/> come from: as <see cref="bossVisualOf(BossPeriod)"/>.</summary>
-        private Vector2 bossPositionOf(BossPeriod period) => hasLeft(period) ? lingerOf(period.Rank) : bossPositionOf(period.Rank);
+        /// <summary>Where the shots of the boss of <paramref name="period"/> come from: as <see cref="bossVisualOf(BossPeriod)"/> (one who stands in the middle: where she goes, see <see cref="shotPlaceOf(int)"/>).</summary>
+        private Vector2 bossPositionOf(BossPeriod period) => shotPlaceOf(period);
 
         private bool hasLeft(BossPeriod period)
             => !period.Borrowed && period.Rank is >= 0 and < 3 && shownTime > period.End && !(shownAt[period.Rank] is BossPeriod shown && (shown == period || shown.Boss == period.Boss));

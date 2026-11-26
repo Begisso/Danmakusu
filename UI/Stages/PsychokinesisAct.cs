@@ -14,6 +14,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (SUMIREKO_DIM, Miko's dim), and the Master Spark's sound and a shake (SUMIREKO_SHAKE) go on while it is there. For SUMIREKO_MOVE_BEATS it drifts slowly towards the side the player is on as it
         // turns solid (SUMIREKO_DRIFT_CIRCLES circle radii a beat); then it explodes (Hecatia's explosion) into SUMIREKO_STARS of Marisa's stars thrown out of it left and right, with Suika's impact
         // frame on it for SUMIREKO_IMPACT_MS (the beam's band turned inside out, soft-edged, impact stars beside it, in flashes). It hurts like a slider body while it is solid; the stars as bullets.
+        // Since 2026-11-26 the preview is as thick as the beam and half as solid as Matenshi's (SUMIREKO_PREVIEW_ALPHA), the impact frame flashes over the SUMIREKO_IMPACT_MS right before it turns solid
+        // too, and its stars are three times as many, in its violet.
         // Where the player is when a preview comes and which way it drifts are taken then and kept; the stars are made again from them when time goes back.
         // ======================================================================================================================================================
 
@@ -202,6 +204,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Hit = radius * DanmakusuBalance.BULLET_HITBOX_SCALE,
                         Style = style,
                         Shape = BulletShape.SoftStar, // (Marisa's)
+                        Tint = BulletRenderer.TINT_PURPLE, // (her beam's violet: 2026-11-26)
+                        TintAmount = 1f,
                         Spin = 0.004f * side,
                         SpinPhase = i,
                         Until = at + f.stageLife(v),
@@ -239,11 +243,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            /// <summary>Suika's impact frame on it as it explodes: its band, a little wider than it, turned inside out with a soft edge, and impact stars beside it, in flashes.</summary>
+            /// <summary>
+            /// Suika's impact frame on it as it explodes: its band, a little wider than it, turned inside out with a soft edge, and impact stars beside it, in flashes. Since 2026-11-26 ("white impact frames
+            /// should be right before spawn too") the same over the SUMIREKO_IMPACT_MS right before it turns solid, where it will come down.
+            /// </summary>
             private void impactFrame(BulletField f, int k, double t)
             {
-                double since = t - explodeAt(k);
+                double before = solidAt(k) - DanmakusuBalance.SUMIREKO_IMPACT_MS;
 
+                if (t >= before && t < solidAt(k))
+                    impactFrame(f, k, t - before, xAt(f, k, solidAt(k)), 1);
+                else
+                    impactFrame(f, k, t - explodeAt(k), xAt(f, k, explodeAt(k)), 0);
+            }
+
+            private void impactFrame(BulletField f, int k, double since, float x, int which)
+            {
                 if (since < 0 || since >= DanmakusuBalance.SUMIREKO_IMPACT_MS)
                     return;
 
@@ -252,7 +267,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (flash % 2 == 1)
                     return;
 
-                float x = xAt(f, k, explodeAt(k));
+                k = k * 2 + which; // (the two frames of a beam: stars of their own)
                 float w = halfWidth(f) * 1.25f;
                 float up = top(f), down = bottom(f);
                 Vector2 a = new Vector2(x - w, up), b = new Vector2(x + w, up), c = new Vector2(x - w, down), d = new Vector2(x + w, down);
@@ -293,8 +308,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (!known[k] || t < strikes[k] || t >= explodeAt(k))
                         continue;
 
+                    // (the preview: half as solid as Matenshi's, and as thick as the beam - 2026-11-26, "double the transparency for harmless parts of the beam. Preview should be as thick as harmful part")
                     bool solid = t >= solidAt(k);
-                    float alpha = solid ? 1f : DanmakusuBalance.MATENSHI_PREVIEW_ALPHA * smoothStep((t - strikes[k]) / (beat * 0.25));
+                    float alpha = solid ? 1f : DanmakusuBalance.SUMIREKO_PREVIEW_ALPHA * smoothStep((t - strikes[k]) / (beat * 0.25));
 
                     if (alpha < 0.01f)
                         continue;
@@ -306,7 +322,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     fades.Clear();
                     fades.Add(alpha);
                     fades.Add(alpha);
-                    f.addPlainBeam(line, solid ? half : half * 0.6f, body, border, ref beams, ref pointTotal, null, fades, core, solid ? DanmakusuBalance.SUMIREKO_BLOOM : 0f);
+                    f.addPlainBeam(line, half, body, border, ref beams, ref pointTotal, null, fades, core, solid ? DanmakusuBalance.SUMIREKO_BLOOM : 0f);
                 }
             }
 
