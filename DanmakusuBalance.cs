@@ -283,8 +283,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double WAKASAGI_STAR_INTERVAL = 0.5;
         public const float WAKASAGI_BACKGROUND_ALPHA = 0.32f;
         public const float WAKASAGI_TINT = 0.6f;
-        public const float WAKASAGI_WAVE_CIRCLES = 1f;
-        public const double WAKASAGI_WAVE_BEATS = 4;
+        public const float WAKASAGI_WAVE_CIRCLES = 0.5f; // (1 until 2026-11-27: "wave amplitude and wave frequency halved")
+        public const double WAKASAGI_WAVE_BEATS = 8; // (4 until 2026-11-27: a wave takes twice as long)
 
         /// <summary>What swims leaves a trace of beam behind it, this many beats of its way long, drawn through this many points, this much of a slider beam's width where it is, narrowing to this share of that at its end; it hurts like a slider body.</summary>
         public const double WAKASAGI_TRACE_BEATS = 2;
@@ -416,6 +416,7 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Futo: at the wall a bullet has this share of its speed; her boat (the user's picture, Resources/Textures/futo_boat.png: as wide as its picture is for its length) is this many circle radii from middle to tip and flies at
         /// this many times a bullet's speed. What gets into it slides out to its nearest edge at this many times the boat's and the bullet's own speed together (fast, but not at once), and flies on as fast as it flew.
         /// </summary>
+        public const double FUTO_WARN_BEATS = 1; // (2026-11-27, "flash on boats spawn position, before it": the boats are made this long before they come, a flash where)
         public const float FUTO_SPEED_AT_WALL = 0.25f; // (0.3 until 2026-11-25: "minimal speed 0.25x")
 
         public const float FUTO_BOAT_CIRCLES = 5f; // (half its length: twice the 5 it was; 10 until 2026-11-22: half as big again)
@@ -4378,6 +4379,8 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const float NOROIKO_CURSE_CIRCLES = 4f;
         public const float NOROIKO_STROKE_CIRCLES = 0.24f; // (0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
+        public const float NOROIKO_STROKE_SHARE = 0.03f; // (2026-11-27, her curses in beams again: half a stroke is this much of the curse's height at least)
+        public const float NOROIKO_BEAM_BLOOM = 0.6f;
         public const double NOROIKO_HOMING_BEATS = 8;
         public const float NOROIKO_SPEED_FROM = 0.5f;
         public const float NOROIKO_SPEED_TO = 2.5f;
@@ -4671,6 +4674,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUMIREKO_STAR_SPEED_MOST = 1.6f;
         public const float SUMIREKO_STAR_SIZE = 1.6f;
         public const double SUMIREKO_IMPACT_MS = 840;
+
+        /// <summary>Sumireko (2026-11-27, "impact frame duration halved before laserbeam activation. Transparency doubled too"): the frame before her beam turns solid lasts this long, this strong.</summary>
+        public const double SUMIREKO_IMPACT_BEFORE_MS = SUMIREKO_IMPACT_MS / 2;
+        public const float SUMIREKO_IMPACT_BEFORE_STRENGTH = 0.5f;
         public const float SUMIREKO_DIM = 0.55f;
         public const float SUMIREKO_BLOOM = 0.8f;
         public const float SUMIREKO_SHAKE = 0.5f;
@@ -4832,11 +4839,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Konngara (2026-11-27): every this many beats an endless beam, this many times as thick as a slider's, from her straight up: a see-through preview this many beats, then it sweeps once round her
         /// over this many, and fades over this many.
         /// </summary>
-        public const double KONNGARA_EVERY_BEATS = 16;
+        public const double KONNGARA_EVERY_BEATS = 28; // (16 until 2026-11-27: the spin is four times as slow, and the next comes 8 beats after it as before)
 
-        public const float KONNGARA_BEAM_WIDTH = 1f;
+        public const float KONNGARA_BEAM_WIDTH = 2f; // (1 until 2026-11-27: "twice thicker")
         public const double KONNGARA_PREVIEW_BEATS = 4;
-        public const double KONNGARA_SPIN_BEATS = 4;
+        public const double KONNGARA_SPIN_BEATS = 16; // (4 until 2026-11-27: "quadruple slower laserbeam spin speed, but still need to finish 360 degree spin")
         public const double KONNGARA_FADE_BEATS = 0.5;
 
         // Kikuri (2026-11-27): a ring of this many of Shou's waving beams out of her every so many beats of her attacks; red arrows round her for so many beats before each attack; every so many-th bullet that leaves the screen is shot again from her
@@ -4871,6 +4878,7 @@ namespace osu.Game.Rulesets.Danmakusu
 
         // Sariel (2026-11-27): rings of so many bats every so many beats of her attacks, so much slower than Koakuma's, living so many beats, so many at once at most, each shooting every so many beats; every so many-th bullet out of the top or bottom comes in at the other side so many times; her last word dims the screen so much over so many beats, and aims everything so many beats after her section
         public const int SARIEL_RING_BATS = 10;
+        public const float SARIEL_STREAM_SPEED = 2f; // (2026-11-27, "streams speed doubled": her bats' bullets are this many times as fast as a plain one)
         public const double SARIEL_RING_EVERY_BEATS = 8;
         public const float SARIEL_BAT_SLOW = 0.5f;
         public const double SARIEL_BAT_LIFE_BEATS = 16;
@@ -4886,7 +4894,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float YUUGENMAGAN_EYE_CIRCLES = 1.5f;
         public const float YUUGENMAGAN_PENTAGON = 1.3f;
         public const int YUUGENMAGAN_EVERY = 2;
-        public const double YUUGENMAGAN_THUNDER_BEATS = 16;
+        public const double YUUGENMAGAN_THUNDER_BEATS = 8; // (16 until 2026-11-27: "double the frequency of thunders")
         public const double YUUGENMAGAN_WARN_BEATS = 2;
         public const double YUUGENMAGAN_BOLT_BEATS = 2;
         public const float YUUGENMAGAN_LINK_WIDTH = 0.12f;
@@ -4894,10 +4902,10 @@ namespace osu.Game.Rulesets.Danmakusu
         public static readonly Color4 YUUGENMAGAN_GOLD = new Color4(1f, 0.8f, 0.25f, 1f);
 
         // Komachi Onozuka (2026-11-27): a round of so many beats, the last so many of them a stop; her arc so many times as big as Elly's, flying so many times a bullet's speed
-        public const double KOMACHI_EVERY_BEATS = 2;
-        public const double KOMACHI_STOP_BEATS = 1;
+        public const double KOMACHI_EVERY_BEATS = 1; // (2 until 2026-11-27: "arc frequency and speed doubled")
+        public const double KOMACHI_STOP_BEATS = 0.5; // (1 until 2026-11-27)
         public const float KOMACHI_ARC_SIZE = 0.5f;
-        public const float KOMACHI_ARC_SPEED = 1.5f;
+        public const float KOMACHI_ARC_SPEED = 3f; // (1.5 until 2026-11-27)
 
         // Kisume (2026-11-27): a stop every so many beats, so long, its beams see-through so long first; she goes so many times a bullet's speed; her beams so far apart and so wide (circle radii); what falls keeps so much of its sideways way and is pulled down so much
         public const double KISUME_EVERY_BEATS = 4;
@@ -4905,6 +4913,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double KISUME_PREVIEW_BEATS = 1;
         public const float KISUME_MOVE_SPEED = 3f;
         public const float KISUME_BEAM_GAP_CIRCLES = 3f;
+        public const float KISUME_BEAM_FAN_DEGREES = 15f; // (2026-11-27: "other two laserbeams are faced 15 degree left and right"; side by side, KISUME_BEAM_GAP_CIRCLES apart, before)
         public const float KISUME_BEAM_HALF_CIRCLES = 0.7f;
         public const float KISUME_SIDEWAYS = 0.4f;
         public const float KISUME_FALL_PULL = ZANMU_GRAVITY * 0.5f;
@@ -4918,7 +4927,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float LOUISE_KNIFE_SIZE = 1f;
 
         // Medicine Melancholy (2026-11-27): bullets meet after so many ms of flight; a flower of so many petals so big; so many streams round her circle, a bullet every so many beats, so fast, turning so many degrees a beat
-        public const double MEDICINE_ARM_MS = 200;
+        public const double MEDICINE_ARM_BEATS = 4; // (200 ms until 2026-11-27: "each bullet do not follow her mechanic for first 4 beats after spawning")
         public const int MEDICINE_PETALS = 5;
         public const float MEDICINE_PETAL_SIZE = 0.7f;
         public const int MEDICINE_STREAMS = 12;
@@ -4936,5 +4945,20 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double MOMOYO_CENTIPEDE_EVERY_BEATS = 16;
         public const double MOMOYO_CENTIPEDE_WARN_BEATS = 1;
         public const int MOMOYO_BURST_BULLETS = 20;
+
+        // Kutaka Niwatari (2026-11-27): everything in her section this much as fast; what the circles and sliders fire comes in two streams this far apart (circle radii), a pair every so many beats
+        public const float KUTAKA_SLOW = 0.5f;
+        public const float KUTAKA_STREAM_APART_CIRCLES = 1f;
+        public const double KUTAKA_STREAM_GAP_BEATS = 0.125;
+
+        // Lunasa Prismriver (2026-11-27): so many beams so far apart (circle radii), so wide, every so many beats, see-through so long, solid so long; a circle breaks into so many pieces, flying so fast
+        public const int LUNASA_BEAMS = 5;
+        public const float LUNASA_BEAM_GAP_CIRCLES = 2.5f;
+        public const float LUNASA_BEAM_HALF_CIRCLES = 0.5f;
+        public const double LUNASA_EVERY_BEATS = 8;
+        public const double LUNASA_PREVIEW_BEATS = 2;
+        public const double LUNASA_BEAM_BEATS = 4;
+        public const int LUNASA_PIECES = 6;
+        public const float LUNASA_PIECE_SPEED = 1f;
     }
 }

@@ -20,6 +20,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private Vector2[] corners = new Vector2[1024];
         private int cornerCount;
 
+        // (how much each piece and each outline turns what is under it, 0..1: what Strength was as it was added)
+        private float[] pieceStrengths = new float[256];
+        private float[] runStrengths = new float[64];
+
+        /// <summary>
+        /// How much what is added from now on turns what is under it inside out (1 wholly; a half: half way, as if half see-through). Sumireko's frame before her beam turns solid is a half (2026-11-27,
+        /// "transparency doubled"); whoever sets it puts it back to 1.
+        /// </summary>
+        public float Strength { get; set; } = 1f;
+
         public ImpactStarLayer()
         {
             RelativeSizeAxes = Axes.Both;
@@ -78,8 +88,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Array.Resize(ref runStarts, runStarts.Length * 2);
                 Array.Resize(ref runCounts, runCounts.Length * 2);
                 Array.Resize(ref runFeathers, runFeathers.Length * 2);
+                Array.Resize(ref runStrengths, runStrengths.Length * 2);
             }
 
+            runStrengths[runCount] = Strength;
             runFeathers[runCount] = featherPx;
             runStarts[runCount] = outlineCount;
             runCounts[runCount++] = points.Count;
@@ -94,6 +106,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             if (cornerCount + 4 > corners.Length)
                 Array.Resize(ref corners, corners.Length * 2);
 
+            if (cornerCount / 4 >= pieceStrengths.Length)
+                Array.Resize(ref pieceStrengths, pieceStrengths.Length * 2);
+
+            pieceStrengths[cornerCount / 4] = Strength;
             corners[cornerCount++] = a;
             corners[cornerCount++] = b;
             corners[cornerCount++] = c;
@@ -109,6 +125,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         {
             private Vector2[] corners = new Vector2[1024];
             private int count;
+            private float[] pieceStrengths = new float[256];
+            private float[] runStrengths = new float[64];
 
             protected new ImpactStarLayer Source => (ImpactStarLayer)base.Source;
 
@@ -135,6 +153,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 Array.Copy(Source.corners, corners, count);
 
+                if (pieceStrengths.Length < Source.pieceStrengths.Length)
+                    pieceStrengths = new float[Source.pieceStrengths.Length];
+
+                Array.Copy(Source.pieceStrengths, pieceStrengths, Math.Min(count / 4, Source.pieceStrengths.Length));
+
                 outlineCount = Source.outlineCount;
                 runCount = Source.runCount;
 
@@ -147,6 +170,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     runCounts = new int[Source.runCounts.Length];
                     runFeathers = new float[Source.runFeathers.Length];
                 }
+
+                if (runStrengths.Length < Source.runStrengths.Length)
+                    runStrengths = new float[Source.runStrengths.Length];
+
+                Array.Copy(Source.runStrengths, runStrengths, Math.Min(runCount, Source.runStrengths.Length));
 
                 Array.Copy(Source.outline, outline, outlineCount);
                 Array.Copy(Source.runStarts, runStarts, runCount);
@@ -164,15 +192,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var piece = new Quad(Vector2Extensions.Transform(corners[i], DrawInfo.Matrix), Vector2Extensions.Transform(corners[i + 1], DrawInfo.Matrix), Vector2Extensions.Transform(corners[i + 2], DrawInfo.Matrix),
                         Vector2Extensions.Transform(corners[i + 3], DrawInfo.Matrix));
 
-                    renderer.DrawQuad(pixel, piece, Color4.White, textureCoords: pixelCoords);
+                    float strength = pieceStrengths[i / 4];
+                    renderer.DrawQuad(pixel, piece, new Color4(strength, strength, strength, strength), textureCoords: pixelCoords);
                 }
 
                 // (the soft edges: a strip outside every outline, fully turned at the shape's edge and not at all at its outer edge. What is drawn here is not premultiplied by the renderer, and the
                 // blending turns by the colour and keeps by the alpha, so both go down together: half way out, half of what is under it shows turned)
-                var edge = ColourInfo.GradientVertical(Color4.White, new Color4(0f, 0f, 0f, 0f));
-
                 for (int r = 0; r < runCount; r++)
                 {
+                    float strength = runStrengths[r];
+                    var edge = ColourInfo.GradientVertical(new Color4(strength, strength, strength, strength), new Color4(0f, 0f, 0f, 0f));
                     int start = runStarts[r], n = runCounts[r];
 
                     if (screen.Length < n)

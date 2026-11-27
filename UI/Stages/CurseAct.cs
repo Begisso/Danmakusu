@@ -278,7 +278,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float shown = smoothStep((t - thrown.T) / 120.0);
                     f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_BLOOM_SIZE), 0f, DanmakusuBalance.NOROIKO_BLOOM_ALPHA * shown, Color4.White, true);
                     f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_GLOW_SIZE), 0f, DanmakusuBalance.NOROIKO_GLOW_ALPHA * shown, Color4.White, true);
-                    f.stageFront.Add(StageTexture.CurseGlyph, at, new Vector2(thrown.Size), 0f, shown, Color4.White);
+                    // (the character itself is its beams: DrawBeams)
                 }
             }
 
@@ -352,16 +352,72 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 at = placeOf(f, flight, now);
+                    float half = strokeHalf(f, thrown.Size) * DanmakusuBalance.BULLET_HITBOX_SCALE + reach;
 
-                    // (nowhere near it: its ink is not looked at)
-                    if (MathF.Abs(player.X - at.X) > thrown.Size * 0.5f + reach || MathF.Abs(player.Y - at.Y) > thrown.Size * 0.5f + reach)
+                    // (nowhere near it: its strokes are not looked at)
+                    if (MathF.Abs(player.X - at.X) > thrown.Size * 0.5f + half || MathF.Abs(player.Y - at.Y) > thrown.Size * 0.5f + half)
                         continue;
 
-                    if (inkAway(player, at, thrown.Size) <= reach + thrown.Size / inkDistance.GetLength(0) * 0.5f)
-                        return true;
+                    // (its beams hurt where they are drawn: 2026-11-27)
+                    foreach (var stroke in CurseGlyph.STROKES)
+                    {
+                        for (int i = 0; i + 1 < stroke.Length; i++)
+                        {
+                            if (distanceToSegment(player, at + stroke[i] * thrown.Size, at + stroke[i + 1] * thrown.Size) <= half)
+                                return true;
+                        }
+                    }
                 }
 
                 return false;
+            }
+
+            /// <summary>How wide half a stroke of a curse is: as thick as a slider's beam, thicker on a big curse.</summary>
+            private static float strokeHalf(BulletField f, float size) => Math.Max(f.circleRadius * DanmakusuBalance.NOROIKO_STROKE_CIRCLES, size * DanmakusuBalance.NOROIKO_STROKE_SHARE);
+
+            private readonly List<Vector2> strokePoints = new List<Vector2>(8);
+            private readonly List<float> strokeFades = new List<float>(8);
+
+            /// <summary>
+            /// Every curse as 呪 in laser beams (2026-11-27, "she still didn't shoot a single letter shaped laserbeams. At all."; a picture of it, white, since 2026-11-26, and thick red beams before): its
+            /// strokes as beams with a white core and a red edge, glowing.
+            /// </summary>
+            public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
+            {
+                if (f.failed || flights.Count == 0)
+                    return;
+
+                var edge = new Color4(0.95f, 0.12f, 0.2f, 1f);
+
+                foreach (var flight in flights)
+                {
+                    var thrown = throws[flight.Throw];
+
+                    if (t < thrown.T || t > flight.Gone)
+                        continue;
+
+                    Vector2 at = placeOf(f, flight, t);
+
+                    if (!onScreen(f, at, thrown.Size))
+                        continue;
+
+                    float shown = smoothStep((t - thrown.T) / 120.0);
+                    float half = strokeHalf(f, thrown.Size);
+
+                    foreach (var stroke in CurseGlyph.STROKES)
+                    {
+                        strokePoints.Clear();
+                        strokeFades.Clear();
+
+                        foreach (var point in stroke)
+                        {
+                            strokePoints.Add(at + point * thrown.Size);
+                            strokeFades.Add(shown);
+                        }
+
+                        f.addPlainBeam(strokePoints, half, Color4.White, edge, ref beams, ref pointTotal, null, strokeFades, Color4.White, DanmakusuBalance.NOROIKO_BEAM_BLOOM);
+                    }
+                }
             }
         }
     }

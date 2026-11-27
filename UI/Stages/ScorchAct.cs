@@ -325,31 +325,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 for (int beam = 0; beam < beamCount; beam++)
                     beamAt(f, beam, t, from);
 
-                // the scorch marks: round spots of the beam itself (a dot of beam, as wide as the beam was where the slice went out), in the same piece as the beam
-                for (int i = from; i < slices.Count; i++)
-                {
-                    var slice = slices[i];
-                    float level = burning(slice, t);
-
-                    if (level < 0.01f)
-                        continue;
-
-                    float radius = markRadius(slice);
-
-                    for (int beam = 0; beam < beamCount; beam++)
-                    {
-                        Vector2 at = markOf(slice, beam);
-                        line.Clear();
-                        line.Add(at);
-                        line.Add(at + wayOf(slice.Angle + beam * MathF.Tau / beamCount) * 0.5f);
-                        f.addPlainBeam(line, radius, runColour, runBorder, ref drawnBeams, ref drawnTotal);
-                        f.laserInstances[drawnBeams - 1].Piece = drawnPiece;
-
-                        if (level < 0.999f)
-                            Array.Fill(f.laserFadePointBuffer, level, drawnTotal - 2, 2);
-                    }
-                }
-
+                // (the scorch marks are their own: Draw)
                 line.Clear();
                 beams = drawnBeams;
                 pointTotal = drawnTotal;
@@ -382,8 +358,46 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>How big (radius) the mark a slice leaves is: as wide as the beam was where it went out (2026-11-14, "scorch should be same radius as laserbeam when it landed").</summary>
             private float markRadius(in Slice slice) => widthAt(slice.Reach);
 
-            // (the scorch marks look like the beam that left them, 2026-11-14, "make scorch area look same as laserbeam": since 2026-11-21 they are drawn as the beam is, round dots of beam in the same piece as
-            // the beam - see DrawBeams - so marks and beam run into one seamless shape; they were pictures of a spot on a layer of their own, which never joined the beam)
+            /// <summary>
+            /// The scorch marks, things of their own (2026-11-27, "scorch is separate entity now. For some reason abnormal stretching happened": from 2026-11-21 they were dots of beam half a pixel long in
+            /// the beam's piece): round spots that look like the beam (its edge colour, its colour, a white core), as wide as the beam was where they were left - every edge first, then every inside, then
+            /// every core, so that marks that overlap are one seamless spot.
+            /// </summary>
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || f.palette.Length == 0 || slices.Count == 0)
+                    return;
+
+                int style = f.comboStyle(1, true, Period.Rank);
+                Color4 body = f.palette[style % f.palette.Length], border = f.borderPalette[style % f.borderPalette.Length];
+                int from = firstShown(f, t);
+
+                for (int layer = 0; layer < 3; layer++)
+                {
+                    for (int i = from; i < slices.Count; i++)
+                    {
+                        var slice = slices[i];
+                        float level = burning(slice, t);
+
+                        if (level < 0.01f)
+                            continue;
+
+                        float radius = markRadius(slice);
+
+                        for (int beam = 0; beam < beamCount; beam++)
+                        {
+                            Vector2 at = markOf(slice, beam);
+
+                            if (layer == 0)
+                                f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(radius * 2f), 0f, level, border); // (stageOrbs: its pictures are the round ones, under the bullets)
+                            else if (layer == 1)
+                                f.stageOrbs.Add(StageTexture.Orb, at, new Vector2(radius * 2f * MOKOU_BODY_SCALE), 0f, level, body);
+                            else
+                                f.stageOrbs.Add(StageTexture.Glow, at, new Vector2(radius * 1.2f), 0f, 0.6f * level, Color4.White, true);
+                        }
+                    }
+                }
+            }
 
 
             /// <summary>The beams and the scorch marks hurt like a slider body.</summary>

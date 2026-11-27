@@ -746,5 +746,16 @@
         /// from behind the wall at her back, charges across at the player and out, and every block it goes through bursts into a square of twenty bullets.
         /// </summary>
         Mining,
+
+        /// <summary>
+        /// Kutaka Niwatari (2026-11-27): everything in her section flies at half its speed, and what the circles and sliders fire comes at the player in two streams side by side instead.
+        /// </summary>
+        Rooster,
+
+        /// <summary>
+        /// Lunasa Prismriver (2026-11-27): every eight beats five long parallel beams at the player; the circles and sliders break into pieces that hurt as they are hit or over - cut in two
+        /// along her beams while they are solid.
+        /// </summary>
+        Violin,
     }
 }

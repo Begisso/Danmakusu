@@ -286,7 +286,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 Vector2 player = f.characterPosition;
                 float step = (float)step_ms;
-                float speed = stageBulletSpeed(Period);
+                float speed = stageBulletSpeed(Period) * DanmakusuBalance.SARIEL_STREAM_SPEED; // (twice as fast since 2026-11-27)
                 float radius = f.stageBaseRadius(Period);
                 double every = beat * DanmakusuBalance.SARIEL_STREAM_BEATS;
 

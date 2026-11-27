@@ -81,6 +81,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Pinwheel, BossMechanic.Cubes, BossMechanic.Space, // (2026-11-26: Yuiman, Yachie, Rikako)
             BossMechanic.YinYang, BossMechanic.EvilEyes, BossMechanic.BigBat, BossMechanic.AngelOfDeath, BossMechanic.Underworld, BossMechanic.Sweep, // (2026-11-27: the six of Highly Responsive to Prayers)
             BossMechanic.Distance, BossMechanic.WellBucket, BossMechanic.KnifeTrail, BossMechanic.Poison, BossMechanic.Mining, // (2026-11-27: Komachi, Kisume, Louise, Medicine, Momoyo)
+            BossMechanic.Rooster, BossMechanic.Violin, // (2026-11-27: Kutaka, Lunasa)
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -5589,10 +5590,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         var ring = emitters[i];
 
                         if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.Derived || ring.Derive != DeriveKind.None || ring.Ricochet || ring.Homing || ring.Sharp
-                            || ring.Shape == BulletShape.Train || ring.Count == 0 || ring.Layout == null || ring.StarLinked)
+                            || ring.Shape == BulletShape.Train || ring.Count == 0 || ring.StarLinked)
                             continue;
 
-                        var star = ring.Count == DanmakusuBalance.IKU_STAR_POINTS && ring.Layout == RingShape.Circle ? ring : ring.RebuiltAs(RingShape.Circle, DanmakusuBalance.IKU_STAR_POINTS, 0f);
+                        // (every ring an even circle of five, also one that was five already and one that did not know its outline: 2026-11-27, "by default all ring of 5s form perfect shape stars")
+                        var star = ring.AsEvenRing(RingShape.Circle, DanmakusuBalance.IKU_STAR_POINTS);
 
                         if (star.Count != DanmakusuBalance.IKU_STAR_POINTS)
                             continue;
@@ -5614,6 +5616,17 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ring.Speed *= DanmakusuBalance.NARUMI_SLOW;
                     ring.Lifetime /= DanmakusuBalance.NARUMI_SLOW;
                     ring.WaveRestores = true;
+                }
+            }
+
+            // Kutaka (2026-11-27, "all bullet speed halved"): every ring fired in her sections (anyone's; not a train, nor one made out of others) flies at KUTAKA_SLOW of its speed, and lives as much longer
+            // (what the circles and sliders fire is taken by her act and shot again in two streams at the player: StreamsAct)
+            foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Rooster))
+            {
+                foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && !r.Derived && r.Derive == DeriveKind.None && r.Shape != BulletShape.Train && r.Count > 0))
+                {
+                    ring.Speed *= DanmakusuBalance.KUTAKA_SLOW;
+                    ring.Lifetime /= DanmakusuBalance.KUTAKA_SLOW;
                 }
             }
 

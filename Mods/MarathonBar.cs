@@ -25,7 +25,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         private static Task<Layout?[]>? preparing;
 
         /// <summary>Reads every map of the marathon for the bar, in the background, with the boss selection mod's bosses and their shares (no boss selection: no bar of bosses at all).</summary>
-        public static void Prepare(BeatmapManager manager, string[] maps, IReadOnlyList<Mod> mods)
+        public static void Prepare(BeatmapManager manager, string[] maps, BeatmapInfo?[] infos, IReadOnlyList<Mod> mods)
         {
             var selection = mods.OfType<DanmakusuModBossSelection>().FirstOrDefault();
 
@@ -44,7 +44,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             if (shares.Length != maps.Length)
                 shares = BossPicker.SplitShares(count, least, Enumerable.Repeat(1, maps.Length).ToArray());
 
-            var picked = BossPicker.Bosses(value);
+            var all = BossPicker.MarathonBosses(BossPicker.Bosses(value), count, maps);
             var sectionMods = mods.Where(mod => mod is DanmakusuModAlwaysBoss).ToArray();
             string[] list = maps.ToArray();
 
@@ -52,23 +52,24 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             {
                 var layouts = new Layout?[list.Length];
 
-                Parallel.For(0, list.Length, j =>
+                // (one map after the other: osu!'s store of working maps is not asked from many threads at once)
+                for (int j = 0; j < list.Length; j++)
                 {
                     int share = Math.Max(shares[j], least);
                     int offset = shares.Take(j).Sum();
-                    layouts[j] = layoutOf(manager, list[j], share, picked.Skip(offset).Take(share).ToList(), doubled, triple, sectionMods);
-                });
+                    layouts[j] = layoutOf(manager, infos[j], share, all.Skip(offset).Take(share).ToList(), doubled, triple, sectionMods);
+                }
+
+                Logger.Log($"Danmakusu: Marathon bar: {layouts.Count(l => l != null)} of {list.Length} maps read");
 
                 return layouts;
             });
         }
 
-        private static Layout? layoutOf(BeatmapManager manager, string md5, int share, IReadOnlyList<BossInfo> picked, bool doubled, bool triple, Mod[] sectionMods)
+        private static Layout? layoutOf(BeatmapManager manager, BeatmapInfo? info, int share, IReadOnlyList<BossInfo> picked, bool doubled, bool triple, Mod[] sectionMods)
         {
             try
             {
-                var info = manager.QueryBeatmap(b => b.MD5Hash == md5);
-
                 if (info == null)
                     return null;
 
@@ -76,7 +77,10 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 var converted = working.GetPlayableBeatmap(new DanmakusuRuleset().RulesetInfo, sectionMods);
 
                 if (converted.HitObjects.Count == 0)
+                {
+                    Logger.Log($"Danmakusu: Marathon bar: {info} has nothing to play");
                     return null;
+                }
 
                 SongBands? song = null;
                 var periods = BulletPlanner.BarPeriods(converted, share, doubled, () => song ??= SongBands.From(working), triple);
@@ -104,8 +108,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             int index = MarathonRun.IndexOf(md5);
             var task = preparing;
 
-            if (index < 0 || task == null || own.Length == 0)
+            if (index < 0)
                 return null;
+
+            if (task == null || own.Length == 0)
+            {
+                Logger.Log($"Danmakusu: Marathon bar: map {index + 1} keeps its own bar ({(task == null ? "no boss selection" : "no bosses on it")})");
+                return null;
+            }
 
             Layout?[] layouts;
 
@@ -113,7 +123,10 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             {
                 // (read while the first map loaded; the later ones have it at once)
                 if (!task.Wait(TimeSpan.FromSeconds(30)))
+                {
+                    Logger.Log($"Danmakusu: Marathon bar: the other maps were not read in time: map {index + 1} keeps its own bar");
                     return null;
+                }
 
                 layouts = task.Result;
             }
@@ -194,6 +207,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 }
             }
 
+            Logger.Log($"Danmakusu: Marathon bar: map {index + 1} of {layouts.Length} shows {layouts.Count(l => l != null) + (layouts[index] == null ? 1 : 0)} maps, {periods.Count} sections, {bosses.Count} bosses");
             return (periods.ToArray(), bosses.ToArray(), before, after);
         }
     }

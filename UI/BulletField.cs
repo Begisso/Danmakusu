@@ -873,7 +873,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
                 verdantBackground = new Box { Colour = new Color4(0.12f, 0.2f, 0.05f, 1f), Alpha = 0f }, // (Daiyousei's attacks: a dark warm green dim)
-                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang, StageTexture.BossCircleWhite, StageTexture.KogasaUmbrella }
+                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang, StageTexture.BossCircleWhite, StageTexture.KogasaUmbrella, StageTexture.Orb } // (Orb: YuugenMagan's eyes, 2026-11-27 - they were drawn with it here, where it was not, and not seen)
                     // (Matenshi's wings, their bones and feathers: only when she is on the map, as the World's Ender's Earth)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.FallenAngel)
                         ? Enumerable.Range(0, WingRig.Pieces).SelectMany(piece => new[] { StageTexture.WingRightPiece0 + piece, StageTexture.WingLeftPiece0 + piece })
@@ -2149,14 +2149,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 case DeriveKind.Held:
                 {
-                    // the knives that hung round the boss are mirrored through the centre: they are now round the player's side and fly at the player
+                    // the knives that hung round the boss fly at the player from where they hung (2026-11-27: they were mirrored through the centre, onto the player's side - right round the player,
+                    // as she stands opposite - and the clearing round the player as time goes on again took them all: "spiral of knives around her disappear after unstop")
                     Vector2 boss = bossPositionOf(emitter.BossRank);
 
                     for (int b = 0; b < emitter.Count; b++)
                     {
-                        Vector2 offset = emitter.HeldOffsets![b];
-                        emitter.Origins![b] = centre * 2f - boss - offset * DanmakusuBalance.SAKUYA_RELEASE_DISTANCE_FACTOR; // (placed further from the player than they hung from her)
-                        emitter.Directions[b] = offset.LengthSquared > 1e-6f ? Vector2.Normalize(offset) : new Vector2(1, 0);
+                        Vector2 hung = boss + emitter.HeldOffsets![b];
+                        Vector2 toPlayer = characterPosition - hung;
+                        emitter.Origins![b] = hung;
+                        emitter.Directions[b] = toPlayer.LengthSquared > 1e-6f ? Vector2.Normalize(toPlayer) : new Vector2(0, 1);
                     }
 
                     break;

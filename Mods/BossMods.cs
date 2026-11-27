@@ -70,9 +70,11 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             if (shares.Length != MarathonRun.Count)
                 shares = BossPicker.SplitShares(count, Least, Enumerable.Repeat(1, MarathonRun.Count).ToArray());
 
+            // (every boss once in the whole marathon: what nobody was checked for is filled for all of it at once, not from each map's colours)
+            var all = BossPicker.MarathonBosses(picked, count, MarathonRun.Maps);
             int offset = shares.Take(index).Sum();
             int share = Math.Max(shares[index], Least);
-            return ChooseFrom(picked.Skip(offset).Take(share).ToList(), fromColours, share);
+            return ChooseFrom(all.Skip(offset).Take(share).ToList(), fromColours, share);
         }
 
         /// <summary>The <paramref name="count"/> bosses of the map when <paramref name="picked"/> are checked (also for the HP bar preview in the list): what is not checked is what the combo colours choose, or else the next ones in the list.</summary>

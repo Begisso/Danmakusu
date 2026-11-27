@@ -316,20 +316,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Fade = 1f - (float)Math.Clamp((drawTime - appeared) / DanmakusuBalance.SAKUYA_KNIFE_FADE_IN_MS, 0.0, 1.0),
                     };
 
-                    if (previewAlpha > 0f && nearSakuyaPreview(fieldCentre * 2f - bossPositionOf(held.BossRank) - offset * DanmakusuBalance.SAKUYA_RELEASE_DISTANCE_FACTOR))
-                    {
-                        if (count == instanceBuffer.Length)
-                            Array.Resize(ref instanceBuffer, instanceBuffer.Length * 2);
-
-                        // (as DeriveKind.Held will put it: mirrored through the centre, further out, flying the way it hung from her)
-                        var ghost = instanceBuffer[count - 1];
-                        ghost.Position = fieldCentre * 2f - bossPositionOf(held.BossRank) - offset * DanmakusuBalance.SAKUYA_RELEASE_DISTANCE_FACTOR;
-                        ghost.Direction = offset.LengthSquared > 1e-6f ? Vector2.Normalize(offset) : new Vector2(1, 0);
-                        ghost.Overlay = BulletRenderer.TINT_GREEN;
-                        ghost.OverlayAmount = 1f;
-                        ghost.Fade = 1f - DanmakusuBalance.SAKUYA_PREVIEW_VISIBLE * previewAlpha * (1f - ghost.Fade);
-                        instanceBuffer[count++] = ghost;
-                    }
+                    // (no green ghost of where the mirroring puts it: since 2026-11-27 the knives are not mirrored, they fly at the player from where they hang)
                 }
             }
 

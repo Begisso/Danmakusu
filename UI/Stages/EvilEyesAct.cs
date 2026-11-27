@@ -9,10 +9,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // YuugenMagan (2026-11-27): she stands where Kaguya stands (in the middle at the top), and with her five big circles (YUUGENMAGAN_EYE_CIRCLES circle radii), each with an eye, at the corners of a
-        // pentagon whose top corner is she herself, joined to each other by flickering lightning (see-through: it does not hurt). Every second bullet fired in her section (anyone's, counted ring by ring as
+        // YuugenMagan (2026-11-27): she stands in the middle of the screen (at the top, where Kaguya stands, until the same day), with her five big circles (YUUGENMAGAN_EYE_CIRCLES circle radii), each with an
+        // eye, at the corners of a pentagon round her, joined to each other by flickering lightning (see-through: it does not hurt). Every second bullet fired in her section (anyone's, counted ring by ring as
         // it is fired) is taken from where it was fired and shot from one of her four lower eyes at the player, at its own speed, each eye in turn its own kind: basic, arrowhead, ellipse, star. Her top eye
-        // is where her sliders' beams come from, as Junko's do, one beam each at the player (the planner). Every YUUGENMAGAN_THUNDER_BEATS every eye flashes white for YUUGENMAGAN_WARN_BEATS and then strikes
+        // is where her sliders' beams come from, as Junko's do, one beam each at the player (the planner). Every YUUGENMAGAN_THUNDER_BEATS every eye flashes white for YUUGENMAGAN_WARN_BEATS, its bolt shown see-through meanwhile, and then strikes
         // a bolt of Tojiko's lightning the way its number says, twice as thick, with twice as many branches, twice as long, solid for YUUGENMAGAN_BOLT_BEATS (it hurts like a slider body). Every circle hit and
         // slider over in her section is thrown from her eyes in turn at the player, golden, falling as Urumi's do (ObjectFallAct with FromEye).
         // ======================================================================================================================================================
@@ -59,14 +59,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 AbsorbTo = period.End;
             }
 
-            /// <summary>Where she stands: where Kaguya stands.</summary>
-            private static Vector2 place(BulletField f) => new Vector2((f.stageMin.X + f.stageMax.X) / 2f, f.stageMin.Y + DanmakusuBalance.MAGIC_CIRCLE_RADIUS + DanmakusuBalance.KAGUYA_TOP_GAP);
+            /// <summary>Where she stands: in the middle of the screen (2026-11-27, "boss is on the middle now"; where Kaguya stands, at the top, before).</summary>
+            private static Vector2 place(BulletField f) => (f.stageMin + f.stageMax) * 0.5f;
 
-            /// <summary>Where eye <paramref name="eye"/> is: 0 is she herself, at the top corner of the pentagon; then round it, the right one first.</summary>
+            /// <summary>Where eye <paramref name="eye"/> is: round her, on a pentagon, 0 at its top corner; then round it, the right one first.</summary>
             public static Vector2 EyeAt(BulletField f, int eye)
             {
                 float size = DanmakusuBalance.MAGIC_CIRCLE_RADIUS * DanmakusuBalance.YUUGENMAGAN_PENTAGON;
-                Vector2 centre = place(f) + new Vector2(0f, size);
+                Vector2 centre = place(f);
                 float angle = -MathF.PI / 2f + eye * MathF.Tau / EYES;
                 return centre + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * size;
             }
@@ -258,6 +258,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var bolt in bolts)
                 {
+                    // (its preview: the whole bolt, see-through and harmless, while the eye flashes - 2026-11-27)
+                    if (t < bolt.Time)
+                    {
+                        float preview = DanmakusuBalance.BEAM_PREVIEW_ALPHA * smoothStep((t - (bolt.Time - beat * DanmakusuBalance.YUUGENMAGAN_WARN_BEATS)) / (beat * 0.25));
+                        int before = beams;
+                        f.addPlainBeam(bolt.Points, half, body, edge, ref beams, ref pointTotal);
+
+                        if (beams > before)
+                            Array.Fill(f.laserFadePointBuffer, preview, pointTotal - bolt.Points.Count, bolt.Points.Count);
+
+                        foreach (var branch in bolt.Branches)
+                        {
+                            before = beams;
+                            f.addPlainBeam(branch, half * DanmakusuBalance.TOJIKO_BRANCH_WIDTH, body, edge, ref beams, ref pointTotal);
+
+                            if (beams > before)
+                                Array.Fill(f.laserFadePointBuffer, preview * DanmakusuBalance.TOJIKO_BRANCH_ALPHA, pointTotal - branch.Count, branch.Count);
+                        }
+
+                        continue;
+                    }
+
                     float length = lengthAt(bolt, t) * (bolt.Points.Count - 1);
 
                     if (length < 0.02f)

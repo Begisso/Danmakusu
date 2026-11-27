@@ -75,6 +75,40 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         }
 
         /// <summary>
+        /// The <paramref name="count"/> bosses of a whole marathon, every one once (2026-11-27: each map filled the places nobody was checked for from its own combo colours, and the same bosses came on
+        /// map after map): the checked ones first, in their order, then the rest of the roster - those with a mechanic of their own first - in an order of the marathon's own (by its maps), the same every
+        /// time it is played.
+        /// </summary>
+        public static List<BossInfo> MarathonBosses(IReadOnlyList<BossInfo> picked, int count, IReadOnlyList<string> maps)
+        {
+            var all = picked.Distinct().Take(count).ToList();
+
+            if (all.Count >= count)
+                return all;
+
+            uint seed = 2166136261;
+
+            foreach (string md5 in maps)
+            {
+                foreach (char c in md5)
+                    seed = (seed ^ c) * 16777619;
+            }
+
+            static uint mix(uint seed, int index)
+            {
+                uint x = seed ^ (uint)index * 2654435761u;
+                x ^= x >> 15;
+                x *= 2246822519u;
+                x ^= x >> 13;
+                return x;
+            }
+
+            var rest = BossRoster.All.Where(boss => !all.Contains(boss)).OrderBy(boss => boss.IsModified ? 0 : 1).ThenBy(boss => mix(seed, boss.Index));
+            all.AddRange(rest.Take(count - all.Count));
+            return all;
+        }
+
+        /// <summary>
         /// <paramref name="count"/> bosses spread over the maps of a marathon that have room for <paramref name="rooms"/> sections each (in whole sections of <paramref name="least"/>): one section for every
         /// map first, as far as there are, and the rest by how much more room each has.
         /// </summary>
@@ -782,7 +816,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                         int index = Math.Max(Array.IndexOf(picker.marathonMaps, beatmap?.Value?.BeatmapInfo.MD5Hash), 0);
                         int[] shares = SplitShares(picker.max, picker.least, picker.marathonRooms);
                         count = Math.Max(shares[index], picker.least);
-                        shown = picked.Skip(shares.Take(index).Sum()).Take(count).ToList();
+                        shown = MarathonBosses(picked, picker.max, picker.marathonMaps).Skip(shares.Take(index).Sum()).Take(count).ToList();
                     }
 
                     var bosses = DanmakusuModBossSelection.ChooseFrom(shown, fromColours, count);

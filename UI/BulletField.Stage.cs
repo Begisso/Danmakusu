@@ -2034,6 +2034,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             registerStage(new UnderworldAct(period));
                         break;
 
+                    case BossMechanic.Rooster:
+                        // Kutaka: what the circles and sliders fire, shot again in two streams at the player (half speed is the planner's) (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new StreamsAct(period));
+                        break;
+
+                    case BossMechanic.Violin:
+                        // Lunasa: her five beams and the circles and sliders breaking into pieces (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new ViolinAct(period, circleZones, sliderZones));
+                        break;
+
                     case BossMechanic.Distance:
                         // Komachi: her stops and the arcs she throws (2026-11-27)
                         if (period.End > period.ShootStart)
@@ -4276,6 +4288,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.Starlight: // Star Sapphire, in the middle of her sphere (2026-11-21)
                 case BossMechanic.Citrus: // Orange, in the middle of her orange (2026-11-25)
                 case BossMechanic.Underworld: // Kikuri always (2026-11-27)
+                case BossMechanic.EvilEyes: // YuugenMagan, in the middle of her eyes (2026-11-27)
                     return true;
 
                 case BossMechanic.Unknown:

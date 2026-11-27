@@ -8,7 +8,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Medicine Melancholy (2026-11-27): all through her section, when two bullets of different rings touch (their bodies, after MEDICINE_ARM_MS of flight, on the screen) both are gone, and where they met
+        // Medicine Melancholy (2026-11-27): all through her section, when two bullets of different rings touch (their bodies, after MEDICINE_ARM_BEATS of flight - 200 ms at first, on the screen) both are gone, and where they met
         // a small flower of MEDICINE_PETALS of Yuyuko's tree's petals (pink, MEDICINE_PETAL_SIZE as big as a plain bullet) bursts out, flying away at a bullet's speed. The bullets of this frame are put on a
         // grid as they are looked at (as Misumaru's are); the one seen second goes at once, the other a frame later. In her attacks she shoots streams from all round her magic circle: MEDICINE_STREAMS points
         // on its edge, evenly, turning MEDICINE_TURN_DEGREES_PER_BEAT, each a bullet every MEDICINE_STREAM_BEATS straight out, MEDICINE_STREAM_SPEED times a bullet's speed (into a pool of acts).
@@ -160,7 +160,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (doomed.Remove(key))
                     return true;
 
-                if (t - emitter.Time < DanmakusuBalance.MEDICINE_ARM_MS || to.X < f.stageMin.X || to.X > f.stageMax.X || to.Y < f.stageMin.Y || to.Y > f.stageMax.Y)
+                if (t - emitter.Time < beat * DanmakusuBalance.MEDICINE_ARM_BEATS || to.X < f.stageMin.X || to.X > f.stageMax.X || to.Y < f.stageMin.Y || to.Y > f.stageMax.Y)
                     return false;
 
                 float size = cellSize(f);

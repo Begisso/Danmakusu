@@ -15,6 +15,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // turns solid (SUMIREKO_DRIFT_CIRCLES circle radii a beat); then it explodes (Hecatia's explosion) into SUMIREKO_STARS of Marisa's stars thrown out of it left and right, with Suika's impact
         // frame on it for SUMIREKO_IMPACT_MS (the beam's band turned inside out, soft-edged, impact stars beside it, in flashes). It hurts like a slider body while it is solid; the stars as bullets.
         // Since 2026-11-26 the preview is as thick as the beam and half as solid as Matenshi's (SUMIREKO_PREVIEW_ALPHA), the impact frame flashes over the SUMIREKO_IMPACT_MS right before it turns solid
+        // (since 2026-11-27 that one is half as long and half as strong: SUMIREKO_IMPACT_BEFORE_MS, SUMIREKO_IMPACT_BEFORE_STRENGTH, ImpactStarLayer.Strength)
         // too, and its stars are three times as many, in its violet.
         // Where the player is when a preview comes and which way it drifts are taken then and kept; the stars are made again from them when time goes back.
         // ======================================================================================================================================================
@@ -249,17 +250,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// </summary>
             private void impactFrame(BulletField f, int k, double t)
             {
-                double before = solidAt(k) - DanmakusuBalance.SUMIREKO_IMPACT_MS;
+                // (the one before it turns solid: half as long and half as strong, 2026-11-27 - "impact frame duration halved before laserbeam activation. Transparency doubled too")
+                double before = solidAt(k) - DanmakusuBalance.SUMIREKO_IMPACT_BEFORE_MS;
 
                 if (t >= before && t < solidAt(k))
-                    impactFrame(f, k, t - before, xAt(f, k, solidAt(k)), 1);
+                {
+                    f.impactStars.Strength = DanmakusuBalance.SUMIREKO_IMPACT_BEFORE_STRENGTH;
+                    impactFrame(f, k, t - before, xAt(f, k, solidAt(k)), 1, DanmakusuBalance.SUMIREKO_IMPACT_BEFORE_MS);
+                    f.impactStars.Strength = 1f;
+                }
                 else
-                    impactFrame(f, k, t - explodeAt(k), xAt(f, k, explodeAt(k)), 0);
+                    impactFrame(f, k, t - explodeAt(k), xAt(f, k, explodeAt(k)), 0, DanmakusuBalance.SUMIREKO_IMPACT_MS);
             }
 
-            private void impactFrame(BulletField f, int k, double since, float x, int which)
+            private void impactFrame(BulletField f, int k, double since, float x, int which, double lasts)
             {
-                if (since < 0 || since >= DanmakusuBalance.SUMIREKO_IMPACT_MS)
+                if (since < 0 || since >= lasts)
                     return;
 
                 int flash = (int)(since / DanmakusuBalance.SUIKA_IMPACT_FLASH_MS);

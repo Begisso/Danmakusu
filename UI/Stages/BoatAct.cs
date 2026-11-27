@@ -9,6 +9,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
+        // (2026-11-27, "flash on boats spawn position, before it": the boats are made FUTO_WARN_BEATS before they come, and a flash on the edge of the screen shows where each will come in meanwhile.)
         // Mononobe no Futo: everything fired in her section loses speed the nearer it gets to the wall ahead of it, down to 0.3 of its speed at the wall (BulletEmitter.SlowsToWall). When a pause starts she throws a boat at the
         // player: the user's picture of a wooden ship seen from above, twice FUTO_BOAT_CIRCLES circle radii long (ten since 2026-11-22; twenty before, so it is out of the wall twice as soon) and as wide
         // as the picture is for that. It comes out of the wall nearest her, from behind her (from just out of the screen straight behind that wall from where she is), and flies straight at where the player
@@ -41,7 +42,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 Period = period;
                 this.throws = throws;
-                Start = throws[0];
+                Start = throws[0] - Math.Max(period.BeatLength, 1) * DanmakusuBalance.FUTO_WARN_BEATS;
                 End = period.End;
                 AbsorbFrom = Start;
                 AbsorbTo = End + 60000;
@@ -53,6 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Reset(BulletField f, double time)
             {
+                heard = 0;
                 boats.Clear();
                 turned.Clear();
             }
@@ -149,8 +151,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed)
                     return;
 
-                // (five boats a throw: boats.Count / 5 is the throw - three until 2026-11-24)
-                while (boats.Count / 5 < throws.Count && throws[boats.Count / 5] <= now)
+                // (five boats a throw: boats.Count / 5 is the throw - three until 2026-11-24. Made FUTO_WARN_BEATS before they come, 2026-11-27: a flash shows where, meanwhile)
+                double warn = Math.Max(Period.BeatLength, 1) * DanmakusuBalance.FUTO_WARN_BEATS;
+
+                while (boats.Count / 5 < throws.Count && throws[boats.Count / 5] - warn <= now)
                 {
                     // (it comes out of the wall nearest her, from behind her: from just out of the screen straight behind that wall from where she is)
                     Vector2 her = f.bossVisualOf(Period);
@@ -178,9 +182,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // (two more beyond those, as far again to the side and behind: 2026-11-24, "another two boats on side")
                     boats.Add(new Boat { Time = time, Until = until, From = from + side * (2f * followAside(f)) - way * (2f * followBehind(f)), Velocity = way * speed });
                     boats.Add(new Boat { Time = time, Until = until, From = from - side * (2f * followAside(f)) - way * (2f * followBehind(f)), Velocity = way * speed });
-                    f.playStageSound("mokou_wall_hit");
+                }
+
+                // (heard as they come in)
+                for (; heard < boats.Count / 5 && throws[heard] <= now; heard++)
+                {
+                    if (now - throws[heard] < 250)
+                        f.playStageSound("mokou_wall_hit");
                 }
             }
+
+            private int heard;
 
             /// <summary>How far the two that follow the first boat are to its side, and behind it.</summary>
             private static float followAside(BulletField f) => halfWidth(f) * 2f * DanmakusuBalance.FUTO_FOLLOW_ASIDE;
@@ -345,9 +357,26 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 Vector2 size = new Vector2(2f * halfLength(f), 2f * halfWidth(f));
 
+                double warn = Math.Max(Period.BeatLength, 1) * DanmakusuBalance.FUTO_WARN_BEATS;
+
                 foreach (var boat in boats)
                 {
-                    if (t < boat.Time || gone(f, boat, t))
+                    // (before it comes: a flash where it will come in, on the edge of the screen - 2026-11-27)
+                    if (t < boat.Time)
+                    {
+                        double u = 1 - (boat.Time - t) / Math.Max(warn, 1);
+
+                        if (u >= 0)
+                        {
+                            float level = smoothStep(u / 0.25) * (0.55f + 0.45f * MathF.Cos((float)u * MathF.PI * 6f));
+                            Vector2 edge = Vector2.Clamp(boat.From, f.stageMin, f.stageMax);
+                            f.stageFront.Add(StageTexture.Glow, edge, new Vector2(halfLength(f) * 2.2f), 0f, 0.8f * level, new Color4(0.8f, 0.6f, 1f, 1f), true);
+                        }
+
+                        continue;
+                    }
+
+                    if (gone(f, boat, t))
                         continue;
 
                     f.stageBack.Add(StageTexture.Boat, at(boat, t), size, MathF.Atan2(boat.Velocity.Y, boat.Velocity.X) * 180f / MathF.PI, 1f, Color4.White);

@@ -978,12 +978,26 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public BulletEmitter Rebuilt(int count, float extraPhase) => Layout == null ? this : RebuiltAs(Layout.Value, count, extraPhase);
 
         /// <summary>The same ring in another outline (<paramref name="shape"/>) with <paramref name="count"/> bullets, turned further by <paramref name="extraPhase"/> radians (only rings that know their <see cref="Layout"/>).</summary>
-        public BulletEmitter RebuiltAs(RingShape shape, int count, float extraPhase)
+        public BulletEmitter RebuiltAs(RingShape shape, int count, float extraPhase) => Layout == null ? this : evenRing(shape, count, LayoutPhase + extraPhase);
+
+        /// <summary>
+        /// The ring as an even outline of <paramref name="count"/> bullets whatever it was (Iku's stars, 2026-11-27: "by default all ring of 5s form perfect shape stars"), turned as it was - or, a ring
+        /// that does not know its outline, as its first bullet went. Not a ring whose bullets start from places of their own.
+        /// </summary>
+        public BulletEmitter AsEvenRing(RingShape shape, int count)
         {
-            if (Layout == null || count < 1)
+            if (Origins != null)
                 return this;
 
-            float phase = LayoutPhase + extraPhase;
+            float phase = Layout != null ? LayoutPhase : Directions.Length > 0 ? MathF.Atan2(Directions[0].Y, Directions[0].X) : 0f;
+            return evenRing(shape, count, phase);
+        }
+
+        private BulletEmitter evenRing(RingShape shape, int count, float phase)
+        {
+            if (count < 1)
+                return this;
+
             var directions = RingLayout.Create(shape, count, phase, out var scales);
             float min = 1f;
 

@@ -134,7 +134,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Staff] = 4, // Son Biten (2026-11-23: rings of fifteen thrown beams spinning round their own middles (round her until 2026-11-24); the sliders' beams stand, doubled, then fly off spinning)
             [BossMechanic.Curse] = 4, // Noroiko (2026-11-23: two homing, speeding curses every half beat; the sliders throw them too, as big as they are long since 2026-11-26)
             [BossMechanic.Surprise] = 4, // Kogasa Tatara (2026-11-23: six very dense spirals; the circles and sliders turn round the middle, stay eight beats hurting, and shoot out over that time)
-            [BossMechanic.Thunder] = 4, // Iku Nagae (2026-11-26, reworked: every ring of her section five bullets joined as a star of beams, half the stars hurting and half harmless, swapping every four beats; 2026-11-24: spiralling rings with beams behind every second bullet, ties in fives)
+            [BossMechanic.Thunder] = 5, // Iku Nagae (4 until 2026-11-27: every ring of five a perfect star of slider-wide beams; 2026-11-26, reworked: every ring of her section five bullets joined as a star of beams, half the stars hurting and half harmless, swapping every four beats; 2026-11-24: spiralling rings with beams behind every second bullet, ties in fives)
             [BossMechanic.Sword] = 4, // Meira (2026-11-24: slides after you leaving thick beams that burst into rings; streams of aimed fans; no pauses. 2026-11-26: the slides straight into where you were, at half the speed, the beams half as thick)
             [BossMechanic.Statue] = 3, // Narumi Yatadera (2026-11-24: everything at half speed until her waves give it back; homing balls shooting rings; no pauses)
             [BossMechanic.Jealousy] = 4, // Parsee Mizuhashi (2026-11-24: balls leaving trails of Yuyuko's flowers that burst into petals; a clone in the middle whose arrowheads fan back in from the edge)
@@ -154,11 +154,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.AngelOfDeath] = 4, // Sariel (2026-11-27: rings of homing bats that stream bullets at you, beams that leave turn into bats, bullets come in at the other side; her last word aims everything at you)
             [BossMechanic.Underworld] = 4, // Kikuri (2026-11-27: in the middle; everything flies out from her in her attacks, rings of 36 waving beams, every fourth bullet out of the screen shot again from her)
             [BossMechanic.Sweep] = 3, // Konngara (2026-11-27: an endless beam that sweeps once round her every sixteen beats, cutting the bullets in its way)
-            [BossMechanic.Distance] = 3, // Komachi Onozuka (2026-11-27: stops every other beat and throws a flying arc at you that cuts what it goes over)
+            [BossMechanic.Distance] = 4, // Komachi Onozuka (2026-11-27: stops every other half beat and throws a fast flying arc at you that cuts what it goes over; 3 until arcs came twice as often, twice as fast)
             [BossMechanic.WellBucket] = 3, // Kisume (2026-11-27: everything falls from the top; she follows you along the top and fires three thick beams down every four beats)
             [BossMechanic.KnifeTrail] = 3, // Louise (2026-11-27: every twentieth bullet big, leaving knives that wait eight beats and fly at you)
             [BossMechanic.Poison] = 3, // Medicine Melancholy (2026-11-27: bullets that touch burst into petals; fast streams from all round her)
             [BossMechanic.Mining] = 4, // Momoyo Himemushi (2026-11-27: stone blocks along the walls, a charging centipede that bursts them into squares of bullets)
+            [BossMechanic.Rooster] = 3, // Kutaka Niwatari (2026-11-27: everything at half speed; what the circles and sliders fire comes at you in two streams)
+            [BossMechanic.Violin] = 4, // Lunasa Prismriver (2026-11-27: five parallel beams at you every eight beats; the objects break into pieces that hurt, cut in two along her beams)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

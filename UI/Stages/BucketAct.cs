@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Kisume (2026-11-27): all through her section she stays at the top of the screen (her magic circle's edge on it) and goes along it over the player at KISUME_MOVE_SPEED times a bullet's speed. Every
-        // KISUME_EVERY_BEATS she stops for KISUME_STOP_BEATS: three thick beams straight down from her (KISUME_BEAM_GAP_CIRCLES apart, KISUME_BEAM_HALF_CIRCLES circle radii half wide) show see-through for
+        // KISUME_EVERY_BEATS she stops for KISUME_STOP_BEATS: three thick beams down from her - the middle one straight down, the others KISUME_BEAM_FAN_DEGREES left and right of it (side by side until the same day) - KISUME_BEAM_HALF_CIRCLES circle radii half wide, show see-through for
         // KISUME_PREVIEW_BEATS, then are solid for the rest of the stop with Byakuren's beam sound, hurting like a slider body, and go. Everything fired in her section comes from the top and falls
         // (BossOps: TrajectoryOpKind.FromTop). How far she has gone is worked out frame by frame (the player is where they are then); a seek back starts her again over the player.
         // ======================================================================================================================================================
@@ -119,7 +119,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.KISUME_BEAM_HALF_CIRCLES;
 
-            private float beamX(BulletField f, int beam) => x + (beam - 1) * f.circleRadius * DanmakusuBalance.KISUME_BEAM_GAP_CIRCLES;
+            /// <summary>Which way beam <paramref name="beam"/> (0..2) goes from her: the middle one straight down, the others KISUME_BEAM_FAN_DEGREES left and right of it (2026-11-27; side by side, KISUME_BEAM_GAP_CIRCLES apart, before).</summary>
+            private static Vector2 beamWay(int beam)
+            {
+                float angle = (beam - 1) * DanmakusuBalance.KISUME_BEAM_FAN_DEGREES * MathF.PI / 180f;
+                return new Vector2(-MathF.Sin(angle), MathF.Cos(angle));
+            }
+
+            private static float reach(BulletField f) => Vector2.Distance(f.stageMin, f.stageMax) + 100f;
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
             {
@@ -143,11 +150,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 for (int beam = 0; beam < 3; beam++)
                 {
-                    float bx = beamX(f, beam);
                     line.Clear();
                     fades.Clear();
-                    line.Add(new Vector2(bx, y));
-                    line.Add(new Vector2(bx, f.stageMax.Y + halfWidth(f) * 2f));
+                    line.Add(new Vector2(x, y));
+                    line.Add(new Vector2(x, y) + beamWay(beam) * reach(f));
                     fades.Add(alpha);
                     fades.Add(alpha);
                     f.addPlainBeam(line, halfWidth(f), core, border, ref beams, ref pointTotal, null, fades, null, solid ? 0.6f : 0f);
@@ -168,9 +174,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (player.Y < top(f) - reach)
                     return false;
 
+                Vector2 from = new Vector2(x, top(f));
+
                 for (int beam = 0; beam < 3; beam++)
                 {
-                    if (MathF.Abs(player.X - beamX(f, beam)) <= reach)
+                    if (distanceToSegment(player, from, from + beamWay(beam) * BucketAct.reach(f)) <= reach)
                         return true;
                 }
 

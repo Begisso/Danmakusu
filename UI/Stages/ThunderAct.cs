@@ -21,6 +21,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // straight gold beams as a five-pointed star that grows as they fly out; in every second stretch of IKU_SWAP_BEATS of her section the beams of half the stars hurt like a slider body and those of
         // the other half are see-through (IKU_HARMLESS_ALPHA) and harmless, then the other way round (BulletEmitter.StarPhase), fading from one to the other. Her own rings no longer curl nor leave beams
         // behind them, and nothing is tied (the traces and ties above are left for no ring now).
+        // 2026-11-27 ("bullets are connected by slider laserbeams. By default all ring of 5s form perfect shape stars"): the stars are slider beams - the ring's own colour and edge, as wide as a slider's beam - and every ring is rebuilt as an even circle of five (BulletEmitter.AsEvenRing), also one that was five already.
         // ======================================================================================================================================================
 
         private sealed class ThunderAct : StageAct
@@ -135,6 +136,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private float traceHalf(BulletField f) => f.circleRadius * DanmakusuBalance.IKU_TRACE_WIDTH;
 
             private float linkHalf(BulletField f) => f.circleRadius * DanmakusuBalance.IKU_LINK_WIDTH;
+
+            /// <summary>How wide half a beam of a star is: a slider's beam (2026-11-27).</summary>
+            private float starHalf(BulletField f) => f.stageBaseRadius(Period) * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
 
             public override void Update(BulletField f, double now)
             {
@@ -296,6 +300,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (ring.Time > t || t > ring.Time + ring.Lifetime * 2 || !starLine(f, ring, t, t, starRuns))
                         continue;
 
+                    // (slider beams: the ring's own colour and edge, as wide as a slider's beam - 2026-11-27, "bullets are connected by slider laserbeams"; gold, thinner, before)
+                    int style = f.styleOf(ring);
+                    Color4 starBody = f.palette.Length > 0 ? f.palette[style % f.palette.Length] : linkCore;
+                    Color4 starBorder = f.borderPalette.Length > 0 ? f.borderPalette[style % f.borderPalette.Length] : linkBorder;
+                    float sliderHalf = starHalf(f);
+
                     double into = ((t - Period.ShootStart) % swap + swap) % swap;
                     float edge = smoothStep(into / soft) * smoothStep((swap - into) / soft);
                     float solid = harmful(ring, t) ? DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * edge : DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * (1f - edge);
@@ -311,7 +321,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             fades.Add(solid);
                         }
 
-                        f.addPlainBeam(piece, link, linkCore, linkBorder, ref beams, ref pointTotal, null, fades, linkCore);
+                        f.addPlainBeam(piece, sliderHalf, starBody, starBorder, ref beams, ref pointTotal, null, fades);
                     }
                 }
             }
@@ -438,14 +448,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (the stars whose beams hurt then, near where it looks)
                 foreach (var ring in stars)
                 {
-                    if (ring.Time > t || ring.Time > now || t > ring.Time + ring.Lifetime * 2 || !harmful(ring, t) || !starNear(f, ring, t, around, range + linkReach)
+                    float starReach = starHalf(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + extra;
+
+                    if (ring.Time > t || ring.Time > now || t > ring.Time + ring.Lifetime * 2 || !harmful(ring, t) || !starNear(f, ring, t, around, range + starReach)
                         || !starLine(f, ring, t, now, starRuns))
                         continue;
 
                     foreach (var (from, to) in starRuns)
                     {
                         for (int i = from; i < to; i++)
-                            shape.Point(line[i], linkReach);
+                            shape.Point(line[i], starReach);
 
                         shape.EndRun();
                     }
@@ -547,7 +559,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (the stars whose beams hurt now)
                 foreach (var ring in stars)
                 {
-                    if (ring.Time > now || now > ring.Time + ring.Lifetime * 2 || !harmful(ring, now) || !starNear(f, ring, now, player, linkReach)
+                    float starReach = starHalf(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+
+                    if (ring.Time > now || now > ring.Time + ring.Lifetime * 2 || !harmful(ring, now) || !starNear(f, ring, now, player, starReach)
                         || !starLine(f, ring, now, now, starRuns))
                         continue;
 
@@ -555,7 +569,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         for (int i = from; i + 1 < to; i++)
                         {
-                            if (distanceToSegment(player, line[i], line[i + 1]) <= linkReach)
+                            if (distanceToSegment(player, line[i], line[i + 1]) <= starReach)
                                 return true;
                         }
                     }

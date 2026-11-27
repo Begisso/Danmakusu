@@ -58,9 +58,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             bossVisualPosition += (wanted - bossVisualPosition) * follow;
         }
 
-        /// <summary>Marisa stands where a boss stands (opposite the player, or in the middle), but half as far from the middle of the screen (<see cref="DanmakusuBalance.MARISA_PLACE_SCALE"/>).</summary>
+        /// <summary>
+        /// Marisa stands where a boss stands (opposite the player, or in the middle), but half as far from the middle of the screen (<see cref="DanmakusuBalance.MARISA_PLACE_SCALE"/>); so does Mai since
+        /// 2026-11-27 ("she positions herself like Marisa now").
+        /// </summary>
         private static Vector2 marisaPlace(BossPeriod? period, Vector2 wanted, Vector2 centre)
-            => period?.Boss?.Mechanic == BossMechanic.MasterSpark ? centre + (wanted - centre) * DanmakusuBalance.MARISA_PLACE_SCALE : wanted;
+            => standsLikeMarisa(period) ? centre + (wanted - centre) * DanmakusuBalance.MARISA_PLACE_SCALE : wanted;
+
+        private static bool standsLikeMarisa(BossPeriod? period) => period?.Boss?.Mechanic is BossMechanic.MasterSpark or BossMechanic.Snowflake;
 
         private readonly double[] heldWindow = { double.NaN, double.NaN, double.NaN };
         private readonly Vector2[] heldPlace = new Vector2[3];
@@ -165,8 +170,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 bool middle = period.Kind == BossKind.Spinner || bossAtCentre(period, now);
 
-                // (Marisa does not stand opposite the player but half way there: a place of her own, whose circle she shares with nobody)
-                if (!middle && period.Boss?.Mechanic == BossMechanic.MasterSpark)
+                // (Marisa - and Mai - does not stand opposite the player but half way there: a place of her own, whose circle she shares with nobody)
+                if (!middle && standsLikeMarisa(period))
                     return -1;
 
                 return middle ? 0 : 1;
