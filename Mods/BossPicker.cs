@@ -40,19 +40,77 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         /// <summary>How many attacks and pauses a boss can be given room for at least, at most.</summary>
         public const int MOST_ATTACKS = 8;
 
-        /// <summary>The value for <paramref name="count"/> bosses of which these are chosen, each with room for <paramref name="attacks"/> attacks and pauses.</summary>
-        public static string ValueOf(int count, IEnumerable<string> ids, int attacks = 1)
-            => attacks > 1 ? $"{count};{attacks}|{string.Join(",", ids)}" : $"{count}|{string.Join(",", ids)}";
+        /// <summary>
+        /// The value for <paramref name="count"/> bosses of which these are chosen, each with room for <paramref name="attacks"/> attacks and pauses; with Marathon on, how many of them each of its maps
+        /// has (<paramref name="shares"/>, in the marathon's order: "count;attacks;share.share.share|ids", 2026-11-27).
+        /// </summary>
+        public static string ValueOf(int count, IEnumerable<string> ids, int attacks = 1, IReadOnlyList<int>? shares = null)
+            => shares is { Count: > 0 } ? $"{count};{attacks};{string.Join(".", shares)}|{string.Join(",", ids)}"
+                : attacks > 1 ? $"{count};{attacks}|{string.Join(",", ids)}" : $"{count}|{string.Join(",", ids)}";
+
+        /// <summary>The parts of a value before its ids: the count, the attacks, the shares.</summary>
+        private static string[] headOf(string? value)
+        {
+            string text = value ?? string.Empty;
+            int bar = text.IndexOf('|');
+            return (bar > 0 ? text[..bar] : string.Empty).Split(';');
+        }
 
         /// <summary>How many attacks and pauses every boss has room for at least, as a value says (1 when it does not say).</summary>
         public static int AttacksOf(string? value)
         {
-            string text = value ?? string.Empty;
-            int bar = text.IndexOf('|');
-            string head = bar > 0 ? text[..bar] : text;
-            int semicolon = head.IndexOf(';');
+            string[] head = headOf(value);
+            return head.Length > 1 && int.TryParse(head[1], out int attacks) ? Math.Clamp(attacks, 1, MOST_ATTACKS) : 1;
+        }
 
-            return semicolon > 0 && int.TryParse(head[(semicolon + 1)..], out int attacks) ? Math.Clamp(attacks, 1, MOST_ATTACKS) : 1;
+        /// <summary>How many of the bosses each map of the marathon has, as a value says (none when it does not say).</summary>
+        public static int[] SharesOf(string? value)
+        {
+            string[] head = headOf(value);
+
+            if (head.Length < 3 || head[2].Length == 0)
+                return Array.Empty<int>();
+
+            return head[2].Split('.').Select(part => int.TryParse(part, out int share) ? Math.Max(share, 0) : 0).ToArray();
+        }
+
+        /// <summary>
+        /// <paramref name="count"/> bosses spread over the maps of a marathon that have room for <paramref name="rooms"/> sections each (in whole sections of <paramref name="least"/>): one section for every
+        /// map first, as far as there are, and the rest by how much more room each has.
+        /// </summary>
+        public static int[] SplitShares(int count, int least, IReadOnlyList<int> rooms)
+        {
+            int n = rooms.Count;
+            var units = new int[n];
+
+            if (n == 0)
+                return units;
+
+            least = Math.Max(least, 1);
+            int all = Math.Max(count / least, 0);
+            int first = Math.Min(all, n);
+
+            for (int i = 0; i < first; i++)
+                units[i] = 1;
+
+            int rest = all - first;
+            long spare = 0;
+
+            foreach (int room in rooms)
+                spare += Math.Max(room - 1, 0);
+
+            long upTo = 0;
+            int given = 0;
+
+            for (int i = 0; i < n && rest > 0; i++)
+            {
+                upTo += spare > 0 ? Math.Max(rooms[i] - 1, 0) : 1;
+                int boundary = (int)Math.Round(rest * (double)upTo / (spare > 0 ? spare : n));
+                units[i] += boundary - given;
+                given = boundary;
+            }
+
+            return units.Select(unit => unit * least).ToArray();
         }
 
         /// <summary>The ids in a value, in order (every id once).</summary>
@@ -60,18 +118,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             => (value ?? string.Empty)[((value ?? string.Empty).IndexOf('|') + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
 
         /// <summary>How many bosses a value says there are (at least as many as are chosen in it; what was saved before there was a slider has no number).</summary>
-        public static int CountOf(string? value)
-        {
-            string text = value ?? string.Empty;
-            int bar = text.IndexOf('|');
-            string head = bar > 0 ? text[..bar] : string.Empty;
-            int semicolon = head.IndexOf(';');
-
-            if (semicolon >= 0)
-                head = head[..semicolon];
-
-            return Math.Max(int.TryParse(head, out int count) ? count : 1, Ids(text).Count);
-        }
+        public static int CountOf(string? value) => Math.Max(int.TryParse(headOf(value)[0], out int count) ? count : 1, Ids(value).Count);
 
         /// <summary>The chosen bosses in a value, in order (ids that are not in the roster any more are left out).</summary>
         public static List<BossInfo> Bosses(string? value)
@@ -128,7 +175,15 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             private readonly SpriteText attacksLabel;
 
             /// <summary>The value for <paramref name="count"/> bosses of which these are chosen, with the attacks per boss it has now.</summary>
-            private string valueOf(int count, IEnumerable<string> ids) => ValueOf(count, ids, AttacksOf(current.Value));
+            private string valueOf(int count, IEnumerable<string> ids) => valueOf(count, ids, AttacksOf(current.Value));
+
+            // (with Marathon on, the value says how many of the bosses each of its maps has, by how much room each has: 2026-11-27)
+            private string valueOf(int count, IEnumerable<string> ids, int attacks)
+                => ValueOf(count, ids, attacks, marathonRooms.Length > 0 ? SplitShares(count, least, marathonRooms) : null);
+
+            // (the maps of the marathon, when Marathon is on with maps, and how many sections each has room for: the most is what they all have room for together)
+            private int[] marathonRooms = Array.Empty<int>();
+            private string[] marathonMaps = Array.Empty<string>();
 
             /// <summary>(read by the bar preview's background work: how many attacks and pauses per boss the map's room is counted for)</summary>
             internal int AttacksNow => attacks.Value;
@@ -290,7 +345,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 attacks.BindValueChanged(changed =>
                 {
                     if (changed.NewValue != AttacksOf(current.Value))
-                        current.Value = ValueOf(max, Ids(current.Value), changed.NewValue);
+                        current.Value = valueOf(max, Ids(current.Value), changed.NewValue);
 
                     barPreview.Recount(changed.NewValue);
                 });
@@ -317,11 +372,16 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 countBox.Text = count.Value.ToString();
             }
 
-            /// <summary>The map has been read: this many bosses have an attack and a pause of their own on it (two or three times as many when that many are on the screen at once).</summary>
-            private void setMostOnMap(int most)
+            /// <summary>
+            /// The map has been read: this many bosses have an attack and a pause of their own on it (two or three times as many when that many are on the screen at once). With Marathon on it is all
+            /// its maps together (<paramref name="maps"/>, each with room for <paramref name="rooms"/>).
+            /// </summary>
+            private void setMostOnMap(int most, string[]? maps = null, int[]? rooms = null)
             {
                 int before = mostOnMap;
                 bool wasRead = mapRead;
+                marathonMaps = maps ?? Array.Empty<string>();
+                marathonRooms = rooms ?? Array.Empty<int>();
 
                 // (never more than the roster has bosses, in whole sections of two or three: 2026-11-26, "max amount of bosses can't be bigger than touhou bosses list")
                 mostOnMap = Math.Max(Math.Min(most * least, BossRoster.All.Count / least * least), least);
@@ -337,6 +397,15 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                         current.Value = atMost;
                         return; // (the change refreshes it)
                     }
+                }
+
+                // (the shares of the marathon's maps follow their room - and go when Marathon does)
+                string withShares = valueOf(Math.Min(max, mostOnMap), Ids(current.Value).Take(Math.Min(max, mostOnMap)));
+
+                if (withShares != current.Value)
+                {
+                    current.Value = withShares;
+                    return;
                 }
 
                 refresh();
@@ -359,7 +428,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 count.Value = now;
                 countSlider.Alpha = mostOnMap > least ? 1f : 0f;
                 maxButton.Alpha = mostOnMap > least ? 1f : 0f;
-                countLabel.Text = (mapRead ? $"Bosses: {now} (up to {mostOnMap} on this map)" : $"Bosses: {now}") + $", {Ids(current.Value).Count} chosen";
+                string room = marathonRooms.Length > 0 ? $"up to {mostOnMap} in the marathon's {marathonRooms.Length} maps" : $"up to {mostOnMap} on this map";
+                countLabel.Text = (mapRead ? $"Bosses: {now} ({room})" : $"Bosses: {now}") + $", {Ids(current.Value).Count} chosen";
 
                 if (!countBox.HasFocus)
                     countBox.Text = now.ToString();
@@ -446,9 +516,108 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 private SongBands? bands;
                 private int recountVersion;
 
+                [Resolved(CanBeNull = true)]
+                private BeatmapManager? manager { get; set; }
+
+                // (Marathon's maps, followed as they are checked: 2026-11-27)
+                private Bindable<string>? marathonMaps;
+                private DanmakusuModMarathon? marathon;
+                private int ownMost = 1; // (what the selected map has room for on its own)
+                private int marathonVersion;
+
+                // (how many sections a map has room for, by its MD5, the attacks and pauses per boss and Always Boss: a map is read once for each)
+                private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int, bool), int> rooms = new System.Collections.Concurrent.ConcurrentDictionary<(string, int, bool), int>();
+
+                private string[] marathonList => DanmakusuModMarathon.MapsOf(marathonMaps?.Value);
+
+                /// <summary>Marathon put on or taken off: its maps are followed.</summary>
+                private void followMarathon(IReadOnlyList<osu.Game.Rulesets.Mods.Mod>? chosen)
+                {
+                    var now = chosen?.OfType<DanmakusuModMarathon>().FirstOrDefault();
+
+                    if (ReferenceEquals(now, marathon))
+                        return;
+
+                    marathon = now;
+                    marathonMaps?.UnbindAll();
+                    marathonMaps = now?.Maps.GetBoundCopy();
+                    marathonMaps?.BindValueChanged(_ => countMarathon());
+                    countMarathon();
+                }
+
+                /// <summary>How many bosses the marathon has room for: every map of it read (off the update thread), each once; without Marathon, the selected map's own room.</summary>
+                private void countMarathon()
+                {
+                    int version = ++marathonVersion;
+                    string[] list = marathonList;
+
+                    if (list.Length == 0)
+                    {
+                        if (playable != null)
+                            picker.setMostOnMap(ownMost);
+
+                        return;
+                    }
+
+                    int attacks = picker.AttacksNow;
+                    bool always = sectionMods().Length > 0;
+                    var withMods = sectionMods();
+                    var library = manager;
+
+                    Task.Run(() =>
+                    {
+                        var counted = new int[list.Length];
+
+                        for (int i = 0; i < list.Length; i++)
+                            counted[i] = roomOf(library, list[i], attacks, always, withMods);
+
+                        Schedule(() =>
+                        {
+                            if (version == marathonVersion)
+                                picker.setMostOnMap(counted.Sum(), list, counted);
+                        });
+                    });
+                }
+
+                /// <summary>How many sections a map of the library has room for (1 when it cannot be read).</summary>
+                private static int roomOf(BeatmapManager? library, string md5, int attacks, bool always, osu.Game.Rulesets.Mods.Mod[] withMods)
+                {
+                    if (rooms.TryGetValue((md5, attacks, always), out int known))
+                        return known;
+
+                    int most = 1;
+
+                    try
+                    {
+                        var info = library?.QueryBeatmap(b => b.MD5Hash == md5);
+
+                        if (info != null)
+                        {
+                            var working = library!.GetWorkingBeatmap(info);
+                            var converted = working.GetPlayableBeatmap(new DanmakusuRuleset().RulesetInfo, withMods);
+                            SongBands? song = null;
+                            most = BulletPlanner.MostBosses(converted, () => song ??= SongBands.From(working), attacks);
+                        }
+                    }
+                    catch
+                    {
+                        most = 1;
+                    }
+
+                    most = Math.Max(most, 1);
+                    rooms[(md5, attacks, always)] = most;
+                    return most;
+                }
+
                 /// <summary>Counts again how many bosses the map has room for, with <paramref name="attacks"/> attacks and pauses each (off the update thread).</summary>
                 public void Recount(int attacks)
                 {
+                    if (marathonList.Length > 0)
+                    {
+                        countMarathon();
+                        return;
+                    }
+
                     var map = playable;
                     var song = bands;
                     int version = ++recountVersion;
@@ -471,8 +640,11 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
                         Schedule(() =>
                         {
-                            if (version == recountVersion)
+                            if (version == recountVersion && marathonList.Length == 0)
+                            {
+                                ownMost = most;
                                 picker.setMostOnMap(most);
+                            }
                         });
                     });
                 }
@@ -502,8 +674,15 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                         bool has = changed.NewValue?.Any(mod => mod is DanmakusuModAlwaysBoss) ?? false;
 
                         if (had || has)
+                        {
                             loadMap(beatmap?.Value);
+                            countMarathon(); // (Always Boss changes every marathon map's room too)
+                        }
+
+                        followMarathon(changed.NewValue);
                     });
+
+                    followMarathon(mods?.Value);
                 }
 
                 public void ShowPicked(IReadOnlyList<BossInfo> bosses)
@@ -570,7 +749,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                             playable = converted;
                             bands = song;
                             fromColours = colours;
-                            picker.setMostOnMap(most);
+                            ownMost = most;
+
+                            // (with Marathon on, the most is all its maps' together)
+                            if (marathonList.Length > 0)
+                                countMarathon();
+                            else
+                                picker.setMostOnMap(most);
+
                             rebuild();
                         });
                     });
@@ -587,7 +773,19 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     if (playable == null || fromColours.Length == 0 || playable.HitObjects.Count == 0)
                         return;
 
-                    var bosses = DanmakusuModBossSelection.ChooseFrom(picked, fromColours, picker.max);
+                    // (a map of the marathon shows its share of the bosses; any other map the first map's)
+                    IReadOnlyList<BossInfo> shown = picked;
+                    int count = picker.max;
+
+                    if (picker.marathonRooms.Length > 0 && picker.marathonRooms.Length == picker.marathonMaps.Length)
+                    {
+                        int index = Math.Max(Array.IndexOf(picker.marathonMaps, beatmap?.Value?.BeatmapInfo.MD5Hash), 0);
+                        int[] shares = SplitShares(picker.max, picker.least, picker.marathonRooms);
+                        count = Math.Max(shares[index], picker.least);
+                        shown = picked.Skip(shares.Take(index).Sum()).Take(count).ToList();
+                    }
+
+                    var bosses = DanmakusuModBossSelection.ChooseFrom(shown, fromColours, count);
                     var song = bands;
                     var periods = BulletPlanner.BarPeriods(playable, bosses.Length, picker.doubled, () => song, picker.least > 2);
                     double mapStart = playable.HitObjects.Min(h => h.StartTime);

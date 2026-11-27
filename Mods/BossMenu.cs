@@ -307,7 +307,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         /// <summary>The bosses that would be played with what is checked now (nothing checked: the ones the combo colours choose): their information and their attacks are shown.</summary>
         private void refreshBosses()
         {
-            var bosses = selection.Choose(playfield.BossesFromColours) ?? playfield.BossesFromColours;
+            var bosses = selection.Choose(playfield.BossesFromColours, playfield.MapHash) ?? playfield.BossesFromColours;
 
             info.ShowBosses(bosses, selection.Double, selection.Triple);
             preview.ShowBosses(bosses, selection.Triple);
@@ -392,7 +392,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             confirmed = true;
 
             // (what is not checked is filled in by the combo colours, as everywhere else)
-            playfield.ChooseBosses(selection.Choose(playfield.BossesFromColours) ?? playfield.BossesFromColours);
+            playfield.ChooseBosses(selection.Choose(playfield.BossesFromColours, playfield.MapHash) ?? playfield.BossesFromColours);
 
             // (the playfield starts the map once the game draws smoothly again: the field may have just been made again, and its first frames can wait - 2026-11-15)
             playfield.StartWhenSmooth();

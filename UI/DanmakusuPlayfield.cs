@@ -76,6 +76,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The bosses that the combo colours of the map choose.</summary>
         public BossInfo[] BossesFromColours => fromColours;
 
+        /// <summary>The MD5 of the map played (a map of a marathon has its share of the bosses: 2026-11-27).</summary>
+        public string? MapHash { get; private set; }
+
         /// <summary>
         /// (the boss menu, 2026-11-14) The map's stars without bosses and with <paramref name="bosses"/> (as many at a time as the mod has: see <see cref="StarRating.RateWithBosses"/>); null when there is no
         /// map. Slow (it plans the whole map twice): call it off the game's thread.
@@ -112,7 +115,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (the bosses of the boss selection mod, if one is on; otherwise the colours choose - the player can still change them in the menu before the map starts)
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            buildField(beatmap, bossSelect?.Choose(fromColours) ?? fromColours);
+            MapHash = beatmap.BeatmapInfo?.MD5Hash;
+            buildField(beatmap, bossSelect?.Choose(fromColours, MapHash) ?? fromColours);
             osu.Framework.Logging.Logger.Log($"Danmakusu: the field was made in {watch.ElapsedMilliseconds} ms (on the {System.Threading.Thread.CurrentThread.Name ?? "unnamed"} thread)");
         }
 

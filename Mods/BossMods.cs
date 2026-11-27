@@ -18,8 +18,11 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     /// </summary>
     public interface IBossSelection
     {
-        /// <summary>The chosen bosses (<paramref name="fromColours"/> are the ones the combo colours would choose, they fill the places that have not been chosen).</summary>
-        BossInfo[]? Choose(BossInfo[] fromColours);
+        /// <summary>
+        /// The chosen bosses (<paramref name="fromColours"/> are the ones the combo colours would choose, they fill the places that have not been chosen); for a map of a marathon going on
+        /// (<paramref name="md5"/>) its share of them (2026-11-27).
+        /// </summary>
+        BossInfo[]? Choose(BossInfo[] fromColours, string? md5 = null);
 
         /// <summary>More than one boss is on the screen at once in every section: two, with half the bullets each, or (<see cref="Triple"/>) three.</summary>
         bool Double { get; }
@@ -52,7 +55,25 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         /// <summary>How few bosses there can be.</summary>
         protected virtual int Least => 1;
 
-        public BossInfo[]? Choose(BossInfo[] fromColours) => ChooseFrom(BossPicker.Bosses(Bosses.Value), fromColours, Math.Max(BossPicker.CountOf(Bosses.Value), Least));
+        public BossInfo[]? Choose(BossInfo[] fromColours, string? md5 = null)
+        {
+            int count = Math.Max(BossPicker.CountOf(Bosses.Value), Least);
+            var picked = BossPicker.Bosses(Bosses.Value);
+            int index = MarathonRun.IndexOf(md5);
+
+            if (index < 0)
+                return ChooseFrom(picked, fromColours, count);
+
+            // (a map of a marathon going on: its share of the bosses, in order - as the picker spread them over the maps by their room, or evenly when it has not: 2026-11-27)
+            int[] shares = BossPicker.SharesOf(Bosses.Value);
+
+            if (shares.Length != MarathonRun.Count)
+                shares = BossPicker.SplitShares(count, Least, Enumerable.Repeat(1, MarathonRun.Count).ToArray());
+
+            int offset = shares.Take(index).Sum();
+            int share = Math.Max(shares[index], Least);
+            return ChooseFrom(picked.Skip(offset).Take(share).ToList(), fromColours, share);
+        }
 
         /// <summary>The <paramref name="count"/> bosses of the map when <paramref name="picked"/> are checked (also for the HP bar preview in the list): what is not checked is what the combo colours choose, or else the next ones in the list.</summary>
         public static BossInfo[] ChooseFrom(IReadOnlyList<BossInfo> picked, BossInfo[] fromColours, int count)
