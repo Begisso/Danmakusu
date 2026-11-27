@@ -93,7 +93,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         {
             private const float head_size = 40f;
             private const float tile_width = 168f;
-            private const int columns = 4;
+            private const int columns = 6; // (4 until 2026-11-27: "more characters columns")
 
             private readonly BindableWithCurrent<string> current = new BindableWithCurrent<string>(string.Empty);
 
@@ -649,7 +649,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     Boss = boss;
                     this.picker = picker;
 
-                    // (four in a row: a tile is a quarter of the list's width, with a gap of 4 px between two)
+                    // (six in a row: a tile is a sixth of the list's width, with a gap of 4 px between two)
                     RelativeSizeAxes = Axes.X;
                     Width = 1f / columns;
                     Height = head_size + 12; // (two rows of name and the stars under them)

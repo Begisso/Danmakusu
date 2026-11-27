@@ -64,6 +64,9 @@ namespace osu.Game.Rulesets.Danmakusu
 
             // (and its mods are purple wherever osu! draws them, not Difficulty Reduction's green: Mods/PurpleMods.cs)
             PurpleMods.Apply();
+
+            // (and Marathon goes on from map to map: Mods/Marathon.cs)
+            MarathonRun.Apply();
         }
 
         public override string Description => "Danmakusu";
@@ -84,7 +87,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap) => new DanmakusuDifficultyCalculator(RulesetInfo, beatmap); // (the stars by bullet density, the rest osu!'s)
         public override PerformanceCalculator CreatePerformanceCalculator() => new OsuPerformanceCalculator();
         public override IEnumerable<Mod> GetModsFor(ModType type)
-            => type == ModType.DifficultyReduction ? new Mod[] { new DanmakusuModBossSelection(), new DanmakusuModDoubleBossSelection(), new DanmakusuModTripleBossSelection(), new DanmakusuModAlwaysBoss(), new DanmakusuModFocusLens() }.Concat(osu.GetModsFor(type))
+            => type == ModType.DifficultyReduction ? new Mod[] { new DanmakusuModBossSelection(), new DanmakusuModDoubleBossSelection(), new DanmakusuModTripleBossSelection(), new DanmakusuModAlwaysBoss(), new DanmakusuModFocusLens(), new DanmakusuModMarathon() }.Concat(osu.GetModsFor(type))
                : type == ModType.Automation ? osu.GetModsFor(type).Select(withOwnAutoplay)
                : osu.GetModsFor(type); // (the mods of this ruleset are of the Difficulty Reduction type, first there; the mod select screen shows them in a column of their own, see DanmakusuModColumn)
 
