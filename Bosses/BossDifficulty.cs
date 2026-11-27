@@ -154,6 +154,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.AngelOfDeath] = 4, // Sariel (2026-11-27: rings of homing bats that stream bullets at you, beams that leave turn into bats, bullets come in at the other side; her last word aims everything at you)
             [BossMechanic.Underworld] = 4, // Kikuri (2026-11-27: in the middle; everything flies out from her in her attacks, rings of 36 waving beams, every fourth bullet out of the screen shot again from her)
             [BossMechanic.Sweep] = 3, // Konngara (2026-11-27: an endless beam that sweeps once round her every sixteen beats, cutting the bullets in its way)
+            [BossMechanic.Distance] = 3, // Komachi Onozuka (2026-11-27: stops every other beat and throws a flying arc at you that cuts what it goes over)
+            [BossMechanic.WellBucket] = 3, // Kisume (2026-11-27: everything falls from the top; she follows you along the top and fires three thick beams down every four beats)
+            [BossMechanic.KnifeTrail] = 3, // Louise (2026-11-27: every twentieth bullet big, leaving knives that wait eight beats and fly at you)
+            [BossMechanic.Poison] = 3, // Medicine Melancholy (2026-11-27: bullets that touch burst into petals; fast streams from all round her)
+            [BossMechanic.Mining] = 4, // Momoyo Himemushi (2026-11-27: stone blocks along the walls, a charging centipede that bursts them into squares of bullets)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

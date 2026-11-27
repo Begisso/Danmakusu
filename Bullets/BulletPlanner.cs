@@ -80,6 +80,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Hare, BossMechanic.Psychokinesis, BossMechanic.Citrus, // (2026-11-25: Tewi, Sumireko and Orange: their spinners shoot their own bullets, without the spinner's beams)
             BossMechanic.Pinwheel, BossMechanic.Cubes, BossMechanic.Space, // (2026-11-26: Yuiman, Yachie, Rikako)
             BossMechanic.YinYang, BossMechanic.EvilEyes, BossMechanic.BigBat, BossMechanic.AngelOfDeath, BossMechanic.Underworld, BossMechanic.Sweep, // (2026-11-27: the six of Highly Responsive to Prayers)
+            BossMechanic.Distance, BossMechanic.WellBucket, BossMechanic.KnifeTrail, BossMechanic.Poison, BossMechanic.Mining, // (2026-11-27: Komachi, Kisume, Louise, Medicine, Momoyo)
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>

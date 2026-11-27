@@ -4892,5 +4892,49 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float YUUGENMAGAN_LINK_WIDTH = 0.12f;
         public const float YUUGENMAGAN_LINK_ALPHA = 0.45f;
         public static readonly Color4 YUUGENMAGAN_GOLD = new Color4(1f, 0.8f, 0.25f, 1f);
+
+        // Komachi Onozuka (2026-11-27): a round of so many beats, the last so many of them a stop; her arc so many times as big as Elly's, flying so many times a bullet's speed
+        public const double KOMACHI_EVERY_BEATS = 2;
+        public const double KOMACHI_STOP_BEATS = 1;
+        public const float KOMACHI_ARC_SIZE = 0.5f;
+        public const float KOMACHI_ARC_SPEED = 1.5f;
+
+        // Kisume (2026-11-27): a stop every so many beats, so long, its beams see-through so long first; she goes so many times a bullet's speed; her beams so far apart and so wide (circle radii); what falls keeps so much of its sideways way and is pulled down so much
+        public const double KISUME_EVERY_BEATS = 4;
+        public const double KISUME_STOP_BEATS = 2;
+        public const double KISUME_PREVIEW_BEATS = 1;
+        public const float KISUME_MOVE_SPEED = 3f;
+        public const float KISUME_BEAM_GAP_CIRCLES = 3f;
+        public const float KISUME_BEAM_HALF_CIRCLES = 0.7f;
+        public const float KISUME_SIDEWAYS = 0.4f;
+        public const float KISUME_FALL_PULL = ZANMU_GRAVITY * 0.5f;
+
+        // Louise (2026-11-27): every so many-th bullet so many times as big, leaving a knife every so many beats, which stays so many beats and flies off so fast, so big
+        public const int LOUISE_EVERY = 20;
+        public const float LOUISE_SIZE = 2f;
+        public const double LOUISE_KNIFE_EVERY_BEATS = 0.5;
+        public const double LOUISE_STAY_BEATS = 8;
+        public const float LOUISE_KNIFE_SPEED = 1f;
+        public const float LOUISE_KNIFE_SIZE = 1f;
+
+        // Medicine Melancholy (2026-11-27): bullets meet after so many ms of flight; a flower of so many petals so big; so many streams round her circle, a bullet every so many beats, so fast, turning so many degrees a beat
+        public const double MEDICINE_ARM_MS = 200;
+        public const int MEDICINE_PETALS = 5;
+        public const float MEDICINE_PETAL_SIZE = 0.7f;
+        public const int MEDICINE_STREAMS = 12;
+        public const double MEDICINE_STREAM_BEATS = 0.25;
+        public const float MEDICINE_STREAM_SPEED = 2f;
+        public const float MEDICINE_TURN_DEGREES_PER_BEAT = 7.5f;
+
+        // Momoyo Himemushi (2026-11-27): a block an osu! circle (times this) across, thrown every so many beats, flying so long, so many rings in from the walls; a centipede so many circle radii long, so fast, every so many beats of a pause, an arrow so long before; a block bursts into so many bullets
+        public const float MOMOYO_BLOCK_CIRCLES = 1f;
+        public const double MOMOYO_THROW_EVERY_BEATS = 0.5;
+        public const double MOMOYO_THROW_BEATS = 0.5;
+        public const int MOMOYO_LAYERS = 2;
+        public const float MOMOYO_CENTIPEDE_CIRCLES = 16f;
+        public const float MOMOYO_CENTIPEDE_SPEED = 1.2f;
+        public const double MOMOYO_CENTIPEDE_EVERY_BEATS = 16;
+        public const double MOMOYO_CENTIPEDE_WARN_BEATS = 1;
+        public const int MOMOYO_BURST_BULLETS = 20;
     }
 }

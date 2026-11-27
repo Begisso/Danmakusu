@@ -93,6 +93,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>Kikuri (2026-11-27): at Time (a window: what is fired in it, as it is fired) the thing turns to fly straight out from <see cref="TrajectoryOp.Point"/> (the middle of the screen), as fast as it flew.</summary>
         FaceOut,
+
+        /// <summary>
+        /// Kisume (2026-11-27): what is fired in the window [Time, End] comes, as it is fired, from just above the top of the screen (<see cref="TrajectoryOp.Radius"/> above it), straight above where it was
+        /// fired, and falls: down at its own speed, <see cref="TrajectoryOp.SpeedFactor"/> of its sideways way kept, pulled down by <see cref="TrajectoryOp.Push"/> px/ms².
+        /// </summary>
+        FromTop,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -829,10 +835,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     case TrajectoryOpKind.FaceOut:
                     {
-                        // (Kikuri, 2026-11-27: as her attack begins - or as it is fired in it - it turns to fly straight out from the middle, as fast as it was)
+                        // (Kikuri, 2026-11-27: as her attack begins - or as it is fired in it - it turns to fly straight out from the middle, as fast as it was; not what is fired after it)
                         double at = Math.Max(op.Time, now);
 
-                        if (at > time)
+                        if (at > time || t0 > op.End)
                             break;
 
                         step(ref position, ref v, acc, ref now, at);
@@ -842,6 +848,22 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         if (away.LengthSquared > 1e-6f && speed > 1e-6f)
                             v = Vector2.Normalize(away) * speed;
 
+                        look = op.After ?? look;
+                        break;
+                    }
+
+                    case TrajectoryOpKind.FromTop:
+                    {
+                        // (Kisume, 2026-11-27: what is fired in her section comes from the top of the screen above where it was fired, as it is fired, and falls: down at its own speed, a part of
+                        // its sideways way kept, pulled down more and more)
+                        if (t0 < op.Time || t0 > op.End || now > time)
+                            break;
+
+                        step(ref position, ref v, acc, ref now, Math.Max(t0, now));
+                        float speed = Math.Max(v.Length, 1e-3f);
+                        position = new Vector2(position.X, min.Y - op.Radius);
+                        v = new Vector2(v.X * op.SpeedFactor, speed);
+                        acc = new Vector2(0f, op.Push);
                         look = op.After ?? look;
                         break;
                     }

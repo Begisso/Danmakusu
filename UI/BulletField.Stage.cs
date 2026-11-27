@@ -2034,6 +2034,41 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             registerStage(new UnderworldAct(period));
                         break;
 
+                    case BossMechanic.Distance:
+                        // Komachi: her stops and the arcs she throws (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new ScytheAct(period));
+                        break;
+
+                    case BossMechanic.WellBucket:
+                        // Kisume: at the top, over the player, and her three beams (what falls from the top is BossOps') (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new BucketAct(period));
+                        break;
+
+                    case BossMechanic.KnifeTrail:
+                        // Louise: the big bullets and their knives (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new KnifeTrailAct(period));
+                        break;
+
+                    case BossMechanic.Poison:
+                        // Medicine: bullets that meet burst into petals, and her streams (2026-11-27)
+                        if (period.End > period.ShootStart)
+                        {
+                            var poison = new PoisonAct(period);
+                            registerStage(poison);
+                            poison.Pool = new ShotPool(this, period, period.ShootStart, period.End + Math.Max(period.BeatLength, 1) * DanmakusuBalance.LIFE_MOST_BEATS);
+                        }
+
+                        break;
+
+                    case BossMechanic.Mining:
+                        // Momoyo: her stone blocks and her centipedes (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new MiningAct(period));
+                        break;
+
                     case BossMechanic.YinYang:
                         // Shingyoku: she throws herself as a yin-yang orb, or the others (2026-11-27)
                         if (period.End > period.ShootStart)

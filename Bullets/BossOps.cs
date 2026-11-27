@@ -406,6 +406,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         break;
                     }
 
+                    case BossMechanic.WellBucket:
+                        // Kisume (2026-11-27): everything fired in her section comes from the top of the screen above where it was fired, and falls
+                        bullets.Add(new TrajectoryOp
+                        {
+                            Kind = TrajectoryOpKind.FromTop, Time = period.ShootStart, End = period.End, Window = true, BornAfter = period.ShootStart, SkipSharp = true,
+                            Radius = 6f, SpeedFactor = DanmakusuBalance.KISUME_SIDEWAYS, Push = DanmakusuBalance.KISUME_FALL_PULL,
+                        });
+
+                        break;
+
                     case BossMechanic.AngelOfDeath:
                     {
                         // Sariel (2026-11-27): after her last section on the map everything flying, bullets and beams, turns dark purple, and a little later it all turns at where the player is then (her act

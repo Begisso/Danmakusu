@@ -326,6 +326,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Kogasa's umbrella (Resources/Textures/kogasa_umbrella.png, the user's photo of a purple paper umbrella with an eye and a tongue, unwrapped round its knob into a circle with Tools/Bake `umbrella`): 512 x 512.</summary>
         KogasaUmbrella,
 
+        /// <summary>A block of Momoyo's stone (Resources/Textures/momoyo_stone.png, the user's picture of a stone block, 16 x 16 pixels made sharp again with Tools/Bake `pixels`, 2026-11-27): 128 x 128.</summary>
+        MomoyoStone,
+
+        /// <summary>Momoyo's centipede (Resources/Textures/momoyo_centipede.png, the user's picture cut out of its white background with Tools/Bake `cutout`, 2026-11-27): its head on the left, 400 x 211.</summary>
+        Centipede,
+
         /// <summary>One slice of Orange's orange (Resources/Textures/orange.png, the user's picture of an orange cut across: ten slices), the top one, cut out of the whole: the picture is the whole orange's square, see-through but for that slice, so that it turns round the orange's middle (2026-11-25): 512 x 512.</summary>
         OrangeSlice,
 
@@ -603,6 +609,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.Fumo => BossCharacter.LoadResource(renderer, "Textures.alice_fumo.png"),
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
                     StageTexture.KogasaUmbrella => BossCharacter.LoadResource(renderer, "Textures.kogasa_umbrella.png"),
+                    StageTexture.MomoyoStone => BossCharacter.LoadResource(renderer, "Textures.momoyo_stone.png"),
+                    StageTexture.Centipede => BossCharacter.LoadResource(renderer, "Textures.momoyo_centipede.png"),
                     StageTexture.OrangeSlice => bake(renderer, makeOrangeSlice()),
                     StageTexture.PhotoFrame => bake(renderer, makePhotoFrame(false)),
                     StageTexture.PhotoGlass => bake(renderer, makePhotoFrame(true)),

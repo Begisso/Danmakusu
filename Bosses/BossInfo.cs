@@ -38,9 +38,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
         /// <summary>The mechanics that are still only a name (no code behind them yet): a boss with one of these shoots the placeholder attack only.</summary>
         private static readonly HashSet<BossMechanic> placeholder_mechanics = new HashSet<BossMechanic>
         {
-            BossMechanic.None, BossMechanic.Density, BossMechanic.Distance, // (Dolls: Alice's, built 2026-11-20)
+            BossMechanic.None, BossMechanic.Density, // (Dolls: Alice's, built 2026-11-20; Distance: Komachi's, built 2026-11-27)
             BossMechanic.Elixir, BossMechanic.Illusions, // (Frog: Suwako's, built 2026-11-21)
-            BossMechanic.Poison, // (Onbashira: Kanako's, built 2026-11-20; Thunder: Iku's, built 2026-11-24; Psychokinesis: Sumireko's, built 2026-11-25)
+            // (Onbashira: Kanako's, built 2026-11-20; Thunder: Iku's, built 2026-11-24; Psychokinesis: Sumireko's, built 2026-11-25; Poison: Medicine's, built 2026-11-27)
         };
 
         /// <summary>True when the boss has a mechanic of his own (modified); false when he is still a placeholder (only the placeholder attack).</summary>

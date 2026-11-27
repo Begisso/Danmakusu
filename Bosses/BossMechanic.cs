@@ -39,7 +39,10 @@
         /// </summary>
         Destruction,
 
-        /// <summary>Bullets travel further depending on how far the player is.</summary>
+        /// <summary>
+        /// Komachi Onozuka (2026-11-27; was a placeholder, "bullets travel further depending on how far the player is"): she goes for a beat and stops for a beat, in turn; as each stop begins she throws
+        /// an arc like Elly's, half as big, at the player, with Kagerou's swing; it flies on, hurts like a slider body and cuts every bullet it goes over.
+        /// </summary>
         Distance,
 
         /// <summary>
@@ -129,7 +132,10 @@
         /// </summary>
         Onbashira,
 
-        /// <summary>Poison clouds linger on the field and slowly expand.</summary>
+        /// <summary>
+        /// Medicine Melancholy (2026-11-27; was a placeholder, "poison clouds linger on the field and slowly expand"): two bullets that touch both burst into a small flower of five of Yuyuko's petals;
+        /// she shoots streams from all round her magic circle, twice as fast.
+        /// </summary>
         Poison,
 
         /// <summary>
@@ -723,5 +729,22 @@
         /// Konngara (2026-11-27): every sixteen beats (eight after the last sweep) an endless beam from her straight up, after a preview of four beats, sweeps once round her and fades; the bullets in its way are cut in two, across it.
         /// </summary>
         Sweep,
+
+        /// <summary>
+        /// Kisume (2026-11-27): everything fired in her section comes from the top of the screen and falls; she stays at the top, going along it over the player, and every four beats stops and shoots
+        /// three thick beams straight down.
+        /// </summary>
+        WellBucket,
+
+        /// <summary>
+        /// Louise (2026-11-27): every twentieth bullet is twice as big and leaves a trail of knives behind it; each stays where it was left for eight beats, then flies at the player.
+        /// </summary>
+        KnifeTrail,
+
+        /// <summary>
+        /// Momoyo Himemushi (2026-11-27): in her attacks she throws stone blocks that are laid on a grid in from the walls of the screen, hurting like a slider body; in her pauses a big centipede comes in
+        /// from behind the wall at her back, charges across at the player and out, and every block it goes through bursts into a square of twenty bullets.
+        /// </summary>
+        Mining,
     }
 }
