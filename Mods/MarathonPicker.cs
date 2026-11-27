@@ -31,7 +31,9 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     /// <summary>
     /// The maps of a marathon in the settings of <see cref="DanmakusuModMarathon"/> (2026-11-27): a search box that searches the library as song select's does (osu!'s own query parser and matching, for
     /// Danmakusu, so with its stars and converted maps), and a list of the maps it finds - the checked ones first, in their order - where a click checks a map or takes it out again. A checked map shows
-    /// the number of its place in the marathon where an unchecked one shows an empty box.
+    /// the number of its place in the marathon where an unchecked one shows an empty box. Under the search (2026-11-27): four checks for the modes whose maps are found (osu!standard alone at first),
+    /// how many maps Random checks (5 at first), Random - that many at random among everything found, replacing what was checked - and Clear. When Marathon is first put on with nothing checked, the
+    /// map selected in song select is checked as its first.
     /// </summary>
     public partial class MarathonPicker : SettingsItem<string>
     {
@@ -56,6 +58,13 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             [Resolved(CanBeNull = true)]
             private IRulesetStore? rulesets { get; set; }
 
+            // (the map selected in song select: checked as the first map when Marathon is first put on, 2026-11-27)
+            [Resolved(CanBeNull = true)]
+            private IBindable<WorkingBeatmap>? selectedMap { get; set; }
+
+            // (the Marathon settings whose list has been started so: a list cleared later stays clear)
+            private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Bindable<string>, object> started = new System.Runtime.CompilerServices.ConditionalWeakTable<Bindable<string>, object>();
+
             private readonly OsuTextBox search;
             private readonly SpriteText info;
             private readonly FillFlowContainer list;
@@ -67,6 +76,36 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             private CancellationTokenSource? searching;
 
             private static readonly MethodInfo? apply_queries = typeof(FilterQueryParser).GetMethod("ApplyQueries", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+            // (which modes' maps are found - osu!standard alone at first - and how many maps Random checks: kept while the game runs)
+            private static readonly bool[] modes_on = { true, false, false, false };
+            private static int random_amount = 5;
+
+            private readonly OsuNumberBox amountBox;
+
+            /// <summary>Is a map of a mode that is checked?</summary>
+            private static bool modeOn(BeatmapInfo beatmap, bool[] on) => beatmap.Ruleset.OnlineID is >= 0 and <= 3 && on[beatmap.Ruleset.OnlineID];
+
+            /// <summary>Random: as many maps as the box says, at random among all that are found (not only those shown); what was checked before is replaced.</summary>
+            private void pickRandom()
+            {
+                if (int.TryParse(amountBox.Text, out int typed))
+                    random_amount = Math.Clamp(typed, 1, 999);
+
+                amountBox.Text = random_amount.ToString();
+
+                var pool = found.Select(beatmap => beatmap.MD5Hash).Distinct().ToList();
+                var picked = new List<string>();
+
+                while (picked.Count < random_amount && pool.Count > 0)
+                {
+                    int index = Random.Shared.Next(pool.Count);
+                    picked.Add(pool[index]);
+                    pool.RemoveAt(index);
+                }
+
+                current.Value = DanmakusuModMarathon.ValueOf(picked);
+            }
 
             /// <summary>What song select would make of <paramref name="text"/> in Danmakusu: osu!'s own query parser (words, stars&gt;4, artist=..., length&lt;180, ...), converted maps shown.</summary>
             public static FilterCriteria CriteriaFor(RulesetInfo? danmakusu, string text)
@@ -98,17 +137,80 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     PlaceholderText = "Search (as in song select: words, stars>4, artist=..., length<180...)",
                 };
 
-                info = new SpriteText { Font = FontUsage.Default.With(size: 14), Y = 40 };
+                info = new SpriteText { Font = FontUsage.Default.With(size: 14), Y = 70 };
+
+                // (under the search: the modes whose maps are found - osu!standard alone at first - and on the right how many random maps, Random and Clear: 2026-11-27)
+                var modeRow = new FillFlowContainer
+                {
+                    AutoSizeAxes = Axes.Both,
+                    Direction = FillDirection.Horizontal,
+                    Spacing = new Vector2(6, 0),
+                    Y = 38,
+                };
+
+                string[] modeNames = { "osu!", "taiko", "catch", "mania" };
+
+                for (int mode = 0; mode < modeNames.Length; mode++)
+                {
+                    int which = mode;
+                    modeRow.Add(new ModeCheck(modeNames[mode], () => modes_on[which], () =>
+                    {
+                        modes_on[which] = !modes_on[which];
+                        runSearch();
+                    }));
+                }
 
                 var clear = new RoundedButton
                 {
                     Width = 80,
-                    Height = 22,
+                    Height = 24,
                     Anchor = Anchor.TopRight,
                     Origin = Anchor.TopRight,
-                    Y = 36,
+                    Y = 38,
                     Text = "Clear",
                     Action = () => current.Value = string.Empty,
+                };
+
+                var random = new RoundedButton
+                {
+                    Width = 90,
+                    Height = 24,
+                    Anchor = Anchor.TopRight,
+                    Origin = Anchor.TopRight,
+                    X = -86,
+                    Y = 38,
+                    Text = "Random",
+                    Action = pickRandom,
+                };
+
+                amountBox = new OsuNumberBox
+                {
+                    Width = 56,
+                    Height = 24,
+                    Anchor = Anchor.TopRight,
+                    Origin = Anchor.TopRight,
+                    X = -182,
+                    Y = 38,
+                    CommitOnFocusLost = true,
+                    Text = random_amount.ToString(),
+                };
+
+                amountBox.OnCommit += (box, _) =>
+                {
+                    if (int.TryParse(box.Text, out int typed))
+                        random_amount = Math.Clamp(typed, 1, 999);
+
+                    box.Text = random_amount.ToString();
+                };
+
+                var amountLabel = new SpriteText
+                {
+                    Text = "Random maps:",
+                    Font = FontUsage.Default.With(size: 14),
+                    Anchor = Anchor.TopRight,
+                    Origin = Anchor.TopRight,
+                    X = -244,
+                    Y = 42,
                 };
 
                 list = new FillFlowContainer
@@ -122,12 +224,16 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 InternalChildren = new Drawable[]
                 {
                     search,
-                    info,
+                    modeRow,
+                    amountLabel,
+                    amountBox,
+                    random,
                     clear,
+                    info,
                     new Container
                     {
                         RelativeSizeAxes = Axes.Both,
-                        Padding = new MarginPadding { Top = 64 },
+                        Padding = new MarginPadding { Top = 92 },
                         Child = new OsuScrollContainer { RelativeSizeAxes = Axes.Both, Child = list },
                     },
                 };
@@ -136,6 +242,18 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             protected override void LoadComplete()
             {
                 base.LoadComplete();
+
+                // (Marathon just put on, with nothing checked: the map selected in song select is its first map - once; what is cleared later stays clear)
+                var settings = current.Current;
+
+                if (!started.TryGetValue(settings, out _))
+                {
+                    started.Add(settings, new object());
+                    string? selected = selectedMap?.Value?.BeatmapInfo?.MD5Hash;
+
+                    if (string.IsNullOrEmpty(settings.Value) && !string.IsNullOrEmpty(selected) && selectedMap?.Value is not DummyWorkingBeatmap)
+                        settings.Value = selected;
+                }
 
                 current.BindValueChanged(_ => rebuild());
                 search.Current.BindValueChanged(_ =>
@@ -196,6 +314,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 searching?.Cancel();
                 var cancel = searching = new CancellationTokenSource();
                 var maps = library;
+                bool[] on = (bool[])modes_on.Clone();
                 FilterCriteria criteria;
 
                 try
@@ -216,6 +335,9 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     {
                         if (cancel.IsCancellationRequested)
                             return;
+
+                        if (!modeOn(beatmap, on))
+                            continue;
 
                         try
                         {
@@ -395,7 +517,61 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 }
             }
 
+            /// <summary>A mode whose maps are found or not: a box with its name, lit when it is checked.</summary>
+            private partial class ModeCheck : CompositeDrawable
+            {
+                private readonly Func<bool> isOn;
+                private readonly Action toggle;
+                private readonly Box background;
+                private readonly Container frame;
+
+                public ModeCheck(string name, Func<bool> isOn, Action toggle)
+                {
+                    this.isOn = isOn;
+                    this.toggle = toggle;
+                    AutoSizeAxes = Axes.X;
+                    Height = 24;
+
+                    InternalChild = frame = new Container
+                    {
+                        AutoSizeAxes = Axes.X,
+                        RelativeSizeAxes = Axes.Y,
+                        Masking = true,
+                        CornerRadius = 4,
+                        BorderThickness = 2,
+                        Children = new Drawable[]
+                        {
+                            background = new Box { RelativeSizeAxes = Axes.Both },
+                            new SpriteText
+                            {
+                                Text = name,
+                                Font = FontUsage.Default.With(size: 14, weight: "Bold"),
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                Margin = new MarginPadding { Horizontal = 10 },
+                            },
+                        },
+                    };
+                }
+
+                protected override void Update()
+                {
+                    base.Update();
+
+                    bool on = isOn();
+                    background.Colour = on ? new Color4(0.25f, 0.55f, 0.8f, 1f) : new Color4(0f, 0f, 0f, 0.5f);
+                    frame.BorderColour = on ? new Color4(0.55f, 0.85f, 1f, 1f) : new Color4(1f, 1f, 1f, 0.35f);
+                }
+
+                protected override bool OnClick(ClickEvent e)
+                {
+                    toggle();
+                    return true;
+                }
+            }
+
             /// <summary>A checked map that is no longer in the library: a click takes it out.</summary>
+
             private partial class MissingRow : CompositeDrawable
             {
                 private readonly Action remove;

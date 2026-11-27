@@ -927,7 +927,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Curse) ? new[] { StageTexture.CurseGlyph } : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (planets, UFOs, Reimu's orbs, Byakuren's stars, Sekibanki's heads, Socrates, Alice's fumos, Ubame's dolls, Hatate's frames, Rikako's satellites, Noroiko's curses)
                 stageTop = new StageLayer(96, false, StageTexture.Orb, StageTexture.Glow, StageTexture.Ring, StageTexture.Wedge, StageTexture.LitArc0, StageTexture.LitArc1, StageTexture.LitArc2, StageTexture.LitArc3, StageTexture.LitArc4, StageTexture.LitArc5, StageTexture.LitArc6, StageTexture.LitArc7) { Grows = true }, // (the black hole - a dark circle with the light it bends round it, its rays and their flashes: above everything except the HUD)
                 impactStars = new ImpactStarLayer(), // (the World's Ender's impact frame: its stars turn what is under them inside out)
-                bossHud = new BossHud(Array.FindAll(bosses, period => !period.Borrowed), slotBosses, mapStartTime(sliderZones, circleZones), mapEndTime(sliderZones, circleZones)), // (every section is a piece of the one health bar; where two bosses are on, two lines)
+                hudSlot = new Container { RelativeSizeAxes = Axes.Both, Child = bossHud = new BossHud(hudPeriods = Array.FindAll(bosses, period => !period.Borrowed), slotBosses, hudStart = mapStartTime(sliderZones, circleZones), hudEnd = mapEndTime(sliderZones, circleZones)) }, // (every section is a piece of the one health bar; where two bosses are on, two lines. In a slot of its own: a marathon puts its bar of all its maps there, ShareMarathonBar)
                 character,
            };
 
@@ -945,6 +945,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         }
 
         private Container circleSlot = null!;
+
+        // (the boss bar's slot, and what this map's own bar was made of)
+        private Container hudSlot = null!;
+        private BossPeriod[] hudPeriods = Array.Empty<BossPeriod>();
+        private double hudStart, hudEnd;
+
+        /// <summary>
+        /// A map of a marathon going on (<paramref name="md5"/>): its bar is the whole marathon's, its maps one after the other, this one among them (Mods/MarathonBar.cs, 2026-11-27: "one boss bar shared
+        /// among all maps"). Anything else keeps its own bar.
+        /// </summary>
+        public void ShareMarathonBar(string? md5)
+        {
+            var shared = osu.Game.Rulesets.Danmakusu.Mods.MarathonBar.Combine(md5, hudPeriods, slotBosses, hudStart, hudEnd);
+
+            if (shared is not { } bar)
+                return;
+
+            hudSlot.Child = bossHud = new BossHud(bar.Periods, bar.Bosses, bar.Start, bar.End);
+        }
 
         /// <summary>When the map's first circle or slider starts (NaN if it has none): the boss bar starts there.</summary>
         private static double mapStartTime(SliderZone[] sliders, CircleZone[] circles)

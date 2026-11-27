@@ -460,6 +460,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Depth = 1,
             };
 
+            // (a map of a marathon: the one boss bar of all its maps, 2026-11-27)
+            field.ShareMarathonBar(MapHash);
+
             // miss markers, drawn above everything (playfield coordinates, same as the bullet field).
             var missLayer = new Container { RelativeSizeAxes = Axes.Both };
             field.PlayerHit += position => missLayer.Add(new BulletMissEffect { Position = position });

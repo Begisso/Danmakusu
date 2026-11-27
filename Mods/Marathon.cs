@@ -62,14 +62,16 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 return;
 
             string[] maps = MapsOf(Maps.Value);
+            MarathonRun.Playing(player, maps);
             player.OnShowingResults += () => MarathonRun.Finished(maps);
         }
     }
 
     /// <summary>
     /// How a marathon goes on from map to map (Harmony, as the other patches of song select: if osu! has changed what is patched, only Marathon is lost, and the log says so). Song select's start (solo
-    /// play) begins the marathon with its first map; a map played to its end marks the next one as due; its results are left at once, and song select, coming back, puts the next map on and starts it
-    /// on the next frame, its loader as quick as osu!'s quick restart (2026-11-27, "no pauses between maps": a line counted five seconds down over the results before).
+    /// play) begins the marathon with its first map. When a map that has another after it is over, a black curtain comes down over everything at once (2026-11-27, "switch between marathon maps -
+    /// seamless"): osu!'s second before the results is cut, the results are left at once, song select puts the next map on and starts it on the next frame, its loader as quick as osu!'s quick
+    /// restart, and the curtain goes up as the next map's player comes in - none of the screens between is seen. (A five-second line counted down over the results before, the same day.)
     /// </summary>
     public static class MarathonRun
     {
@@ -91,6 +93,12 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         private static MethodInfo addInternal = null!;
         private static FieldInfo? loaderOfSongSelect;
         private static FieldInfo? quickRestart;
+        private static PropertyInfo? gameOfSongSelect;
+
+        // (the players of a marathon, not replays: their results come at once when another map follows)
+        private static readonly ConditionalWeakTable<Player, string[]> players = new ConditionalWeakTable<Player, string[]>();
+
+        private static Curtain? curtain;
 
         /// <summary>Which map of the marathon going on <paramref name="md5"/> is (0 the first), or -1 when it is none of a marathon going on.</summary>
         public static int IndexOf(string? md5) => running && position < maps.Length && md5 != null && maps[position] == md5 ? position : -1;
@@ -128,20 +136,29 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             var resuming = solo.GetMethod(nameof(SoloSongSelect.OnResuming), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly) ?? throw new MissingMethodException(solo.Name, "OnResuming");
             var resultsEntering = typeof(ResultsScreen).GetMethod(nameof(ResultsScreen.OnEntering), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
                                   ?? throw new MissingMethodException(nameof(ResultsScreen), "OnEntering");
+            var toResults = typeof(Player).GetMethod("progressToResults", any, new[] { typeof(bool) }) ?? throw new MissingMethodException(nameof(Player), "progressToResults");
+            var playerEntering = typeof(Player).GetMethod(nameof(Player.OnEntering), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                                 ?? throw new MissingMethodException(nameof(Player), "OnEntering");
 
             onStart = start;
             beatmapsOfSongSelect = typeof(SongSelect).GetProperty("beatmaps", any) ?? throw new MissingMemberException(nameof(SongSelect), "beatmaps");
             addInternal = typeof(CompositeDrawable).GetMethod("AddInternal", any, new[] { typeof(Drawable) }) ?? throw new MissingMethodException(nameof(CompositeDrawable), "AddInternal");
 
-            // (the loader of the next map is quick, as osu!'s quick restart: without these it is only as slow as a loader is)
+            // (the loader of the next map is quick, as osu!'s quick restart, and the curtain hangs over the whole game: without these it is only slower, or seen)
             loaderOfSongSelect = solo.GetField("playerLoader", any);
             quickRestart = typeof(PlayerLoader).GetField("<QuickRestart>k__BackingField", any);
+            gameOfSongSelect = solo.GetProperty("game", any);
 
             var harmony = new HarmonyLib.Harmony("osu.Game.Rulesets.Danmakusu.Marathon");
             harmony.Patch(start, prefix: new HarmonyLib.HarmonyMethod(typeof(MarathonRun), nameof(startPrefix)));
             harmony.Patch(resuming, postfix: new HarmonyLib.HarmonyMethod(typeof(MarathonRun), nameof(resumingPostfix)));
             harmony.Patch(resultsEntering, postfix: new HarmonyLib.HarmonyMethod(typeof(MarathonRun), nameof(resultsPostfix)));
+            harmony.Patch(toResults, prefix: new HarmonyLib.HarmonyMethod(typeof(MarathonRun), nameof(toResultsPrefix)));
+            harmony.Patch(playerEntering, postfix: new HarmonyLib.HarmonyMethod(typeof(MarathonRun), nameof(playerEnteringPostfix)));
         }
+
+        /// <summary>(a player of a marathon has loaded) it is one, not a replay.</summary>
+        public static void Playing(Player player, string[] played) => players.AddOrUpdate(player, played);
 
         /// <summary>(a map with Marathon on has been played to its end: its results are shown) the next one is due, if there is one.</summary>
         public static void Finished(string[] played)
@@ -152,7 +169,33 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             due = position + 1 < maps.Length;
 
             if (!due)
-                running = false; // (the last one: the marathon is over)
+                stop(); // (the last one: the marathon is over)
+        }
+
+        private static void stop()
+        {
+            running = false;
+            due = false;
+            curtain?.Open();
+        }
+
+        private static bool goesOn(Player player) => running && position + 1 < maps.Length && players.TryGetValue(player, out var played) && played.SequenceEqual(maps);
+
+        /// <summary>A map of the marathon is over and another follows: no second before the results, and the curtain comes down.</summary>
+        private static void toResultsPrefix(Player __instance, ref bool withDelay)
+        {
+            if (!goesOn(__instance))
+                return;
+
+            withDelay = false;
+            curtain?.Close();
+        }
+
+        /// <summary>The next map's player comes in: the curtain goes up.</summary>
+        private static void playerEnteringPostfix(Player __instance)
+        {
+            if (running && players.TryGetValue(__instance, out _))
+                curtain?.Open();
         }
 
         private static DanmakusuModMarathon? marathonOf(SongSelect songSelect) => songSelect.Mods.Value?.OfType<DanmakusuModMarathon>().FirstOrDefault();
@@ -192,7 +235,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
                 if (list.Length == 0)
                 {
-                    running = false;
+                    stop();
                     return;
                 }
 
@@ -204,10 +247,21 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 position = 0;
                 due = false;
                 running = select(__instance, ref position);
+
+                if (!running)
+                    return;
+
+                // (the curtain, over the whole game, once)
+                if (curtain == null && gameOfSongSelect?.GetValue(__instance) is Container game)
+                    game.Add(curtain = new Curtain());
+
+                // (the bar of the whole marathon: its maps are read in the background now)
+                if (beatmapsOfSongSelect.GetValue(__instance) is BeatmapManager manager)
+                    MarathonBar.Prepare(manager, maps, __instance.Mods.Value ?? Array.Empty<Mod>());
             }
             catch (Exception e)
             {
-                running = false;
+                stop();
                 Logger.Log($"Danmakusu: Marathon could not start ({e.Message})", level: LogLevel.Important);
             }
         }
@@ -217,8 +271,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         {
             if (!running || !due)
             {
-                running = false;
-                due = false;
+                stop();
                 return;
             }
 
@@ -231,13 +284,16 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 new After(0, () =>
                 {
                     if (!running || !songSelect.IsCurrentScreen())
+                    {
+                        stop();
                         return;
+                    }
 
                     int index = position;
 
                     if (!select(songSelect, ref index))
                     {
-                        running = false;
+                        stop();
                         return;
                     }
 
@@ -300,6 +356,56 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 done = true;
                 action();
                 Expire();
+            }
+        }
+
+        /// <summary>Black over the whole game while one map of a marathon gives way to the next (it goes up by itself if the next has not come in after a while).</summary>
+        private partial class Curtain : CompositeDrawable
+        {
+            private const double longest_ms = 15000;
+            private double closedFor = -1;
+
+            public Curtain()
+            {
+                RelativeSizeAxes = Axes.Both;
+                Depth = float.MinValue;
+                Alpha = 0f;
+                AlwaysPresent = true;
+                InternalChild = new osu.Framework.Graphics.Shapes.Box { RelativeSizeAxes = Axes.Both, Colour = osuTK.Graphics.Color4.Black };
+            }
+
+            public void Close()
+            {
+                Schedule(() =>
+                {
+                    closedFor = 0;
+                    this.FadeIn(120);
+                });
+            }
+
+            public void Open()
+            {
+                Schedule(() =>
+                {
+                    closedFor = -1;
+                    this.FadeOut(300);
+                });
+            }
+
+            protected override void Update()
+            {
+                base.Update();
+
+                if (closedFor < 0)
+                    return;
+
+                closedFor += Time.Elapsed;
+
+                if (closedFor > longest_ms)
+                {
+                    closedFor = -1;
+                    this.FadeOut(300);
+                }
             }
         }
     }
