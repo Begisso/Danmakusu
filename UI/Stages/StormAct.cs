@@ -112,7 +112,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// A zigzag from <paramref name="from"/> along <paramref name="way"/>: every stretch leans about the same way off the line, to the one side and then to the other, however long it is. The whole of it is then turned a little, so
             /// that it ends where it is going and the angles stay as they are.
             /// </summary>
-            private static List<Vector2> zigzag(Vector2 from, Vector2 way, int stretches, int number, int salt)
+            internal static List<Vector2> zigzag(Vector2 from, Vector2 way, int stretches, int number, int salt)
             {
                 float[] along = zigzagPlaces(stretches, number, salt);
                 var off = new float[stretches + 1];
@@ -133,7 +133,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>Every stretch broken in two at a point thrown a little to the side, <paramref name="levels"/> times over: the small kinks of real lightning on its big zigzag.</summary>
-            private static List<Vector2> jagged(List<Vector2> points, int levels, int number, int salt)
+            internal static List<Vector2> jagged(List<Vector2> points, int levels, int number, int salt)
             {
                 for (int level = 0; level < levels; level++)
                 {

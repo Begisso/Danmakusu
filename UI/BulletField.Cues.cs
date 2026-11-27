@@ -271,6 +271,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" }); // (the one thrown with it goes at the same moment: 2026-11-25, it had a sound of its own when it was thrown later)
             }
 
+            // Konngara: Byakuren's beam sound as every sweep of her beam starts (2026-11-27)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Sweep)
+                    continue;
+
+                foreach (double at in SweepAct.SpinTimes(period))
+                    list.Add(new Cue { Time = at, Name = "touhou_strike" });
+            }
+
             // Nitori: the sound of Yuyuko's petals flying off the tree as her icosahedron comes, at the start of every attack (2026-11-26)
             foreach (var period in bosses)
             {

@@ -247,7 +247,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// The velocity of a homing bat after one step towards the player (the speed stays): it turns as Byakuren's beams do; pointing away from the player it still turns, one way round
             /// (<paramref name="side"/>, chosen the first time), for as long as it takes. The step itself and the autoplay's look ahead both go by this.
             /// </summary>
-            private static Vector2 steer(Vector2 position, Vector2 velocity, Vector2 player, float step, float gravity, int index, ref float side)
+            internal static Vector2 steer(Vector2 position, Vector2 velocity, Vector2 player, float step, float gravity, int index, ref float side)
             {
                 float speed = velocity.Length;
 

@@ -261,6 +261,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             new Color4(0.08f, 0.32f, 0.16f, 1f), // (the dark green of Wakasagihime's seaweed)
             new Color4(0.42f, 0.96f, 0.80f, 1f), // (aquamarine: what Eternity Larva swells)
             new Color4(0.80f, 0.60f, 0.30f, 1f), // (gold-brown tan: Gengetsu's attacks, 2026-11-24)
+            new Color4(0.30f, 0.07f, 0.42f, 1f), // (dark purple: Sariel's last word, 2026-11-27)
         };
 
         public const int TINT_RED = 1;
@@ -280,9 +281,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public const int TINT_SEAWEED = 15; // (the dark green of Wakasagihime's seaweed: the petals on it, Yuuka's leaves)
         public const int TINT_AQUAMARINE = 16; // (what Eternity Larva is about to swell, and swells)
         public const int TINT_TAN = 17; // (gold-brown tan: everything in Gengetsu's attacks, more and more)
+        public const int TINT_DARK_PURPLE = 18; // (everything after Sariel's last section, 2026-11-27)
 
         // layout of the sheet: one row per palette colour, a disc cell, an arrowhead cell and a star cell per row, with gaps so mipmaps never mix cells.
-        private const int max_styles = 40;
+        private const int max_styles = 41; // (one more for Sariel's dark purple, 2026-11-27: the combo colours keep as many rows)
         private const int cell_gap = 8;
         private const int circle_cell = 128; // (as big as the other cells: round bullets and ellipses stay sharp up to about twice a plain bullet's size; bigger round ones are drawn from a big picture by the field)
         private const int triangle_cell = 128;

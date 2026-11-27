@@ -510,6 +510,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             bossCharacter2.HideAmount = bossCharacter.HideAmount;
             bossCharacter3.HideAmount = bossCharacter.HideAmount;
 
+            // (Elis as a bat, a boss Shingyoku throws as an orb: only that boss is hidden, 2026-11-27)
+            if (!failed)
+            {
+                bossCharacter.HideAmount = Math.Max(bossCharacter.HideAmount, stageHideRank[0]);
+                bossCharacter2.HideAmount = Math.Max(bossCharacter2.HideAmount, stageHideRank[1]);
+                bossCharacter3.HideAmount = Math.Max(bossCharacter3.HideAmount, stageHideRank[2]);
+            }
+
             // (the warnings the acts give before their attacks - Mokou's jumps - are flashes of the bullets now, not warnings: see flashLevel)
             bossCharacter.ExtraWarnings.Clear();
             actFlashTimes.Clear();

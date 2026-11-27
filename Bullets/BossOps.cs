@@ -380,6 +380,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// Builds the ops of all bosses: <paramref name="bulletOps"/> for the rings, <paramref name="laserOps"/> (only the ones that make sense for a beam) for the lasers.
         /// Both are sorted by time.
         /// </summary>
+        /// <summary>Sariel's last word (2026-11-27): everything turns dark purple.</summary>
+        public static readonly BulletLook SarielPurple = new BulletLook { Overlay = osu.Game.Rulesets.Danmakusu.UI.BulletRenderer.TINT_DARK_PURPLE, OverlayAmount = 1f };
+
+        /// <summary>Is <paramref name="period"/> the last section of her boss on the map (no later one of hers, but what Yorihime repeats)?</summary>
+        public static bool IsLastOfHers(BossPeriod[] bosses, BossPeriod period)
+            => !period.Borrowed && !Array.Exists(bosses, other => !ReferenceEquals(other, period) && !other.Borrowed && other.Boss?.Id == period.Boss?.Id && other.Start > period.Start);
+
         public static void Build(BossPeriod[] bosses, out TrajectoryOp[] bulletOps, out TrajectoryOp[] laserOps)
         {
             var bullets = new List<TrajectoryOp>();
@@ -396,6 +403,42 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         // (since 2026-11-26 the bullets are red until then and blue after, "all boss bullets are colored red, returned ones blue"; the beams stay as they were, dark blue once turned)
                         bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, During = KanakoRed, After = KanakoBlue });
                         beams.Add(new TrajectoryOp { Kind = TrajectoryOpKind.TurnBack, Time = period.ShootStart, End = period.End, Window = true, BossOnly = true, After = DarkBlue });
+                        break;
+                    }
+
+                    case BossMechanic.AngelOfDeath:
+                    {
+                        // Sariel (2026-11-27): after her last section on the map everything flying, bullets and beams, turns dark purple, and a little later it all turns at where the player is then (her act
+                        // places it, and dims the screen) and flies through it, warned of by red arrows beside every bullet
+                        if (!IsLastOfHers(bosses, period))
+                            break;
+
+                        double beat = Math.Max(period.BeatLength, 1);
+                        double aimAt = period.End + beat * DanmakusuBalance.SARIEL_WARN_BEATS;
+                        var purple = new TrajectoryOp { Kind = TrajectoryOpKind.Turn, Time = period.End, End = period.End, TurnAngle = 0f, After = SarielPurple };
+                        var aim = new TrajectoryOp { Kind = TrajectoryOpKind.Aim, Time = aimAt, End = aimAt, PlayerAim = true, WarnMs = beat * DanmakusuBalance.SARIEL_WARN_BEATS, After = SarielPurple };
+
+                        bullets.Add(purple);
+                        beams.Add(purple);
+                        bullets.Add(aim);
+                        beams.Add(aim);
+                        break;
+                    }
+
+                    case BossMechanic.Underworld:
+                    {
+                        // Kikuri (2026-11-27): as each of her attacks begins everything, bullets and beams, turns to fly straight out from the middle of the screen (where she stands), and so does what
+                        // is fired in it, as it is fired (her act warns of it with arrows round her)
+                        foreach (var (start, end) in Attacks(period))
+                        {
+                            if (end <= start)
+                                continue;
+
+                            var outward = new TrajectoryOp { Kind = TrajectoryOpKind.FaceOut, Time = start, End = end, Window = true, SkipSharp = true };
+                            bullets.Add(outward);
+                            beams.Add(outward);
+                        }
+
                         break;
                     }
 

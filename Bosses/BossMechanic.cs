@@ -688,5 +688,40 @@
         /// harmless but where its grey waves, sent out every eight beats, go over it.
         /// </summary>
         Space,
+
+        /// <summary>
+        /// Shingyoku (2026-11-27): every so often she turns into a yin-yang orb as big as her magic circle and throws herself at the player, ricochets off the edges twice and goes back; while an orb she
+        /// hurts, and bullets that fly into her bounce off. With other bosses on the screen she throws them instead, as orbs, and they go on with their mechanics.
+        /// </summary>
+        YinYang,
+
+        /// <summary>
+        /// YuugenMagan (2026-11-27): she stands where Kaguya stands, in five big eyes joined by lightning; the bottom four shoot every second bullet fired again at the player, each its own kind; the top one
+        /// fires a beam at the player; every sixteen beats every eye throws lightning; the finished circles and sliders are thrown at the player out of the eyes in turn, golden.
+        /// </summary>
+        EvilEyes,
+
+        /// <summary>
+        /// Elis (2026-11-27): she turns into a big bat and flies after the player for eight beats, hurting, her magic circle taking every bullet she flies through; then she stands and shoots them all back
+        /// at the player over eight beats, red, twice as big and fast, with beams behind them.
+        /// </summary>
+        BigBat,
+
+        /// <summary>
+        /// Sariel (2026-11-27): every beam that leaves the screen lets a bat out; she shoots rings of ten slow bats that stream bullets at the player; every eighth bullet that leaves the bottom or the top
+        /// comes in at the other side three times, half as big; as her last section ends everything turns dark purple, the screen dims, and all of it turns at the player once.
+        /// </summary>
+        AngelOfDeath,
+
+        /// <summary>
+        /// Kikuri (2026-11-27): she always stands in the middle; in her attacks everything flies straight out from the middle; she shoots rings of 36 of Shou's waving beams; every fourth bullet that
+        /// leaves the screen is shot again from her.
+        /// </summary>
+        Underworld,
+
+        /// <summary>
+        /// Konngara (2026-11-27): every sixteen beats (eight after the last sweep) an endless beam from her straight up, after a preview of four beats, sweeps once round her and fades; the bullets in its way are cut in two, across it.
+        /// </summary>
+        Sweep,
     }
 }

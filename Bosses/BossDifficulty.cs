@@ -147,7 +147,13 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.Citrus] = 3, // Orange (2026-11-25: an orange in the middle whose ten slices fly out and back, two oranges taking turns)
             [BossMechanic.Pinwheel] = 3, // Yuiman Asama (2026-11-26: everything fired comes out of four turning points in arcs, her own streams too; rings of big arrowheads that let bullets out sideways)
             [BossMechanic.Cubes] = 4, // Yachie Kicchou (2026-11-26: breathing rings of turning arrowheads every beat, a lattice of cubes over the screen solid from the middle out)
-            [BossMechanic.Space] = 4, // Rikako Asakura (2026-11-26: asteroids that bullets bounce off, a satellite with a big two-way beam and a grid that waves make solid)
+            [BossMechanic.Space] = 4, // Rikako Asakura (2026-11-26: asteroids that bullets bounce off, a satellite with a big two-way beam and a grid that waves make solid; 2026-11-27: twice as many asteroids, half as big, her satellite turning half as fast)
+            [BossMechanic.YinYang] = 3, // Shingyoku (2026-11-27: throws herself, or the others, as a big yin-yang orb that bullets bounce off, every eight beats)
+            [BossMechanic.EvilEyes] = 4, // YuugenMagan (2026-11-27: five eyes that shoot every second bullet again at you, thunders every sixteen beats, her sliders' beams, what is hit thrown back golden)
+            [BossMechanic.BigBat] = 3, // Elis (2026-11-27: chases you as a big bat, taking the bullets she flies through, then shoots them back side by side with beams behind them)
+            [BossMechanic.AngelOfDeath] = 4, // Sariel (2026-11-27: rings of homing bats that stream bullets at you, beams that leave turn into bats, bullets come in at the other side; her last word aims everything at you)
+            [BossMechanic.Underworld] = 4, // Kikuri (2026-11-27: in the middle; everything flies out from her in her attacks, rings of 36 waving beams, every fourth bullet out of the screen shot again from her)
+            [BossMechanic.Sweep] = 3, // Konngara (2026-11-27: an endless beam that sweeps once round her every sixteen beats, cutting the bullets in its way)
 
             // 5: the hardest there are
             [BossMechanic.Moon] = 5, // Clownpiece

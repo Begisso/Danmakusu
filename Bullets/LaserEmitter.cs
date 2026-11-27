@@ -1380,7 +1380,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 return false;
 
             // (a beam with no op that could bring a slice back - Kokoro's aims, pulls, falls and ricochets - has nothing to look for: 2026-11-25, every slice of hers went through all forty)
-            bringsBack ??= Array.Exists(Ops, op => op.Kind is TrajectoryOpKind.Redirect or TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror or TrajectoryOpKind.Outward or TrajectoryOpKind.Crescent);
+            bringsBack ??= Array.Exists(Ops, op => op.Kind is TrajectoryOpKind.Redirect or TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror or TrajectoryOpKind.Outward or TrajectoryOpKind.Crescent or TrajectoryOpKind.FaceOut);
 
             if (bringsBack == false)
                 return false;
@@ -1396,7 +1396,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             foreach (var op in Ops)
             {
-                if (op.Kind is TrajectoryOpKind.Redirect or TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror or TrajectoryOpKind.Outward or TrajectoryOpKind.Crescent && op.Time > fired && op.Time <= time)
+                if (op.Kind is TrajectoryOpKind.Redirect or TrajectoryOpKind.Reverse or TrajectoryOpKind.Mirror or TrajectoryOpKind.Outward or TrajectoryOpKind.Crescent or TrajectoryOpKind.FaceOut && op.Time > fired && op.Time <= time)
                     first = Math.Min(first, op.Time);
             }
 

@@ -127,7 +127,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>Where a line from <paramref name="from"/> going <paramref name="way"/> leaves the box (how far along), and the way back into it square to the side it leaves by (false: it starts outside or never leaves).</summary>
-            private static bool leaves(Vector2 from, Vector2 way, Vector2 low, Vector2 high, out float distance, out Vector2 inward)
+            internal static bool leaves(Vector2 from, Vector2 way, Vector2 low, Vector2 high, out float distance, out Vector2 inward)
             {
                 distance = float.PositiveInfinity;
                 inward = Vector2.Zero;

@@ -15,6 +15,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // as it is hit does not cost twice); then both hurt like a slider body, for as long as the character touches them. Where each falls is a closed form of time, so only the way it falls has to be learnt, when it begins.
         // The objects are shown as they are, skin and all, in a grey combo colour, by a FallLayer; this act adds the light round them (with no layer, as in the boss menu's preview, it draws plain ones itself).
         // What already falls, a catch map's circles and juice streams, is left alone.
+        // YuugenMagan's (2026-11-27, FromEye): each object is at one of her eyes in turn as it begins, and falls on the player from there, golden instead of grey.
         // ======================================================================================================================================================
 
         private sealed class ObjectFallAct : StageAct
@@ -27,11 +28,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 public float Radius;
                 public SliderZone? Slider;
                 public Vector2 Way = Vector2.UnitY;
+                public Vector2 Shift; // (YuugenMagan's: from where it is to the eye that throws it)
             }
 
             private readonly List<Falling> objects = new List<Falling>();
             private readonly List<Vector2> beamPoints = new List<Vector2>();
             private int next;
+
+            /// <summary>
+            /// YuugenMagan's (2026-11-27): each object is thrown from one of her eyes in turn (this says where eye <c>n</c> is), at the player, golden instead of grey. Null: Urumi's, from where it is.
+            /// </summary>
+            public Func<BulletField, int, Vector2>? FromEye;
+
+            public int Eyes = 1;
 
             public ObjectFallAct(BossPeriod period, CircleZone[] circles, SliderZone[] sliders)
             {
@@ -74,8 +83,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // (the way it falls is the way to the player when it begins, and it keeps that way)
                 while (next < objects.Count && objects[next].Time <= now)
                 {
+                    int number = next;
                     var o = objects[next++];
-                    Vector2 way = f.characterPosition - o.Place;
+
+                    // (YuugenMagan's: it is at its eye, and is thrown from there)
+                    o.Shift = FromEye != null ? FromEye(f, number % Math.Max(Eyes, 1)) - o.Place : Vector2.Zero;
+
+                    Vector2 way = f.characterPosition - (o.Place + o.Shift);
                     o.Way = way.LengthSquared > 1e-4f ? Vector2.Normalize(way) : Vector2.UnitY;
                 }
             }
@@ -101,13 +115,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private static Vector2 fallenBy(Falling o, double t)
             {
                 float fallen = (float)Math.Max(t - o.Time, 0.0);
-                return o.Way * (0.5f * DanmakusuBalance.ZANMU_GRAVITY * fallen * fallen);
+                return o.Shift + o.Way * (0.5f * DanmakusuBalance.ZANMU_GRAVITY * fallen * fallen);
             }
 
-            /// <summary>Its grey at <paramref name="t"/>, darker and darker as it falls.</summary>
-            private static Color4 greyAt(Falling o, double t)
+            /// <summary>Its grey at <paramref name="t"/>, darker and darker as it falls (YuugenMagan's: gold).</summary>
+            private Color4 greyAt(Falling o, double t)
             {
-                Color4 grey = BulletRenderer.SpecialBodies[BulletRenderer.TINT_GRAY - 1];
+                Color4 grey = FromEye != null ? DanmakusuBalance.YUUGENMAGAN_GOLD : BulletRenderer.SpecialBodies[BulletRenderer.TINT_GRAY - 1];
                 float keep = 1f - DanmakusuBalance.ZANMU_FALL_SHADE * smoothStep((t - o.Time) / DanmakusuBalance.ZANMU_FALL_DARKEN_MS);
                 return new Color4(grey.R * keep, grey.G * keep, grey.B * keep, 1f);
             }
@@ -120,7 +134,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var o = objects[i];
 
                     if (o.Source != null)
-                        into.Add((o.Source, o.Time, fallenBy(o, t), null, 0f));
+                        into.Add((o.Source, o.Time, fallenBy(o, t), FromEye != null ? greyAt(o, t) : null, 0f));
                 }
             }
 

@@ -90,6 +90,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// (it has an acceleration).
         /// </summary>
         Rocks,
+
+        /// <summary>Kikuri (2026-11-27): at Time (a window: what is fired in it, as it is fired) the thing turns to fly straight out from <see cref="TrajectoryOp.Point"/> (the middle of the screen), as fast as it flew.</summary>
+        FaceOut,
     }
 
     /// <summary>How a ring that is made out of other bullets gets its bullets (the field does it when the ring fires, see <see cref="BulletEmitter.Derive"/>).</summary>
@@ -823,6 +826,25 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         step(ref position, ref v, acc, ref now, op.Time);
                         acc = Vector2.Zero;
                         break;
+
+                    case TrajectoryOpKind.FaceOut:
+                    {
+                        // (Kikuri, 2026-11-27: as her attack begins - or as it is fired in it - it turns to fly straight out from the middle, as fast as it was)
+                        double at = Math.Max(op.Time, now);
+
+                        if (at > time)
+                            break;
+
+                        step(ref position, ref v, acc, ref now, at);
+                        Vector2 away = position - op.Point;
+                        float speed = v.Length;
+
+                        if (away.LengthSquared > 1e-6f && speed > 1e-6f)
+                            v = Vector2.Normalize(away) * speed;
+
+                        look = op.After ?? look;
+                        break;
+                    }
 
                     case TrajectoryOpKind.Redirect:
                     {

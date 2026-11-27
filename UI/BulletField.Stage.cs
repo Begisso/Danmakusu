@@ -1078,6 +1078,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return false;
             }
 
+            /// <summary>
+            /// Where the act puts another boss than its own at <paramref name="now"/> (Shingyoku's throws, 2026-11-27); false = it does not. Asked only when no act of that boss's own puts her somewhere: a boss who
+            /// moves by her own mechanic goes as it says.
+            /// </summary>
+            public virtual bool Carries(BulletField f, BossPeriod other, double now, out Vector2 position)
+            {
+                position = default;
+                return false;
+            }
+
             /// <summary>Time went back to <paramref name="time"/>.</summary>
             public virtual void Reset(BulletField f, double time)
             {
@@ -1156,6 +1166,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private double stageRippleTime;
         private bool stageAbsorbs; // some act takes bullets away
         private float stageHide; // 0..1: how much the black hole hides the boss
+        private readonly float[] stageHideRank = new float[3]; // 0..1: how much an act hides the boss of each rank alone (Elis as a bat, a boss Shingyoku throws as an orb: 2026-11-27)
+        private bool stageCarries; // (some act can put other bosses somewhere: Shingyoku)
+        private float sarielDim; // 0..1: how dark Sariel's last word makes the screen (2026-11-27)
 
         private bool lensOn;
         private Vector2 lensCentre;
@@ -2015,6 +2028,51 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         break;
 
+                    case BossMechanic.Underworld:
+                        // Kikuri: her rings of waving beams, the arrows that warn of everything flying out, and what leaves the screen shot again from her (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new UnderworldAct(period));
+                        break;
+
+                    case BossMechanic.YinYang:
+                        // Shingyoku: she throws herself as a yin-yang orb, or the others (2026-11-27)
+                        if (period.End > period.ShootStart)
+                        {
+                            registerStage(new YinYangAct(period));
+                            stageCarries = true;
+                        }
+
+                        break;
+
+                    case BossMechanic.BigBat:
+                        // Elis: her flights as a big bat, and what she took shot back (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new BigBatAct(period));
+                        break;
+
+                    case BossMechanic.AngelOfDeath:
+                        // Sariel: her bats, the bullets that come in at the other side, and her last word (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new AngelOfDeathAct(this, period));
+                        break;
+
+                    case BossMechanic.EvilEyes:
+                        // YuugenMagan: her eyes and their thunders, the bullets they shoot again, and what has been hit thrown from them (2026-11-27)
+                        if (period.End > period.ShootStart)
+                        {
+                            registerStage(new EvilEyesAct(period));
+                            registerStage(new ObjectFallAct(period, circleZones, sliderZones) { FromEye = EvilEyesAct.EyeAt, Eyes = EvilEyesAct.EYES });
+                        }
+
+                        break;
+
+                    case BossMechanic.Sweep:
+                        // Konngara: her endless beam that sweeps once round her every sixteen beats, cutting what it goes over (2026-11-27)
+                        if (period.End > period.ShootStart)
+                            registerStage(new SweepAct(period));
+
+                        break;
+
                     case BossMechanic.Freeze:
                         // Cirno: the acts' bullets her freeze takes away burst into shards as it lets go (the rings' shards are the planner's: 2026-11-26)
                         if (attacks.Exists(a => a.End > a.Start))
@@ -2774,6 +2832,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             stageHideCount = 0;
             stageRippleTime = now;
             stageHide = 0f;
+            Array.Clear(stageHideRank);
+            sarielDim = 0f;
             sukunaLevel = 0f;
             sukunaShaking = false;
             seijaCloneLevel = 0f;
@@ -4141,6 +4201,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     return true;
             }
 
+            // (another boss's act carries her: Shingyoku throws the others, 2026-11-27)
+            if (stageCarries)
+            {
+                foreach (var act in stageActs)
+                {
+                    if (act.Period != period && act.Carries(this, period, now, out position))
+                        return true;
+                }
+            }
+
             position = default;
             return false;
         }
@@ -4170,6 +4240,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 case BossMechanic.Onbashira: // Kanako always stands in the middle (2026-11-21)
                 case BossMechanic.Starlight: // Star Sapphire, in the middle of her sphere (2026-11-21)
                 case BossMechanic.Citrus: // Orange, in the middle of her orange (2026-11-25)
+                case BossMechanic.Underworld: // Kikuri always (2026-11-27)
                     return true;
 
                 case BossMechanic.Unknown:

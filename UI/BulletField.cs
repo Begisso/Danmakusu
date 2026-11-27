@@ -143,6 +143,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private Box reisenBackground = null!;
         private Box deathBackground = null!; // (Zanmu's section: a dimmed grey)
         private Box miracleBackground = null!; // (Sanae's attacks: a dim green)
+        private Box sarielBackground = null!; // (Sariel's last word: the screen dims, 2026-11-27)
         private Box hasteBackground = null!; // (Gengetsu's attacks: a grey dim, see hasteLevel)
         private Box stampedeBackground = null!; // (Saki's attacks: a brown dim)
         private Box stormBackground = null!; // (Tojiko's sections: a dark grey dim)
@@ -861,6 +862,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 reisenBackground = new Box { Colour = new Color4(0.22f, 0.04f, 0.38f, 1f), Alpha = 0f }, // (Reisen's freeze: a dim purple)
                 deathBackground = new Box { Colour = new Color4(0.30f, 0.30f, 0.32f, 1f), Alpha = 0f }, // (Zanmu: a dimmed grey, with her skull on it)
                 miracleBackground = new Box { Colour = new Color4(0.03f, 0.22f, 0.08f, 1f), Alpha = 0f }, // (Sanae's attacks: a dim green, with her star on it)
+                sarielBackground = new Box { Colour = new Color4(0.03f, 0.01f, 0.05f, 1f), Alpha = 0f }, // (Sariel's last word: the screen dims, and it fades out)
                 hasteBackground = new Box { Colour = new Color4(0.44f, 0.41f, 0.32f, 1f), Alpha = 0f }, // (Gengetsu's attacks: a light grey dim with a touch of gold, deeper and deeper)
                 stampedeBackground = new Box { Colour = new Color4(0.24f, 0.13f, 0.05f, 1f), Alpha = 0f }, // (Saki's attacks: a brown dim, deeper and deeper, with the horse's head on it)
                 stormBackground = new Box { Colour = new Color4(0.1f, 0.11f, 0.13f, 1f), Alpha = 0f }, // (Tojiko's sections: a dark grey dim, under her clouds)
@@ -1681,6 +1683,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             updateRenderer(now);
             profile(20);
             updateRemiliaBackground(failed ? failTime : now);
+            sarielBackground.Alpha = failed ? 0f : sarielDim;
+            if (hasScreenBounds)
+            {
+                sarielBackground.Position = screenMin;
+                sarielBackground.Size = screenMax - screenMin;
+            }
             updateCirnoBackground(failed ? failTime : now);
             updateSakuyaBackground(failed ? failTime : now);
             updateReisenBackground(failed ? failTime : now);
@@ -2743,7 +2751,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             foreach (var op in bulletOps)
             {
-                if (op.Kind is TrajectoryOpKind.Mirror or TrajectoryOpKind.Redirect or TrajectoryOpKind.Outward || op.FacesPoint)
+                if (op.Kind is TrajectoryOpKind.Mirror or TrajectoryOpKind.Redirect or TrajectoryOpKind.Outward or TrajectoryOpKind.FaceOut || op.FacesPoint)
                 {
                     // (Eiki's and Yumemi's acts say where theirs go; the middle only until they have)
                     if (!op.PointKept || op.Point == default)

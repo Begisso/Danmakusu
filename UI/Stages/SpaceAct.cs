@@ -21,6 +21,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // RIKAKO_BEAM_EVERY_BEATS a big beam (RIKAKO_BEAM_CIRCLES circle radii to each side of its middle line) both ways out of it, ahead and behind, along the way it faces, turning with it: a see-through
         // preview for RIKAKO_BEAM_PREVIEW_BEATS, then solid for RIKAKO_BEAM_ON_BEATS, with the Master Spark's sound and a shake (RIKAKO_SHAKE). Since 2026-11-26 the beam is narrow where it leaves the
         // satellite and widens as Marisa's spark does (RIKAKO_BEAM_ROOT, over RIKAKO_BEAM_GROW_CIRCLES), and the satellite is drawn over it (and over the bullets).
+        // Since 2026-11-27 it turns half as fast again, and when it starts turning the other way round its grid flashes (RIKAKO_TURN_FLASH_BEATS); twice as many asteroids, half as big.
         // A square grid of beams (lines RIKAKO_GRID_CIRCLES circle radii apart) over the whole screen goes with every satellite, turned and moved with it: see-through (RIKAKO_GRID_ALPHA) and harmless.
         // Every RIKAKO_WAVE_EVERY_BEATS of its flight the satellite sends out a thick grey wave (RIKAKO_WAVE_CIRCLES circle radii, see-through), with Byakuren's beam sound, that runs out to past the
         // farthest corner of the screen in RIKAKO_WAVE_BEATS; under it the grid turns solid - softly at the wave's edges - and goes see-through again behind it. Solid, the grid and the beam hurt like a
@@ -246,6 +247,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return facing;
             }
 
+            /// <summary>Which way round satellite <paramref name="s"/> turns in stretch <paramref name="n"/> (from its n-th turn): 1, -1, or 0 when it faces the way already.</summary>
+            private int turnWay(Satellite s, int n)
+            {
+                if (n < 1 || n >= s.Targets.Count)
+                    return 0;
+
+                float turn = s.Targets[n] - facingOf(s, s.Came + n * turnMs);
+
+                while (turn > MathF.PI)
+                    turn -= MathF.Tau;
+
+                while (turn < -MathF.PI)
+                    turn += MathF.Tau;
+
+                return MathF.Abs(turn) < 0.01f ? 0 : Math.Sign(turn);
+            }
+
+            /// <summary>
+            /// How bright the flash of satellite <paramref name="s"/>'s grid is at <paramref name="t"/> (0..1): as it starts turning the other way round from the way it turned before, over RIKAKO_TURN_FLASH_BEATS
+            /// (2026-11-27, "warn about spin direction change with laserbeams flash").
+            /// </summary>
+            private float turnFlash(Satellite s, double t)
+            {
+                int n = (int)Math.Floor((t - s.Came) / turnMs);
+                double since = t - (s.Came + n * turnMs), over = beat * DanmakusuBalance.RIKAKO_TURN_FLASH_BEATS;
+
+                if (n < 2 || since >= over)
+                    return 0f;
+
+                int now = turnWay(s, n);
+                int before = 0;
+
+                for (int k = n - 1; k >= 1 && before == 0; k--)
+                    before = turnWay(s, k);
+
+                return now != 0 && before != 0 && now != before ? 1f - (float)(since / over) : 0f;
+            }
+
             /// <summary>How wide the beam is (of its whole half width) this far from the satellite along it: from RIKAKO_BEAM_ROOT at it, widening ever more slowly, to all of it RIKAKO_BEAM_GROW_CIRCLES out.</summary>
             private float beamWidthAt(BulletField f, float along)
             {
@@ -465,6 +504,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var gridCore = new Color4(0.86f, 0.92f, 1f, 1f);
                     var gridBorder = DanmakusuBalance.BorderColour(new Color4(0.35f, 0.5f, 0.85f, 1f));
                     int piece = ++f.beamPieces;
+                    float flash = turnFlash(s, t); // (it starts turning the other way round: the whole grid flashes - 2026-11-27)
 
                     for (int across = 0; across < 2; across++)
                     {
@@ -488,7 +528,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 Vector2 point = through + along * (a + (b - a) * p / pieces);
                                 float solid = waveOver(f, s, point, t);
                                 line.Add(point);
-                                fades.Add(shown * (DanmakusuBalance.RIKAKO_GRID_ALPHA + (1f - DanmakusuBalance.RIKAKO_GRID_ALPHA) * solid));
+                                fades.Add(shown * Math.Max(DanmakusuBalance.RIKAKO_GRID_ALPHA + (1f - DanmakusuBalance.RIKAKO_GRID_ALPHA) * solid, flash * 0.85f));
                             }
 
                             f.addPlainBeam(line, gridHalf, gridCore, gridBorder, ref beams, ref pointTotal, null, fades);

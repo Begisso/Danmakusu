@@ -79,6 +79,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
             BossMechanic.Hare, BossMechanic.Psychokinesis, BossMechanic.Citrus, // (2026-11-25: Tewi, Sumireko and Orange: their spinners shoot their own bullets, without the spinner's beams)
             BossMechanic.Pinwheel, BossMechanic.Cubes, BossMechanic.Space, // (2026-11-26: Yuiman, Yachie, Rikako)
+            BossMechanic.YinYang, BossMechanic.EvilEyes, BossMechanic.BigBat, BossMechanic.AngelOfDeath, BossMechanic.Underworld, BossMechanic.Sweep, // (2026-11-27: the six of Highly Responsive to Prayers)
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -1504,7 +1505,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             static double GhostMsOf(double beatMs) => beatMs * 4; // (Junko's slices are see-through and harmless for their first four beats)
 
             // (fanned: Suwako's - a purified beam whose beams go out in a fan round the way to the player, faster, bouncing once off the border of the screen)
-            void addLaser(Slider slider, int whistleVolume, bool purified = false, bool dissipates = false, bool fanned = false)
+            void addLaser(Slider slider, int whistleVolume, bool purified = false, bool dissipates = false, bool fanned = false, bool single = false)
             {
                 double duration = slider.EndTime - slider.StartTime;
                 if (duration <= 0)
@@ -1517,6 +1518,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 // (Suwako's fan: half as many, 2026-11-24 "halve the amount of fan laserbeams")
                 if (fanned)
                     beams = Math.Max(1, (beams + 1) / 2);
+
+                // (YuugenMagan's top eye: one beam, 2026-11-27)
+                if (single)
+                    beams = 1;
 
                 if (purified)
                 {
@@ -5113,10 +5118,10 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 // Whatever a slider would have shot itself (a whistled one) is replaced.
                 // Letty on the screen too: the beams of a boss dissipate into bullets (hers and Junko's)
                 bool lettyIsHere = besideHer(i, slot, rank, BossMechanic.Winter);
-                bool junkoIsHere = besideHer(i, slot, rank, BossMechanic.Purification) || besideHer(i, slot, rank, BossMechanic.Frog);
+                bool junkoIsHere = besideHer(i, slot, rank, BossMechanic.Purification) || besideHer(i, slot, rank, BossMechanic.Frog) || besideHer(i, slot, rank, BossMechanic.EvilEyes);
 
-                // (Suwako's are Junko's, in a fan round the way to the player, faster, bouncing once off the border of the screen: 2026-11-21)
-                if (bossInfos[slot].Mechanic is BossMechanic.Purification or BossMechanic.Frog)
+                // (Suwako's are Junko's, in a fan round the way to the player, faster, bouncing once off the border of the screen: 2026-11-21; YuugenMagan's one beam each, from her top eye - where she stands: 2026-11-27)
+                if (bossInfos[slot].Mechanic is BossMechanic.Purification or BossMechanic.Frog or BossMechanic.EvilEyes)
                 {
                     foreach (var slider in beatmap.HitObjects.OfType<Slider>())
                     {
@@ -5124,7 +5129,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             continue;
 
                         laserList.RemoveAll(laser => !laser.SpinnerLike && Math.Abs(laser.StartTime - slider.StartTime) < 0.5 && Math.Abs(laser.EndTime - slider.EndTime) < 0.5);
-                        addLaser(slider, 100, true, lettyIsHere, bossInfos[slot].Mechanic == BossMechanic.Frog);
+                        addLaser(slider, 100, true, lettyIsHere, bossInfos[slot].Mechanic == BossMechanic.Frog, bossInfos[slot].Mechanic == BossMechanic.EvilEyes);
                     }
                 }
 

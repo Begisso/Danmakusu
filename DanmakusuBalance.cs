@@ -4774,11 +4774,11 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Rikako Asakura: an asteroid every this many beats, from this many beats before her section on; this many to this many circle radii on its picture's longer side, flying this many to this many
         /// circle radii a beat, turning at most this many degrees a beat; a bullet bounces off them this many times at most (see Bullets/Asteroids.cs).
         /// </summary>
-        public const double RIKAKO_ROCK_EVERY_BEATS = 2;
+        public const double RIKAKO_ROCK_EVERY_BEATS = 1; // (2 until 2026-11-27: "asteroids count doubled")
 
         public const double RIKAKO_ROCK_FILL_BEATS = 32; // (16 until 2026-11-26: they fly half as fast, and take twice as long to fill the screen)
-        public const float RIKAKO_ROCK_LEAST_CIRCLES = 1.25f; // (2.5 until 2026-11-26: "all asteroids sizes and speeds are halved")
-        public const float RIKAKO_ROCK_MOST_CIRCLES = 3f; // (6 until 2026-11-26)
+        public const float RIKAKO_ROCK_LEAST_CIRCLES = 0.625f; // (2.5 until 2026-11-26: "all asteroids sizes and speeds are halved"; 1.25 until 2026-11-27, "size halved")
+        public const float RIKAKO_ROCK_MOST_CIRCLES = 1.5f; // (6 until 2026-11-26; 3 until 2026-11-27)
         public const float RIKAKO_ROCK_SPEED_LEAST = 0.375f; // (0.75 until 2026-11-26)
         public const float RIKAKO_ROCK_SPEED_MOST = 1f; // (2 until 2026-11-26)
         public const float RIKAKO_ROCK_SPIN_DEGREES = 12f;
@@ -4803,7 +4803,10 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Rikako Asakura (2026-11-26, "its spin speed halved and constant"): her satellite turns towards the way it was last given at this many degrees a beat, evenly (until then it turned over the four
         /// beats from one way to the next, easing in and out: a quarter turn at 22.5 degrees a beat on average).
         /// </summary>
-        public const float RIKAKO_TURN_DEGREES_PER_BEAT = 11.25f;
+        public const float RIKAKO_TURN_DEGREES_PER_BEAT = 5.625f; // (11.25 until 2026-11-27: "sattelite spin speed halved")
+
+        /// <summary>Rikako (2026-11-27, "warn about spin direction change with laserbeams flash"): when her satellite starts turning the other way round, its grid of beams flashes over this many beats.</summary>
+        public const double RIKAKO_TURN_FLASH_BEATS = 0.5;
 
         /// <summary>
         /// Rikako Asakura (2026-11-26, "starting point is growing to original size like marisa's"): her satellite's beam is this share of its width where it leaves the satellite and widens (an outer curve,
@@ -4824,5 +4827,70 @@ namespace osu.Game.Rulesets.Danmakusu
         public const double RIKAKO_WAVE_BEATS = 8;
         public const float RIKAKO_WAVE_CIRCLES = 8f;
         public const float RIKAKO_WAVE_ALPHA = 0.3f;
+
+        /// <summary>
+        /// Konngara (2026-11-27): every this many beats an endless beam, this many times as thick as a slider's, from her straight up: a see-through preview this many beats, then it sweeps once round her
+        /// over this many, and fades over this many.
+        /// </summary>
+        public const double KONNGARA_EVERY_BEATS = 16;
+
+        public const float KONNGARA_BEAM_WIDTH = 1f;
+        public const double KONNGARA_PREVIEW_BEATS = 4;
+        public const double KONNGARA_SPIN_BEATS = 4;
+        public const double KONNGARA_FADE_BEATS = 0.5;
+
+        // Kikuri (2026-11-27): a ring of this many of Shou's waving beams out of her every so many beats of her attacks; red arrows round her for so many beats before each attack; every so many-th bullet that leaves the screen is shot again from her
+        public const int KIKURI_RING_BEAMS = 36;
+        public const double KIKURI_RING_EVERY_BEATS = 4;
+        public const double KIKURI_WARN_BEATS = 2;
+        public const int KIKURI_WARN_ARROWS = 8;
+        public const float KIKURI_WARN_ARROW_SIZE = 2.4f;
+        public const float KIKURI_RESHOOT_EVERY = 4f;
+
+        // Shingyoku (2026-11-27): a yin-yang orb as big as her magic circle (times this), as fast as Reimu's orbs times this, ricocheting so many times; so many beats between throws; a red glow for so many beats before; the others thrown at once spread over so many degrees
+        public const double SHINGYOKU_COOLDOWN_BEATS = 8;
+        public const float SHINGYOKU_ORB_SIZE = 1f;
+        public const float SHINGYOKU_ORB_SPEED = 1.5f;
+        public const int SHINGYOKU_BOUNCES = 2;
+        public const double SHINGYOKU_WARN_BEATS = 1;
+        public const float SHINGYOKU_THROW_SPREAD_DEGREES = 20f;
+
+        // Elis (2026-11-27): every so many beats a red flash, a flight as a big bat (so wide, hurting so far, taking what is within so many circle radii, so many at most), then her shots of what she took (so much faster, bigger, with traces so many beats long, so wide)
+        public const double ELIS_EVERY_BEATS = 24;
+        public const double ELIS_WARN_BEATS = 2;
+        public const double ELIS_FLY_BEATS = 8;
+        public const double ELIS_SHOOT_BEATS = 8;
+        public const float ELIS_BAT_CIRCLES = 2.4f;
+        public const float ELIS_HIT_CIRCLES = 1.1f;
+        public const float ELIS_RECORD_CIRCLES = 2.4f;
+        public const int ELIS_RECORD_MOST = 128;
+        public const float ELIS_SHOT_SPEED = 2f;
+        public const float ELIS_SHOT_SIZE = 2f;
+        public const double ELIS_TRACE_BEATS = 4;
+        public const float ELIS_TRACE_WIDTH = 0.3f;
+
+        // Sariel (2026-11-27): rings of so many bats every so many beats of her attacks, so much slower than Koakuma's, living so many beats, so many at once at most, each shooting every so many beats; every so many-th bullet out of the top or bottom comes in at the other side so many times; her last word dims the screen so much over so many beats, and aims everything so many beats after her section
+        public const int SARIEL_RING_BATS = 10;
+        public const double SARIEL_RING_EVERY_BEATS = 8;
+        public const float SARIEL_BAT_SLOW = 0.5f;
+        public const double SARIEL_BAT_LIFE_BEATS = 16;
+        public const int SARIEL_BATS_MOST = 48;
+        public const double SARIEL_STREAM_BEATS = 1;
+        public const float SARIEL_WRAP_EVERY = 8f;
+        public const int SARIEL_WRAPS = 3;
+        public const float SARIEL_DIM = 0.6f;
+        public const double SARIEL_DIM_BEATS = 8;
+        public const double SARIEL_WARN_BEATS = 2;
+
+        // YuugenMagan (2026-11-27): eyes so many circle radii big on a pentagon so many magic circle radii across its middle; every so many-th bullet shot again from an eye; thunders every so many beats, warned of so many beats before, solid so long; the lightning between the eyes so wide, so see-through; the gold of what her eyes throw
+        public const float YUUGENMAGAN_EYE_CIRCLES = 1.5f;
+        public const float YUUGENMAGAN_PENTAGON = 1.3f;
+        public const int YUUGENMAGAN_EVERY = 2;
+        public const double YUUGENMAGAN_THUNDER_BEATS = 16;
+        public const double YUUGENMAGAN_WARN_BEATS = 2;
+        public const double YUUGENMAGAN_BOLT_BEATS = 2;
+        public const float YUUGENMAGAN_LINK_WIDTH = 0.12f;
+        public const float YUUGENMAGAN_LINK_ALPHA = 0.45f;
+        public static readonly Color4 YUUGENMAGAN_GOLD = new Color4(1f, 0.8f, 0.25f, 1f);
     }
 }
