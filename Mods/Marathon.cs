@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     {
         public override string Name => "Marathon";
         public override string Acronym => "MR";
-        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. Starting any map starts the first; each next one starts as soon as the one before is over.";
+        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. Starting any map starts the first; each next one starts as soon as the one before is over, with the bullets it left on the screen.";
 
         [Obsolete("Score multipliers are not used any more (the base member is obsolete); kept because the base class asks for it.")]
         public override double ScoreMultiplier => 1;
@@ -85,6 +85,11 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         private static int position;
         private static bool due;
         private static bool starting;
+
+        // (the field of the map played now, and the bullets the map before left on the screen - 2026-11-28, "transfer remaining bullets on the screen to next map": BulletField.Carry.cs)
+        private static WeakReference<UI.BulletField>? playing;
+        private static UI.CarriedBullet[]? carried;
+        private static int carriedFrom = -1;
 
         private const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
@@ -171,6 +176,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
             due = position + 1 < maps.Length;
 
+            // (what is on the screen now goes on to the next map)
+            if (due && playing != null && playing.TryGetTarget(out var field))
+            {
+                carried = field.CarryOff();
+                carriedFrom = position;
+                Logger.Log($"Danmakusu: Marathon: {carried.Length} bullets go on to the next map");
+            }
+
             if (!due)
             {
                 running = false; // (the last one: the marathon is over)
@@ -182,6 +195,28 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         {
             running = false;
             due = false;
+            carried = null;
+            carriedFrom = -1;
+        }
+
+        /// <summary>
+        /// The field of a map has been made (<paramref name="md5"/>): when it is a map of the marathon going on, it is the one whose bullets go on to the next map, and it starts with what the map
+        /// before it left on the screen (2026-11-28; a map played again starts with them again).
+        /// </summary>
+        public static void Joined(UI.BulletField field, string? md5)
+        {
+            int index = IndexOf(md5);
+
+            if (index < 0)
+                return;
+
+            playing = new WeakReference<UI.BulletField>(field);
+
+            if (carried != null && carriedFrom >= 0 && index > carriedFrom)
+            {
+                field.CarryIn(carried);
+                Logger.Log($"Danmakusu: Marathon map {index + 1} starts with {carried.Length} bullets of the map before");
+            }
         }
 
         private static DanmakusuModMarathon? marathonOf(SongSelect songSelect) => songSelect.Mods.Value?.OfType<DanmakusuModMarathon>().FirstOrDefault();
@@ -234,6 +269,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 maps = list;
                 position = 0;
                 due = false;
+                carried = null;
+                carriedFrom = -1;
                 starting = true;
 
                 try

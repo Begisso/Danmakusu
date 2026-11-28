@@ -15,7 +15,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // turns solid (SUMIREKO_DRIFT_CIRCLES circle radii a beat); then it explodes (Hecatia's explosion) into SUMIREKO_STARS of Marisa's stars thrown out of it left and right, with Suika's impact
         // frame on it for SUMIREKO_IMPACT_MS (the beam's band turned inside out, soft-edged, impact stars beside it, in flashes). It hurts like a slider body while it is solid; the stars as bullets.
         // Since 2026-11-26 the preview is as thick as the beam and half as solid as Matenshi's (SUMIREKO_PREVIEW_ALPHA), the impact frame flashes over the SUMIREKO_IMPACT_MS right before it turns solid
-        // (since 2026-11-27 that one is half as long and half as strong: SUMIREKO_IMPACT_BEFORE_MS, SUMIREKO_IMPACT_BEFORE_STRENGTH, ImpactStarLayer.Strength)
+        // (since 2026-11-27 that one is half as long and see-through: SUMIREKO_IMPACT_BEFORE_MS, SUMIREKO_IMPACT_BEFORE_STRENGTH - a quarter since 2026-11-28 -, ImpactStarLayer.Strength)
         // too, and its stars are three times as many, in its violet.
         // Where the player is when a preview comes and which way it drifts are taken then and kept; the stars are made again from them when time goes back.
         // ======================================================================================================================================================

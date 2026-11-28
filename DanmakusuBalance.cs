@@ -4677,7 +4677,7 @@ namespace osu.Game.Rulesets.Danmakusu
 
         /// <summary>Sumireko (2026-11-27, "impact frame duration halved before laserbeam activation. Transparency doubled too"): the frame before her beam turns solid lasts this long, this strong.</summary>
         public const double SUMIREKO_IMPACT_BEFORE_MS = SUMIREKO_IMPACT_MS / 2;
-        public const float SUMIREKO_IMPACT_BEFORE_STRENGTH = 0.5f;
+        public const float SUMIREKO_IMPACT_BEFORE_STRENGTH = 0.25f; // (0.5 on 2026-11-27: half turned inside out is an even grey, nothing seen through it - "transparency doubled means double the transparency", 2026-11-28: three quarters see-through)
         public const float SUMIREKO_DIM = 0.55f;
         public const float SUMIREKO_BLOOM = 0.8f;
         public const float SUMIREKO_SHAKE = 0.5f;
