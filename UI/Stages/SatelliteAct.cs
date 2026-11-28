@@ -15,7 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // towards the screen - seen as an ellipse TAKANE_ORBIT_FLAT as wide across as along, its long axis the way it was grabbed from - so that each goes round on a slant of its own, as the electrons of an
         // atom do, wherever the big one goes; at most TAKANE_MOST_GRABBED round one. When the big one is gone (it has hit, something took it, it has left the screen), what went round it flies off the way
         // it was going. That the bullets of her section fly the slower the bigger they are, and her rings of big balls, are the planner's.
-        // Since 2026-11-28 the orbits are twice as big (TAKANE_ORBIT_SCALE) and every one is drawn: its tilted circle as a see-through green outline (TAKANE_OUTLINE_*).
+        // Since 2026-11-28 the orbits are twice as big (TAKANE_ORBIT_SCALE), and one see-through green circle (TAKANE_OUTLINE_*) as far out as they go is drawn round every big bullet that holds others
+        // (earlier that day every orbit was, a tilted ellipse each).
         // The big bullets are looked for where they are at the end of each frame's scan, as Eika's clumps are (so what is grabbed depends on the frames; going back in time grabs again from there).
         // ======================================================================================================================================================
 
@@ -284,7 +285,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return true;
             }
 
-            /// <summary>The way every grabbed bullet goes round its big one, drawn (2026-11-28, "orbit edges are visible with circle outlines, green, transparent"): its tilted circle, a see-through green outline.</summary>
+            /// <summary>
+            /// Round every big bullet that holds others, one see-through green circle as far out as they go round it (2026-11-28, "just one green circle around big bullet instead": from earlier that day
+            /// every orbit was drawn, a tilted ellipse for each grabbed bullet, "orbit edges are visible with circle outlines, green, transparent").
+            /// </summary>
             public override void Draw(BulletField f, double t)
             {
                 if (f.failed || t < Start || holding.Count == 0)
@@ -298,6 +302,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (atom.Released)
                         continue;
 
+                    // (the widest of its orbits now - they are all as far out, but each eases out to there - round where the big one is)
+                    float widest = 0f;
+                    Vector2 hub = default;
+
                     foreach (int index in atom.Members)
                     {
                         var b = Bullets[index];
@@ -306,8 +314,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             continue;
 
                         float radius = b.OrbitGrow > 0 ? b.OrbitFrom + (b.Orbit - b.OrbitFrom) * smoothStep((t - b.T0) / b.OrbitGrow) : b.Orbit;
-                        f.stageRipple.AddEllipse(hubPoint(b, t), radius + line, b.OrbitFlat, b.OrbitTilt * 180f / MathF.PI, line, DanmakusuBalance.TAKANE_OUTLINE_ALPHA, green);
+
+                        if (radius > widest)
+                        {
+                            widest = radius;
+                            hub = hubPoint(b, t);
+                        }
                     }
+
+                    if (widest > line)
+                        f.stageRipple.AddRing(hub, widest + line, line, DanmakusuBalance.TAKANE_OUTLINE_ALPHA, green);
                 }
             }
         }

@@ -725,7 +725,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Func<BulletEmitter, double, bool>? nearAskedFn;
 
-            /// <summary>(the autoplay) Every stroke near <paramref name="around"/> at <paramref name="t"/> into <paramref name="shape"/>, <paramref name="extra"/> px wider.</summary>
+            /// <summary>
+            /// (the autoplay) Every stroke near <paramref name="around"/> at <paramref name="t"/> into <paramref name="shape"/>, <paramref name="extra"/> px wider. A ring a little more than half faded at the
+            /// moment of the grid still counts (2026-11-28): it may still hurt at the moments round it that are asked about, and skipped it was walked into - 7 hits in 30 s of the Boss Rush.
+            /// </summary>
             private void fill(BulletField f, MomentShapes.Moment shape, double t, float extra, Vector2 around, float range)
             {
                 float reach = half(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + extra;
@@ -735,7 +738,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (int i in placing)
                 {
-                    if (solid[i] < 0.5f)
+                    if (solid[i] < auto_solid_least)
                         continue;
 
                     foreach (var run in runs[i])
@@ -777,6 +780,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>(the autoplay looks this far round the character at most: px)</summary>
             private const float auto_range = 360f;
+
+            /// <summary>(the autoplay) A ring at least this solid at a moment of the grid counts: less than the half at which the strokes stop hurting.</summary>
+            private const float auto_solid_least = 0.3f;
         }
     }
 }

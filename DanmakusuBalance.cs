@@ -134,7 +134,7 @@ namespace osu.Game.Rulesets.Danmakusu
 
         public const double GENGETSU_RING_EVERY_BEATS = 1;
         public const float GENGETSU_INNER_SPEED = 0.75f;
-        public const float GENGETSU_SPEED_UP = 2.5f;
+        public const float GENGETSU_SPEED_UP = 2f; // (2.5 until 2026-11-28, "Gengetsu 1x-2x")
 
         /// <summary>
         /// Gengetsu's attacks, growing evenly over each: the background dims grey up to this much; every bullet blurs towards the middle of the screen with this many faint copies, the last this share of
@@ -4415,8 +4415,8 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const double NOROIKO_EVERY_BEATS = 0.5;
 
-        public const float NOROIKO_CURSE_CIRCLES = 2f; // (4 until 2026-11-28, "halve her homing curses size": the sliders' too, and the strokes with them)
-        public const float NOROIKO_STROKE_CIRCLES = 0.12f; // (0.24 until 2026-11-28, halved with the curses: the same strokes on a curse half as big closed it up; 0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
+        public const float NOROIKO_CURSE_CIRCLES = 1f; // (2 for a while on 2026-11-28, "halve more"; 4 until then, "halve her homing curses size": the sliders' too, and the strokes with them)
+        public const float NOROIKO_STROKE_CIRCLES = 0.06f; // (0.12, then 0.06 on 2026-11-28, halved twice with the curses; 0.24 until then: the same strokes on a curse half as big closed it up; 0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
         public const float NOROIKO_STROKE_SHARE = 0.03f; // (2026-11-27, her curses in beams again: half a stroke is this much of the curse's height at least)
         public const float NOROIKO_BEAM_BLOOM = 0.6f;
         public const double NOROIKO_HOMING_BEATS = 8;
@@ -4424,8 +4424,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float NOROIKO_SPEED_TO = 2.5f;
         public const float NOROIKO_TURN_DEGREES = 45f;
         public const double NOROIKO_STEP_MS = 10;
-        public const float NOROIKO_SLIDER_LEAST = 1.5f; // (3 until 2026-11-28)
-        public const float NOROIKO_SLIDER_MOST = 6f; // (12 until 2026-11-28; 10 until 2026-11-26)
+        public const float NOROIKO_SLIDER_LEAST = 0.75f; // (1.5, then 0.75 on 2026-11-28; 3 until then)
+        public const float NOROIKO_SLIDER_MOST = 3f; // (6, then 3 on 2026-11-28; 12 until then; 10 until 2026-11-26)
 
         /// <summary>
         /// Noroiko (2026-11-26, the user's picture of 呪: "they are white, they glow, they bloom ... size grows proportionally to slider duration"): her curses are the picture, white, over a soft white glow
@@ -4436,7 +4436,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float NOROIKO_GLOW_ALPHA = 0.45f;
         public const float NOROIKO_BLOOM_SIZE = 2.4f;
         public const float NOROIKO_BLOOM_ALPHA = 0.25f;
-        public const float NOROIKO_SLIDER_CIRCLES_PER_BEAT = 2f; // (4 until 2026-11-28)
+        public const float NOROIKO_SLIDER_CIRCLES_PER_BEAT = 1f; // (2, then 1 on 2026-11-28; 4 until then)
 
         /// <summary>Noroiko (2026-11-28, "sliders don't shoot growing jp laserbeams"): a slider's curse starts this much of its size and grows to all of it while it homes.</summary>
         public const float NOROIKO_SLIDER_GROW_FROM = 0.25f;
