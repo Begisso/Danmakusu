@@ -61,6 +61,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // rings stop where they are and fade out there over MERLIN_RING_FADE_BEATS, harmless - they went on out of the screen.)
         // (2026-11-26: a safe place stays MERLIN_SAFE_LINGER_BEATS after its circle is hit, its slider over or its follow points gone; the bullets in one are see-through as well as dark, and her rings are
         // drawn see-through and darker over one, in short arcs - ringOver, softly towards its edge - instead of dark green arcs laid over them; all of it fades in and out with the place.)
+        // (2026-11-28, "fix dim and bloom segmentation": her rings are flat pieces side by side all round, not arcs - they showed as pieces, and with many at once parts of them were not drawn.)
         // ======================================================================================================================================================
 
         private sealed class TrumpetAct : StageAct
@@ -500,24 +501,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // ---- drawing ----
 
-            /// <summary>A ring whose middle line is <paramref name="middle"/> from <paramref name="centre"/>, as thick as it hurts, with a black outline (2026-11-21).</summary>
-            private void ring(BulletField f, Vector2 centre, float middle, float alpha, Color4 colour)
-            {
-                float outer = middle + halfWidth;
-                float edge = Math.Max(halfWidth * 0.25f, 1.5f);
-                f.stageRipple.AddSolidRing(centre, outer + edge, Math.Min(2f * (halfWidth + edge), outer + edge), alpha, Color4.Black, false);
-                f.stageRipple.AddSolidRing(centre, outer, Math.Min(2f * halfWidth, outer), alpha, colour, false);
-            }
-
             private readonly List<(float From, float To)> spans = new List<(float, float)>();
 
+            /// <summary>How long (px, round its outer edge) every piece of a ring is (2026-11-28: see <see cref="ringOver"/>).</summary>
+            private const float ring_step_px = 6f;
+
             /// <summary>
-            /// A ring (as <see cref="ring"/>) that is see-through and darker where it goes over a safe place (2026-11-26, "bullets and circles around safe area are transparent. Also both dim and
-            /// transparency fade in fade out"): there it is drawn in short arcs, each MERLIN_SAFE_SEE see-through and darkened as much as the safe places are at its middle - softly towards their edges, and
-            /// fading in and out with them. (Until then dark green arcs were laid over it there: greenOver.)
+            /// A ring whose middle line is <paramref name="middle"/> from <paramref name="centre"/>, as thick as it hurts, with a black outline (2026-11-21), that is see-through and darker where it goes over a
+            /// safe place (2026-11-26, "bullets and circles around safe area are transparent. Also both dim and transparency fade in fade out"): MERLIN_SAFE_SEE see-through and darkened as much as the safe
+            /// places are there - softly towards their edges, and fading in and out with them. (Until 2026-11-26 dark green arcs were laid over it there: greenOver.)
+            /// Since 2026-11-28 ("fix dim and bloom segmentation") it is flat pieces side by side all round it, ring_step_px long, each with its own darkness and see-through (the field's meshes): it was arcs,
+            /// short ones over a safe place, each with its outline - they showed as pieces where they met, and with many rings at once the layer ran out of arcs and parts of rings were not drawn.
             /// </summary>
             private void ringOver(BulletField f, Vector2 centre, float middle, float alpha, Color4 colour)
             {
+                if (alpha <= 0.002f || middle + halfWidth < 1f)
+                    return;
+
                 spans.Clear();
 
                 if (middle >= 1f)
@@ -559,12 +559,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
-                if (spans.Count == 0)
-                {
-                    ring(f, centre, middle, alpha, colour);
-                    return;
-                }
-
                 // (merged, in order round the ring)
                 spans.Sort((a, b) => a.From.CompareTo(b.From));
                 int kept = 0;
@@ -577,44 +571,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         spans[++kept] = spans[i];
                 }
 
-                spans.RemoveRange(kept + 1, spans.Count - kept - 1);
+                if (spans.Count > 0)
+                    spans.RemoveRange(kept + 1, spans.Count - kept - 1);
 
-                float cursor = 0f;
+                float edge = Math.Max(halfWidth * 0.25f, 1.5f);
+                float blackIn = Math.Max(middle - halfWidth - edge, 0f), blackOut = middle + halfWidth + edge;
+                float bodyIn = Math.Max(middle - halfWidth, 0f), bodyOut = middle + halfWidth;
+                int steps = Math.Clamp((int)MathF.Ceiling(MathF.Tau * blackOut / ring_step_px), 24, 512);
+                float step = MathF.Tau / steps;
+                int span = 0;
 
-                foreach (var (from, to) in spans)
+                for (int s = 0; s < steps; s++)
                 {
-                    if (from > cursor)
-                        arc(f, centre, middle, cursor, from - cursor, alpha, colour);
+                    float a0 = s * step, a1 = (s + 1) * step, at = a0 + step * 0.5f;
+                    float shown = alpha;
+                    Color4 body = colour;
 
-                    int pieces = Math.Clamp((int)MathF.Ceiling((to - from) / 0.06f), 2, 64);
-                    float step = (to - from) / pieces;
+                    while (span < spans.Count && spans[span].To < at)
+                        span++;
 
-                    for (int p = 0; p < pieces; p++)
+                    // (over a safe place: see-through and darker, as much as the places are there)
+                    if (span < spans.Count && at >= spans[span].From)
                     {
-                        float at = from + (p + 0.5f) * step;
                         float level = safeLevel(centre + new Vector2(MathF.Cos(at), MathF.Sin(at)) * middle, out float darkLevel);
                         float darker = darkLevel * DanmakusuBalance.MERLIN_RING_DARK;
-                        var dark = new Color4(colour.R + (safeDim.R - colour.R) * darker, colour.G + (safeDim.G - colour.G) * darker, colour.B + (safeDim.B - colour.B) * darker, 1f);
-                        arc(f, centre, middle, from + p * step, step, alpha * (1f - DanmakusuBalance.MERLIN_SAFE_SEE * level), dark);
+                        body = new Color4(colour.R + (safeDim.R - colour.R) * darker, colour.G + (safeDim.G - colour.G) * darker, colour.B + (safeDim.B - colour.B) * darker, 1f);
+                        shown = alpha * (1f - DanmakusuBalance.MERLIN_SAFE_SEE * level);
                     }
 
-                    cursor = to;
+                    if (shown <= 0.002f)
+                        continue;
+
+                    Vector2 d0 = new Vector2(MathF.Cos(a0), MathF.Sin(a0)), d1 = new Vector2(MathF.Cos(a1), MathF.Sin(a1));
+                    var black = new Color4(0f, 0f, 0f, Math.Min(shown, 1f));
+                    body.A = Math.Min(shown, 1f);
+
+                    f.stageMeshes.Add(new MeshQuad { A = centre + d0 * blackIn, B = centre + d1 * blackIn, C = centre + d0 * blackOut, D = centre + d1 * blackOut, Near = black, Far = black });
+                    f.stageMeshes.Add(new MeshQuad { A = centre + d0 * bodyIn, B = centre + d1 * bodyIn, C = centre + d0 * bodyOut, D = centre + d1 * bodyOut, Near = body, Far = body });
                 }
-
-                if (cursor < MathF.Tau)
-                    arc(f, centre, middle, cursor, MathF.Tau - cursor, alpha, colour);
-            }
-
-            /// <summary>A piece of a ring: its black outline and its body, from <paramref name="start"/> round <paramref name="sweep"/> (radians).</summary>
-            private void arc(BulletField f, Vector2 centre, float middle, float start, float sweep, float alpha, Color4 colour)
-            {
-                if (alpha <= 0.002f || sweep <= 1e-4f)
-                    return;
-
-                float outer = middle + halfWidth;
-                float edge = Math.Max(halfWidth * 0.25f, 1.5f);
-                f.stageRipple.AddArc(centre, outer + edge, Math.Min(2f * (halfWidth + edge), outer + edge), start, sweep, alpha, Color4.Black);
-                f.stageRipple.AddArc(centre, outer, Math.Min(2f * halfWidth, outer), start, sweep, alpha, colour);
             }
 
             /// <summary>

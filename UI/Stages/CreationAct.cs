@@ -16,6 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Every bullet fired in her section while her wings are out (anyone's but Utsuho's and Nina's big balls and Yukari's train, counted ring by ring) does not come out where it was fired: it comes out of
         // the middle of a wing - the six in turn - flying the way that wing's stream points then, at the speed it had. Each wing's stream starts straight out from her and turns round once in
         // SHINKI_STREAM_TURN_BEATS, neighbouring wings the other way round; the bullets a wing gets of one ring come out of it one after another, SHINKI_STREAM_GAP_BEATS apart, so that they make streams.
+        // What comes out of her wings is white (2026-11-28).
         // Every beam of her section is fired again from a wing, the six in turn, straight, at the player (the planner makes it so: LaserEmitter.FromSpotStraight); this act puts where each starts.
         // ======================================================================================================================================================
 
@@ -274,6 +275,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     // (into the pool of acts since 2026-11-26: in one act they filled it after about 90 s of a section, and nothing more came out)
                     var made = f.makeStageBullet(stored, emitter, bullet, at, wingMiddle(f, w, at), velocity);
+                    made.Tint = BulletRenderer.TINT_WHITE; // (white, all of them: 2026-11-28, "all bullets shoot from her wings are white")
+                    made.TintAmount = 1f;
 
                     if (Pool != null)
                         Pool.Add(made);

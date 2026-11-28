@@ -128,7 +128,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed || bats.Count - goneCount() >= DanmakusuBalance.SARIEL_BATS_MOST)
                     return;
 
-                float radius = f.stageBaseRadius(Period);
+                float radius = f.stageBaseRadius(Period) * DanmakusuBalance.SARIEL_BAT_SIZE; // (twice as big since 2026-11-28, "all her bats have double the size": what they hit with too)
                 int index = Bullets.Count;
 
                 AddBullet(new StageBullet

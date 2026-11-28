@@ -871,13 +871,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// is drawn at the mirror image of where the mouse is - while everything that the game works out from it (the character, the flashlight...) keeps using the real
         /// place: the cursor drawable is put where the mouse would be without the turn, and the turn then carries it to the other side.
         /// </summary>
+        /// <summary>How the playfield is mirrored left to right and top to bottom (Seija, 2026-11-28): with Focus Lens's zoom it is the playfield's Scale (see updateFocus).</summary>
+        private Vector2 mirrorFlip = Vector2.One;
+
         private void updateMirror(double time)
         {
             float angle = bulletField!.HasMirror ? bulletField.MirrorAngleAt(time) : 0f;
             Rotation = angle;
 
+            // (2026-11-28: her attacks mirror in five ways - turned upside down, left to right, top to bottom, the screen only, the character only; see BulletField.MirrorKind)
+            mirrorFlip = bulletField.HasMirror ? bulletField.MirrorFlipAt(time) : Vector2.One;
+            var cursorRule = bulletField.HasMirror ? bulletField.MirrorCursorAt(time) : BulletField.MirrorCursor.WithView;
+
+            if (FocusZoom <= 0f)
+                Scale = mirrorFlip;
+
             bool focus = FocusZoom > 0f;
-            bool on = angle > 0 || focus;
+            bool on = angle > 0 || mirrorFlip != Vector2.One || cursorRule != BulletField.MirrorCursor.WithView || focus;
 
             // (also in the frame after the last mirrored one: a mouse move in that frame was placed by the still-turned playfield, and without this the cursor - and the
             // character, which follows it - would jump to the mirror image and sweep through every bullet on its way)
@@ -891,11 +901,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     // its place without the view + Position + the turn of (Scale x (p - centre)))
                     Vector2 local = ToLocalSpace(input.CurrentState.Mouse.Position);
                     Vector2 centre = DrawSize / 2;
-                    Vector2 d = (local - centre) * Scale.X;
+                    Vector2 d = (local - centre) * Scale;
                     float radians = angle * MathF.PI / 180f;
                     float cos = MathF.Cos(radians), sin = MathF.Sin(radians);
+                    Vector2 withView = centre + Position + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
 
-                    Cursor.ActiveCursor.Position = centre + Position + new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
+                    Cursor.ActiveCursor.Position = cursorRule switch
+                    {
+                        // (the screen is mirrored round it: it stays under the mouse)
+                        BulletField.MirrorCursor.UnderMouse => local,
+                        // (the screen is not mirrored: it is at the mirror image of the mouse through the middle)
+                        BulletField.MirrorCursor.Mirrored => 2f * (centre + Position) - withView,
+                        _ => withView,
+                    };
                 }
             }
 
@@ -906,7 +924,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     cursorTrail = findTrail(Cursor);
 
                 if (cursorTrail != null)
-                    cursorTrail.Alpha = focus ? 0f : 1f - angle / 180f;
+                    cursorTrail.Alpha = focus ? 0f : 1f - bulletField.MirrorAmountAt(time);
             }
 
             mirrorWasOn = on;
@@ -955,7 +973,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             float cos = MathF.Cos(radians), sin = MathF.Sin(radians);
             Vector2 d = (focus - centre) * zoom;
 
-            Scale = new Vector2(zoom);
+            Scale = new Vector2(zoom) * mirrorFlip; // (Seija's mirror left to right or top to bottom with it: 2026-11-28)
+            d *= mirrorFlip;
             Position = -new Vector2(d.X * cos - d.Y * sin, d.X * sin + d.Y * cos);
 
             // (the field works the screen out as it is without this: see BulletField.ViewShift)

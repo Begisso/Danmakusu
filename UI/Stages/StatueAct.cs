@@ -19,6 +19,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (2026-11-26, "Narumi waves are not working at all. Let her affect all bullets that already were spawned too": a wave takes every ring's bullet it goes over - fired in her section or before it,
         // whatever ops act on it - and it flies on from there as a bullet of this act, the way it went, NARUMI_BOOST times as fast as it was flying. It pushed only the rings fired in her section that
         // could be pushed, and no ring that a boss's op acts on can be: with other bosses on the map, nearly none.)
+        // (2026-11-28, "waves still not working": what a wave goes over flies at NARUMI_BOOST times its own full speed - eight times as fast as it crawled, for one of her section; it was twice the speed
+        // it had, a quarter to a half, which hardly showed.)
         // Where a ball goes depends on where the player has been: it is followed step by step (NARUMI_STEP_MS) and kept; going back in time takes the steps back. Where a wave starts is taken when it is sent.
         // ======================================================================================================================================================
 
@@ -239,7 +241,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 there = b.P0 + b.V * (float)(best - b.T0);
-                    Vector2 v = b.V * DanmakusuBalance.NARUMI_BOOST; // (twice the speed it has: 2026-11-25)
+                    Vector2 v = b.V / DanmakusuBalance.NARUMI_SLOW * DanmakusuBalance.NARUMI_BOOST; // (twice its own full speed: 2026-11-28; twice the speed it had from 2026-11-25)
                     b.Legs = new[] { new StageLeg { T = b.T0, P = b.P0, V = b.V }, new StageLeg { T = best, P = there, V = v } }; // (before its first leg a bullet stands: the slow one is a leg too)
                     b.Until = best + f.stageLife(v);
                     Bullets[own[i]] = b;
@@ -247,7 +249,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             private float ballSpeed => stageBulletSpeed(Period) * DanmakusuBalance.NARUMI_BALL_SPEED;
-
             private bool consumed(BulletField f, Ball ball) => DanmakusuBalance.HIDE_BULLETS_AFTER_HIT && f.stageConsumed.Contains(Id * 65536 + ball.Index);
 
             /// <summary>Where the ball is at <paramref name="t"/>, along its steps.</summary>
@@ -364,8 +365,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     Vector2 way = to - from;
                     Vector2 direction = way.LengthSquared > 1e-8f ? Vector2.Normalize(way) : emitter.Directions[bullet].LengthSquared > 1e-8f ? Vector2.Normalize(emitter.Directions[bullet]) : Vector2.UnitX;
-                    var again = f.makeStageBullet(stored, emitter, bullet, t, to, direction * speed * DanmakusuBalance.NARUMI_BOOST); // (twice the speed it has: 2026-11-25)
 
+                    // (twice its own full speed since 2026-11-28, "waves still not working": one of her section, slowed to a quarter, flies eight times as fast as it crawled - twice the speed it had
+                    // from 2026-11-25, a quarter to a half, which hardly showed)
+                    float ownSpeed = emitter.WaveRestores ? speed / DanmakusuBalance.NARUMI_SLOW : speed;
+                    var again = f.makeStageBullet(stored, emitter, bullet, t, to, direction * ownSpeed * DanmakusuBalance.NARUMI_BOOST);
                     int count = Bullets.Count;
                     AddBullet(again);
                     return Bullets.Count > count;

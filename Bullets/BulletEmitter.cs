@@ -169,7 +169,24 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             => !KeepsSize && BigBase >= 0 && (BigBase + bullet + 1) % BigEvery == 0 ? BigFactor : 1f; // (Utsuho's big balls and the trains keep their size)
 
         /// <summary>The biggest <see cref="BigScale"/> any bullet of this ring can have (with what the looks of its ops swell it by: <see cref="OpsGrowMax"/>).</summary>
-        public float BigScaleMax => (!KeepsSize && BigBase >= 0 && Count + BigBase >= BigEvery ? Math.Max(BigFactor, 1f) : 1f) * (KeepsSize ? 1f : OpsGrowMax);
+        public float BigScaleMax => (!KeepsSize && BigBase >= 0 && Count + BigBase >= BigEvery ? Math.Max(BigFactor, 1f) : 1f) * (KeepsSize ? 1f : OpsGrowMax * Math.Max(EdgeGrow, 1f));
+
+        /// <summary>
+        /// Doremy's five dots (2026-11-28, "size gradually change. 1x when on centre. 3x when on playfield edge"): a bullet of the ring is as big as it is in the middle of the playfield, growing evenly to this
+        /// many times that at its edge and staying so beyond it (drawn and hitting). 1: not at all.
+        /// </summary>
+        public float EdgeGrow { get; set; } = 1f;
+
+        /// <summary>How much bigger a bullet of the ring is at <paramref name="at"/> (see <see cref="EdgeGrow"/>).</summary>
+        public float EdgeScale(Vector2 at)
+        {
+            if (EdgeGrow <= 1f || KeepsSize)
+                return 1f;
+
+            Vector2 half = osu.Game.Rulesets.Osu.UI.OsuPlayfield.BASE_SIZE / 2f;
+            float out_ = Math.Max(Math.Abs(at.X - half.X) / half.X, Math.Abs(at.Y - half.Y) / half.Y);
+            return 1f + (EdgeGrow - 1f) * Math.Clamp(out_, 0f, 1f);
+        }
 
         /// <summary>The most that the looks of the ring's ops make its bullets' hitboxes bigger (<see cref="BulletLook.HitScale"/>: Rin's and Aunn's swell); 1 = not at all.</summary>
         public float OpsGrowMax { get; private set; } = 1f;
@@ -235,6 +252,12 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public bool StarLinked { get; set; }
 
         public int StarPhase { get; set; }
+
+        /// <summary>
+        /// Noroiko (2026-11-28, "her bullets are still not replaced by jp letter shape laserbeams"): the ring, laid out as 呪 (<see cref="RingShape.Curse"/>), is drawn as the character in beams that grows as
+        /// it flies out - its strokes join its bullets (<see cref="RingLayout.GlyphRuns"/>) - and its beams hurt (CurseAct). Its bullets themselves are hidden (<see cref="HiddenMask"/>, set by the planner).
+        /// </summary>
+        public bool CurseBeams { get; set; }
 
         /// <summary>
         /// Iku (2026-11-24): every this many neighbouring bullets of the ring (0..4, 5..9, ...; what is left over is free) are tied together by straight beams: none of them gets further than half of
@@ -770,7 +793,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         public double[]? HeldFrom { get; init; }
 
-        /// <summary>Bit n set = bullet n does not exist (a derived ring has nothing to make it from there). Set again every time the ring fires.</summary>
+        /// <summary>Bit n set = bullet n does not exist (a derived ring has nothing to make it from there). Set again every time the ring fires. (All of a ring drawn as beams instead, <see cref="CurseBeams"/>: set once by the planner.)</summary>
         public ulong HiddenMask;
 
         /// <summary>The shape the bullets are arranged in and the angle of the first one, when the ring was made by <see cref="RingLayout"/> (null = some other arrangement).</summary>
@@ -851,6 +874,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 TetherStride = TetherStride,
                 LeavesTrace = LeavesTrace,
                 FansOnLeaving = FansOnLeaving,
+                EdgeGrow = EdgeGrow,
+                CurseBeams = CurseBeams, // (Noroiko's: a copy is drawn as 呪 in beams too, its bullets hidden - 2026-11-28)
+                HiddenMask = CurseBeams ? (directions.Length >= 64 ? ulong.MaxValue : (1UL << directions.Length) - 1) : 0,
             };
         }
 
@@ -930,6 +956,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The same ring with every other bullet gone (half as many, rounded up; a ring of one stays).</summary>
         public BulletEmitter Halved()
         {
+            // (Noroiko's rings drawn as 呪 in beams: every corner of the character is a bullet of it, and its bullets are hidden - they are never thinned, 2026-11-28; halved in a section of two bosses,
+            // what was left of the character was a scatter of bullets, which was all the user saw of it)
+            if (CurseBeams)
+                return this;
+
             int kept = (Directions.Length + 1) / 2;
             var directions = new Vector2[kept];
             float[]? scales = RadialScales == null ? null : new float[kept];
@@ -952,6 +983,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>The same ring with only every third bullet left (a third as many, rounded up; a ring of one stays).</summary>
         public BulletEmitter Thirded()
         {
+            if (CurseBeams)
+                return this; // (as Halved)
+
             int kept = (Directions.Length + 2) / 3;
             var directions = new Vector2[kept];
             float[]? scales = RadialScales == null ? null : new float[kept];
@@ -991,6 +1025,33 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
             float phase = Layout != null ? LayoutPhase : Directions.Length > 0 ? MathF.Atan2(Directions[0].Y, Directions[0].X) : 0f;
             return evenRing(shape, count, phase);
+        }
+
+        /// <summary>
+        /// The ring as an even outline of <paramref name="count"/> bullets turned <paramref name="phase"/> radians, fired from <paramref name="origin"/> instead and not aimed (Sanae's spinning star, 2026-11-28:
+        /// "half of all bullets come out as star shaped rings from spinning big marisa star from the centre"). Not a ring whose bullets start from places of their own.
+        /// </summary>
+        public BulletEmitter EvenRingFrom(RingShape shape, int count, float phase, Vector2 origin)
+        {
+            if (Origins != null || count < 1)
+                return this;
+
+            var directions = RingLayout.Create(shape, count, phase, out var scales);
+            float min = 1f;
+
+            if (scales != null)
+            {
+                foreach (float value in scales)
+                    min = Math.Min(min, value);
+            }
+
+            var rebuilt = copy(directions, scales, min, 0f, origin: origin, aimAtPlayer: false);
+            rebuilt.LayoutPhase = phase;
+            rebuilt.Layout = shape;
+
+            // (from the middle its slowest bullets must cross half the screen and more: as long as the ring lived, or as its nearest points need)
+            rebuilt.Lifetime = Math.Max(Lifetime, Lifetime * MinRadialScale / Math.Max(min, 0.05f));
+            return rebuilt;
         }
 
         private BulletEmitter evenRing(RingShape shape, int count, float phase)

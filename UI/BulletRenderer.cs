@@ -33,6 +33,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         public bool Lava;
 
         public Vector2 UvA, UvB, UvC, UvD;
+
+        /// <summary>
+        /// Where pieces of light lie over each other, the brighter shows, not the two added up (Suika's crack glows, 2026-11-28: "crack bloom absolute seamless, no overlaps" - where two cracks' glows, or a
+        /// glow and its round end, lay over each other they were brighter there).
+        /// </summary>
+        public bool Brightest;
     }
 
     /// <summary>A picture drawn between the beams and the bullets (Tojiko's clouds: over her lightning and her rain, under every other bullet).</summary>
@@ -160,6 +166,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>0..1: how much light spreads round the beam (Remilia's attack).</summary>
         public float Bloom;
+
+        /// <summary>The light round it is as bright as <see cref="Bloom"/> says however see-through the beam is (Rikako's grid flashing white round its faint lines, 2026-11-28): otherwise it is as see-through as the beam.</summary>
+        public bool BloomUnfaded;
 
         /// <summary>A spinner / boss beam (no longer drawn any differently).</summary>
         public bool Glow;
@@ -779,6 +788,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             // (the lava's pieces go through a batch of their own: each corner is given its own place on the picture as it is added - 2026-11-25, the picture laid flat over the ground)
             private IVertexBatch<TexturedVertex2D>? lavaBatch;
+
+            /// <summary>Where pieces of light lie over each other the brighter of the two shows (see <see cref="MeshQuad.Brightest"/>): their colours go in as light, premultiplied.</summary>
+            private static readonly BlendingParameters brightest_blend = new BlendingParameters
+            {
+                Source = BlendingType.One,
+                Destination = BlendingType.One,
+                SourceAlpha = BlendingType.One,
+                DestinationAlpha = BlendingType.One,
+                RGBEquation = BlendingEquation.Max,
+                AlphaEquation = BlendingEquation.Max,
+            };
             private readonly Action<TexturedVertex2D> lavaVertex;
             private readonly Vector2[] lavaCorners = new Vector2[4];
             private readonly Vector2[] lavaUvs = new Vector2[4];
@@ -955,9 +975,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 // (the flat shapes of the stages, over the beams and under the bullets: Mima's moon)
+                bool brightest = false;
+
                 for (int i = 0; i < meshCount; i++)
                 {
                     var piece = meshes[i];
+
+                    // (pieces of light that keep the brighter where they lie over each other: their colours go in as light, as much as they show)
+                    if (piece.Brightest != brightest)
+                    {
+                        brightest = piece.Brightest;
+                        renderer.SetBlend(brightest ? brightest_blend : DrawColourInfo.Blending);
+                    }
+
+                    if (brightest)
+                    {
+                        piece.Near = new Color4(piece.Near.R * piece.Near.A, piece.Near.G * piece.Near.A, piece.Near.B * piece.Near.A, piece.Near.A);
+                        piece.Far = new Color4(piece.Far.R * piece.Far.A, piece.Far.G * piece.Far.A, piece.Far.B * piece.Far.A, piece.Far.A);
+                    }
                     var corners = new Quad(Vector2Extensions.Transform(piece.A, DrawInfo.Matrix), Vector2Extensions.Transform(piece.B, DrawInfo.Matrix), Vector2Extensions.Transform(piece.C, DrawInfo.Matrix),
                         Vector2Extensions.Transform(piece.D, DrawInfo.Matrix));
 
@@ -980,6 +1015,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     renderer.DrawQuad(pixel, corners, ColourInfo.GradientVertical(piece.Near, piece.Far), textureCoords: pixelCoords);
                 }
+
+                if (brightest)
+                    renderer.SetBlend(DrawColourInfo.Blending);
 
                 // (Tojiko's clouds are over her lightning and the rain that falls out of them, and under every other bullet)
                 if (cloudCount > 0)
@@ -1481,7 +1519,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float scale = 1f + 0.25f * (layer + 1);
                     var colour = new Color4(light.R, light.G, light.B, beam.Bloom * 0.6f / (layer + 1.5f));
 
-                    drawBeamLayer(renderer, beam, scale, 0f, colour, pixel, pixelCoords);
+                    drawBeamLayer(renderer, beam, scale, 0f, colour, pixel, pixelCoords, unfaded: beam.BloomUnfaded);
                 }
             }
 
@@ -1529,7 +1567,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>One layer of a beam: its half width at every point is the point's width times <paramref name="scale"/> plus <paramref name="extra"/>.</summary>
-            private void drawBeamLayer(IRenderer renderer, LaserInstance beam, float scale, float extra, Color4 colour, Texture pixel, RectangleF pixelCoords, bool fade = false, float fadedAlpha = 1f)
+            private void drawBeamLayer(IRenderer renderer, LaserInstance beam, float scale, float extra, Color4 colour, Texture pixel, RectangleF pixelCoords, bool fade = false, float fadedAlpha = 1f, bool unfaded = false)
             {
                 if (beam.Count <= 0)
                     return;
@@ -1541,7 +1579,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     if (fade)
                         c.A *= fadedAlpha;
-                    float shown = drawFades[beam.Start + index];
+                    float shown = unfaded ? 1f : drawFades[beam.Start + index];
 
                     return shown >= 0.999f ? c : new Color4(c.R, c.G, c.B, c.A * shown);
                 }

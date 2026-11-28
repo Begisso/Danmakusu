@@ -16,6 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // at its end gets a shorter one. A section too short for one is one as long as it is.
         // Since 2026-11-25 her stars are half as big, every part of a sphere lasts twice as long, and as each has grown another is thrown over it from her, turning the other way, that is never pulled back: it
         // grows on, as fast as the first grew in all, until it is wholly past the screen. Later that day: it is thrown with the sphere, as it begins, and its stars are white.
+        // Since 2026-11-28 she throws one more white sphere as her section ends, that grows away as those do (and what was thrown before goes on growing away after her section too).
         // Everything is a closed form of time (the stars are beads: the autoplay asks where they are at any moment).
         // ======================================================================================================================================================
 
@@ -71,12 +72,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 Period = period;
                 beat = Math.Max(period.BeatLength, 1);
-                spheres = Schedule(period).ToArray();
+
+                // (as her section ends she throws one more white sphere, alone, that grows away as the others thrown with a sphere do - 2026-11-28, "after her section is done she shoots away last white
+                // star sphere": a sphere of no time of its own, only its white one; what she had thrown before goes on growing away too, past the end of her section)
+                var list = Schedule(period);
+                list.Add((period.End, 0, 0, 0));
+                spheres = list.ToArray();
+                regularGrow = beat * DanmakusuBalance.SAPPHIRE_GROW_BEATS;
                 rolls = new float[spheres.Length];
                 rollKnown = new bool[spheres.Length];
                 Start = period.ShootStart;
-                End = period.End;
+                End = period.End + regularGrow * 3;
             }
+
+            /// <summary>How long a whole sphere grows: the white one thrown at the end grows away as fast as one thrown with such a sphere.</summary>
+            private readonly double regularGrow;
 
             /// <summary>
             /// Every sphere of her section: when it starts, and how long it grows, stands and goes back (ms) - the next as soon as the last is pulled in (after SAPPHIRE_REST_BEATS). A section too short for a whole
@@ -208,7 +218,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     var (start, grow, _, _) = spheres[k];
                     double thrown = start; // (with the sphere itself: 2026-11-25, the same day, "both normal sphere and growing out sphere comes out at the same time" - it was thrown once that had grown)
-                    float speed = full / (float)Math.Max(grow, 1);
+                    float speed = full / (float)Math.Max(grow > 0 ? grow : regularGrow, 1); // (the one thrown alone at the end: as fast as with a whole sphere)
 
                     if (t < thrown || t >= thrown + gone / speed)
                         continue;

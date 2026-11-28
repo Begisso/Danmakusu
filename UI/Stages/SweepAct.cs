@@ -12,6 +12,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Konngara (2026-11-27): every KONNGARA_EVERY_BEATS of her section an endless straight beam, as thin as a slider's, from her straight up: a see-through preview for KONNGARA_PREVIEW_BEATS, then it
         // sweeps once round her, clockwise, over KONNGARA_SPIN_BEATS (Byakuren's beam sound as it starts, the planner's cue), hurting like a slider body, and fades over KONNGARA_FADE_BEATS, harmless. Every
         // bullet of a ring it sweeps over is cut in two along it, and the two pieces fly apart across it (square to the line from her). Where she is is taken as each sweep comes, and kept.
+        // Since 2026-11-28 ("spin speed halved. Laserbeam is white body") it sweeps twice as slowly (KONNGARA_SPIN_BEATS 32, 16 before; KONNGARA_EVERY_BEATS 44, so the next still comes eight beats
+        // after), and its body is white.
         // ======================================================================================================================================================
 
         private sealed class SweepAct : CuttingAct
@@ -178,9 +180,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 fades.Add(alpha);
                 fades.Add(alpha);
 
-                var core = new Color4(1f, 0.92f, 0.9f, 1f);
+                var body = Color4.White; // (white all through since 2026-11-28, "laserbeam is white body": a pale pink before)
                 var border = DanmakusuBalance.BorderColour(new Color4(0.85f, 0.12f, 0.14f, 1f)); // (her red)
-                f.addPlainBeam(line, halfWidth(f), core, border, ref beams, ref pointTotal, null, fades, null, t >= spinAt(k) && t < spunAt(k) ? 0.5f : 0f);
+                f.addPlainBeam(line, halfWidth(f), body, border, ref beams, ref pointTotal, null, fades, Color4.White, t >= spinAt(k) && t < spunAt(k) ? 0.5f : 0f);
             }
 
             /// <summary>The beam hurts like a slider body while it sweeps.</summary>

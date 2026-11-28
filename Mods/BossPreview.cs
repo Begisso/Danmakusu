@@ -198,6 +198,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 base.Update();
 
                 Rotation = field.MirrorAngleAt(Time.Current);
+                Scale = field.MirrorFlipAt(Time.Current); // (and mirrored left to right or top to bottom: 2026-11-28)
             }
         }
 

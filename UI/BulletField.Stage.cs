@@ -2361,9 +2361,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         break;
 
                     case BossMechanic.Curse:
-                        // Noroiko: her curses, and the sliders' (that the sliders' beams are gone is the planner's)
+                        // Noroiko: her curses, and the sliders' (that the sliders' beams are gone is the planner's); and, once for all her sections, the rings drawn as 呪 in beams (2026-11-28)
                         if (period.End > period.ShootStart)
+                        {
                             registerStage(new CurseAct(this, period, sliderZones));
+
+                            if (!stageActs.Exists(act => act is CurseRingsAct))
+                                registerStage(new CurseRingsAct(this, period));
+                        }
 
                         break;
 

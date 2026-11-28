@@ -887,7 +887,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (((emitter.ConsumedMask | emitter.AbsorbedMask | emitter.HiddenMask) & (1UL << b)) != 0)
                     continue;
 
-                float reach = body * (emitter.KeepsSize ? 1f : growMax * emitter.BigScale(b) * emitter.OpsGrowMax) + extra; // (a bullet that Rin or Aunn swells: as big as it gets, all along)
+                float reach = body * (emitter.KeepsSize ? 1f : growMax * emitter.BigScale(b) * emitter.OpsGrowMax * Math.Max(emitter.EdgeGrow, 1f)) + extra; // (a bullet that Rin or Aunn swells: as big as it gets, all along; Doremy's dots as big as at the edge)
 
                 if (emitter.Homing)
                 {
@@ -1537,8 +1537,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (portalOf(lookA) != portalOf(lookB))
                         continue;
 
-                    float widthA = autoLaserWidths[p] * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN + moved;
-                    float widthB = autoLaserWidths[q] * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN + moved;
+                    float widthA = autoLaserWidths[p] * beamHitScale(laser) + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN + moved;
+                    float widthB = autoLaserWidths[q] * beamHitScale(laser) + DanmakusuBalance.PLAYER_HITBOX_RADIUS + DanmakusuBalance.AUTO_MARGIN + moved;
                     float wide = Math.Max(widthA, widthB);
 
                     shape.Parts.Add(new AutoBeam { A = a, B = b, WidthA = widthA, WidthB = widthB });

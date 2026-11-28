@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
 using osuTK.Graphics;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace osu.Game.Rulesets.Danmakusu.UI
 {
@@ -11,12 +10,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Momoyo Himemushi (2026-11-27). The screen is a grid of cells as big as an osu! circle (MOMOYO_BLOCK_CIRCLES x its diameter, stretched a little so that they fit it exactly, wall to wall). In her
-        // attacks she throws a block of stone (the user's stone picture) every MOMOYO_THROW_EVERY_BEATS into the next free cell along the walls - the cells against the walls first, then the ring inside
-        // them, MOMOYO_LAYERS rings at most, each ring in an order of its own: it flies from her for MOMOYO_THROW_BEATS and lies there, hurting like a slider body, until her section is over. In her pauses
-        // (at the start of each, and every MOMOYO_CENTIPEDE_EVERY_BEATS of a long one) a big centipede (the user's picture, MOMOYO_CENTIPEDE_CIRCLES circle radii long) comes in from behind the wall at her
-        // back - a red arrow shows where for MOMOYO_CENTIPEDE_WARN_BEATS - and charges straight across at where the player was, MOMOYO_CENTIPEDE_SPEED times a bullet's speed, and out of the screen. It hurts
-        // like a slider body where the picture is (its mask), and every block it goes through bursts into a square of MOMOYO_BURST_BULLETS grey bullets that keeps its shape as it flies out; the cell is
-        // free again. Where she and the player are is taken as each block is thrown and each centipede comes; a seek back lays the blocks again from the start.
+        // attacks a block of stone (the user's stone picture) comes every MOMOYO_THROW_EVERY_BEATS into the next free cell along the walls - the cells against the walls first, then the ring inside
+        // them, MOMOYO_LAYERS rings at most, each ring in an order of its own - and lies there, hurting like a slider body, until her section is over. Since 2026-11-28 ("blocks should build out of
+        // playfield edges instead. Throw speed quadruple less, frequency remains") it is no longer thrown from her: it comes out of the wall next to its cell (out of the block before it, for the ring
+        // inside), sliding in over MOMOYO_THROW_BEATS (four times as long as the throw took).
+        // In her pauses (at the start of each, and every MOMOYO_CENTIPEDE_EVERY_BEATS of a long one) a big centipede (MOMOYO_CENTIPEDE_CIRCLES circle radii long) comes in from behind the wall at her
+        // back - a red arrow shows where for MOMOYO_CENTIPEDE_WARN_BEATS - and charges at where the player was, MOMOYO_CENTIPEDE_SPEED times a bullet's speed. Every block it goes through bursts into a
+        // square of MOMOYO_BURST_BULLETS grey bullets that keeps its shape as it flies out; the cell is free again. Where she and the player are is taken as each centipede comes; a seek back lays the
+        // blocks again from the start.
+        // Since 2026-11-28 ("Centipede - high resolution, Her body, legs, scales move separately in joints, centipede can slowly turn into player and move away. Other Body parts move too") it is no
+        // longer one picture (the user's, 400 x 211, with white left between its tails) but put together of pieces drawn sharp (StageLayer's CentipedePlate, CentipedeHead, CentipedeLeg, in the
+        // picture's colours): MOMOYO_CENTIPEDE_PLATES plates, each turned along the way its body goes there, following its head's path, which sways from side to side; on every plate a pair of legs
+        // of two joints each that stroke back and forth as it goes, a wave running down its body; feelers and fangs at its head and two long feelers at its tail that move too. For
+        // MOMOYO_CHASE_BEATS after it comes in its head turns at the player, MOMOYO_TURN_DEGREES_PER_BEAT at most, then it goes straight on, out of the screen. It hurts like a slider body where it is
+        // drawn (its plates, its head, its legs, its fangs and its tail's feelers; not the feelers at its head).
+        // (Its head turns at where the player really is, step by step in Update; asked about the time to come, its head goes on straight as it goes then.)
         // ======================================================================================================================================================
 
         private sealed class MiningAct : StageAct
@@ -25,15 +33,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 public int Cell;
                 public double Thrown, Lands;
-                public Vector2 From;
+                public Vector2 From; // (where it comes out: the cell next to it, towards the nearest wall)
                 public double GoneAt = double.PositiveInfinity;
+            }
+
+            /// <summary>Where every piece of a centipede is at one moment.</summary>
+            private sealed class Pose
+            {
+                public double T = double.NaN;
+                public Vector2 Head;
+                public float HeadAngle;
+                public readonly Vector2[] Plates = new Vector2[DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES];
+                public readonly float[] Angles = new float[DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES];
+                public readonly float[] Widths = new float[DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES];
+
+                // (legs, the tail's feelers and the fangs - all that hurts - then the head's feelers)
+                public readonly (Vector2 A, Vector2 B, float Thick)[] Limbs = new (Vector2, Vector2, float)[DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES * 4 + 10];
+                public int Hurting, Count;
+                public int Legs; // (the legs come first, then the tail's feelers, then the fangs)
+                public int Fangs;
+                public Vector2 Middle;
+                public float Reach;
             }
 
             private sealed class Crawler
             {
                 public double Warn, Appear;
                 public Vector2 Start, Way, Wall;
+
+                /// <summary>The path its head went (without its sway): a point every <see cref="step_px"/>, from where it came in.</summary>
+                public readonly List<Vector2> Path = new List<Vector2>();
+
+                public Vector2 Heading;
+                public double GoneAt = double.PositiveInfinity;
+                public readonly Pose[] Kept = { new Pose(), new Pose(), new Pose(), new Pose() };
+                public int NextKept;
             }
+
+            private const float step_px = 4f;
 
             private readonly double beat;
             private readonly double[] throws;
@@ -41,7 +78,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly List<Block> blocks = new List<Block>();
             private readonly List<Crawler> crawlers = new List<Crawler>();
             private int nextThrow, nextCrawl;
-            private double resetTime = double.NegativeInfinity;
 
             // (the grid: made once the screen is known)
             private int columns, rows;
@@ -74,16 +110,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 crawls = times.ToArray();
                 Start = period.ShootStart;
-                End = period.End + beat * 32;
+                End = period.End + beat * 64;
             }
 
             private float speed => stageBulletSpeed(Period) * DanmakusuBalance.MOMOYO_CENTIPEDE_SPEED;
 
             private float crawlerLength(BulletField f) => f.circleRadius * DanmakusuBalance.MOMOYO_CENTIPEDE_CIRCLES;
 
-            private float crawlerHeight(BulletField f) => crawlerLength(f) * Mask.Height / Mask.Width;
+            private float crawlerWidth(BulletField f) => crawlerLength(f) * DanmakusuBalance.MOMOYO_CENTIPEDE_WIDTH;
 
-            private double crawlLife(BulletField f) => (Vector2.Distance(f.stageMin, f.stageMax) + crawlerLength(f) * 2f) / Math.Max(speed, 1e-3f);
+            private double chase => beat * DanmakusuBalance.MOMOYO_CHASE_BEATS;
+
+            /// <summary>How long a centipede can be there at the most: its chase, then straight across the screen twice and its own length.</summary>
+            private double crawlLife(BulletField f) => chase + (Vector2.Distance(f.stageMin, f.stageMax) * 2f + crawlerLength(f) * 2f) / Math.Max(speed, 1e-3f);
 
             public override double MechanicsEnd => Period.End;
 
@@ -98,7 +137,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 while (nextCrawl < crawls.Length && crawls[nextCrawl] + crawlLife(f) < time)
                     nextCrawl++;
 
-                resetTime = time;
                 ClearBullets();
             }
 
@@ -132,6 +170,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Vector2 cellCentre(int cell) => gridMin + new Vector2((cell % columns + 0.5f) * cellSize.X, (cell / columns + 0.5f) * cellSize.Y);
 
+            /// <summary>The way from a cell to the nearest wall (the left, the right, the top, the bottom one, in that order when two are as near).</summary>
+            private Vector2 outward(int cell)
+            {
+                int i = cell % columns, j = cell / columns;
+                int left = i, right = columns - 1 - i, top = j, bottom = rows - 1 - j;
+                int least = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
+
+                if (least == left)
+                    return -Vector2.UnitX;
+
+                if (least == right)
+                    return Vector2.UnitX;
+
+                return least == top ? -Vector2.UnitY : Vector2.UnitY;
+            }
+
             private static bool lies(Block block, double t) => t >= block.Lands && t < block.GoneAt;
 
             public override void Update(BulletField f, double now)
@@ -142,7 +196,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (order.Length == 0)
                     makeGrid(f);
 
-                // her throws: into the first free cell, along the walls first
+                // the blocks: into the first free cell, along the walls first, each out of the wall next to it
                 while (nextThrow < throws.Length && throws[nextThrow] <= now)
                 {
                     double t = throws[nextThrow++];
@@ -161,39 +215,44 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue; // (every cell is full)
 
                     lying[cell] = blocks.Count;
-                    blocks.Add(new Block { Cell = cell, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = f.bossPositionOf(Period) });
+                    blocks.Add(new Block { Cell = cell, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = cellCentre(cell) + outward(cell) * cellSize });
                 }
 
                 // the centipedes: from behind the wall at her back, at where the player is
                 while (nextCrawl < crawls.Length && crawls[nextCrawl] <= now)
                 {
                     double t = crawls[nextCrawl++];
-                    Vector2 boss = f.bossPositionOf(Period), player = f.characterPosition;
+                    Vector2 boss = f.bossPositionOf(Period), player = f.realCharacterPosition;
                     Vector2 back = boss - player;
                     back = back.LengthSquared > 1f ? Vector2.Normalize(back) : -Vector2.UnitY;
                     Vector2 wall = boss + back * (float)f.toWall(boss, back, out _);
                     Vector2 way = player - wall;
                     way = way.LengthSquared > 1f ? Vector2.Normalize(way) : -back;
+                    float spacing = crawlerLength(f) / (DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES + 2.5f);
 
-                    crawlers.Add(new Crawler
+                    var crawler = new Crawler
                     {
-                        Warn = t, Appear = t + beat * DanmakusuBalance.MOMOYO_CENTIPEDE_WARN_BEATS, Wall = wall, Way = way,
-                        Start = wall - way * (crawlerLength(f) * 0.5f + 8f),
-                    });
+                        Warn = t, Appear = t + beat * DanmakusuBalance.MOMOYO_CENTIPEDE_WARN_BEATS, Wall = wall, Way = way, Heading = way,
+                        Start = wall - way * (spacing + crawlerWidth(f)),
+                    };
+
+                    crawler.Path.Add(crawler.Start);
+                    crawlers.Add(crawler);
                 }
 
-                // every block a centipede goes through bursts
                 double life = crawlLife(f);
                 float reach = Math.Min(cellSize.X, cellSize.Y) * 0.5f;
+                Vector2 low = f.hasScreenBounds ? f.screenMin : f.stageMin, high = f.hasScreenBounds ? f.screenMax : f.stageMax;
 
                 foreach (var crawler in crawlers)
                 {
-                    if (now < crawler.Appear || now > crawler.Appear + life)
+                    if (now < crawler.Appear || now >= crawler.GoneAt)
                         continue;
 
-                    Vector2 centre = crawlerAt(crawler, now);
-                    float far = crawlerLength(f) * 0.5f + reach;
+                    walk(f, crawler, now);
+                    var pose = poseAt(f, crawler, now);
 
+                    // every block it goes through bursts
                     foreach (var block in blocks)
                     {
                         if (!lies(block, now))
@@ -201,46 +260,249 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         Vector2 at = cellCentre(block.Cell);
 
-                        if (Vector2.DistanceSquared(at, centre) > far * far || !inCrawler(f, crawler, centre, at, reach))
+                        if (Vector2.Distance(at, pose.Middle) > pose.Reach + reach || !touches(pose, at, reach * 0.9f, false))
                             continue;
 
                         block.GoneAt = now;
                         lying[block.Cell] = -1;
                         burst(f, at, now);
                     }
+
+                    // (gone once it has stopped turning and is wholly off the screen)
+                    if (now > crawler.Appear + life || (now > crawler.Appear + chase && offScreen(pose, low, high, crawlerWidth(f) * 3f)))
+                        crawler.GoneAt = now;
                 }
 
-                crawlers.RemoveAll(c => now > c.Appear + life);
+                crawlers.RemoveAll(c => now > c.GoneAt + 1000);
             }
 
-            private Vector2 crawlerAt(Crawler crawler, double t) => crawler.Start + crawler.Way * (speed * (float)Math.Max(t - crawler.Appear, 0));
-
-            /// <summary>Is <paramref name="point"/> within <paramref name="reach"/> of the centipede's body (its picture's mask)?</summary>
-            private bool inCrawler(BulletField f, Crawler crawler, Vector2 centre, Vector2 point, float reach)
+            /// <summary>Its head goes on to where it is at <paramref name="now"/>, step by step, turning at the player while it chases.</summary>
+            private void walk(BulletField f, Crawler crawler, double now)
             {
-                // (the picture's head is on its left: its x axis points from the head back, against the way it goes)
-                Vector2 back = -crawler.Way;
-                Vector2 side = new Vector2(-back.Y, back.X);
-                Vector2 off = point - centre;
-                float length = crawlerLength(f), height = crawlerHeight(f);
-                float u = Vector2.Dot(off, back) / length + 0.5f, v = Vector2.Dot(off, side) / height + 0.5f;
-                float ru = reach / length, rv = reach / height;
+                float target = speed * (float)(now - crawler.Appear);
+                double stepMs = step_px / Math.Max(speed, 1e-4f);
+                float most = (float)(DanmakusuBalance.MOMOYO_TURN_DEGREES_PER_BEAT * MathF.PI / 180f / beat * stepMs);
+                Vector2 player = f.realCharacterPosition;
 
-                if (u < -ru || u > 1f + ru || v < -rv || v > 1f + rv)
-                    return false;
+                for (int guard = 0; (crawler.Path.Count - 1) * step_px < target && guard < 100000; guard++)
+                {
+                    Vector2 last = crawler.Path[^1];
+                    double at = crawler.Appear + crawler.Path.Count * stepMs;
 
-                if (Mask.At(u, v))
+                    if (at < crawler.Appear + chase)
+                    {
+                        Vector2 toPlayer = player - last;
+
+                        if (toPlayer.LengthSquared > 1f)
+                        {
+                            float want = MathF.Atan2(toPlayer.Y, toPlayer.X), now_ = MathF.Atan2(crawler.Heading.Y, crawler.Heading.X);
+                            float turn = want - now_;
+
+                            while (turn > MathF.PI)
+                                turn -= MathF.Tau;
+
+                            while (turn < -MathF.PI)
+                                turn += MathF.Tau;
+
+                            float heading = now_ + Math.Clamp(turn, -most, most);
+                            crawler.Heading = new Vector2(MathF.Cos(heading), MathF.Sin(heading));
+                        }
+                    }
+
+                    crawler.Path.Add(last + crawler.Heading * step_px);
+                }
+
+                // (its poses were kept for the path as it was)
+                foreach (var pose in crawler.Kept)
+                    pose.T = double.NaN;
+            }
+
+            /// <summary>Where its head's path is <paramref name="distance"/> along it (before it came in: straight behind where it started; past where it has gone: straight on as it goes).</summary>
+            private static Vector2 pathAt(Crawler crawler, float distance)
+            {
+                if (distance <= 0f)
+                    return crawler.Start + crawler.Way * distance;
+
+                float index = distance / step_px;
+                int last = crawler.Path.Count - 1;
+
+                if (index >= last)
+                    return crawler.Path[last] + crawler.Heading * ((index - last) * step_px);
+
+                int i = (int)index;
+                return Vector2.Lerp(crawler.Path[i], crawler.Path[i + 1], index - i);
+            }
+
+            /// <summary>Where its body is <paramref name="distance"/> along its head's path, swaying from side to side, and the way it goes there.</summary>
+            private static Vector2 bodyAt(Crawler crawler, float distance, float sway, float swayLength, out Vector2 along)
+            {
+                Vector2 ahead = pathAt(crawler, distance + step_px * 2f), behind = pathAt(crawler, distance - step_px * 2f);
+                Vector2 tangent = ahead - behind;
+                tangent = tangent.LengthSquared > 1e-6f ? Vector2.Normalize(tangent) : crawler.Way;
+                Vector2 normal = new Vector2(-tangent.Y, tangent.X);
+                float phase = distance / swayLength * MathF.Tau;
+
+                // (the way it goes there takes the sway into account too)
+                float slope = sway * MathF.Tau / swayLength * MathF.Cos(phase);
+                along = Vector2.Normalize(tangent + normal * slope);
+                return pathAt(crawler, distance) + normal * (sway * MathF.Sin(phase));
+            }
+
+            private static Vector2 turned(Vector2 way, float radians) => new Vector2(way.X * MathF.Cos(radians) - way.Y * MathF.Sin(radians), way.X * MathF.Sin(radians) + way.Y * MathF.Cos(radians));
+
+            /// <summary>Where every piece of a centipede is at <paramref name="t"/> (kept for a few moments: the autoplay asks about the same ones many times).</summary>
+            private Pose poseAt(BulletField f, Crawler crawler, double t)
+            {
+                foreach (var kept in crawler.Kept)
+                {
+                    if (kept.T == t)
+                        return kept;
+                }
+
+                var pose = crawler.Kept[crawler.NextKept];
+                crawler.NextKept = (crawler.NextKept + 1) % crawler.Kept.Length;
+                pose.T = t;
+
+                int n = DanmakusuBalance.MOMOYO_CENTIPEDE_PLATES;
+                float length = crawlerLength(f), width = crawlerWidth(f);
+                float spacing = length / (n + 2.5f);
+                float sway = width * DanmakusuBalance.MOMOYO_SWAY, swayLength = Math.Max(length * DanmakusuBalance.MOMOYO_SWAY_LENGTH, 1f);
+                float went = speed * (float)(t - crawler.Appear);
+                float seconds = (float)((t - crawler.Appear) / 1000.0);
+                float stroke = DanmakusuBalance.MOMOYO_LEG_STROKE_DEGREES * MathF.PI / 180f;
+                float stride = Math.Max(f.circleRadius * DanmakusuBalance.MOMOYO_LEG_STRIDE_CIRCLES, 1f);
+                float walking = went / stride * MathF.Tau;
+                int limbs = 0;
+
+                // the head
+                pose.Head = bodyAt(crawler, went - spacing * 0.5f, sway, swayLength, out Vector2 headWay);
+                pose.HeadAngle = MathF.Atan2(headWay.Y, headWay.X);
+
+                // the plates and their legs
+                for (int i = 0; i < n; i++)
+                {
+                    float share = i / (float)Math.Max(n - 1, 1);
+                    Vector2 at = bodyAt(crawler, went - spacing * (1.4f + i), sway, swayLength, out Vector2 way);
+                    float plateWidth = width * (1f - 0.45f * Math.Clamp((share - 0.55f) / 0.45f, 0f, 1f));
+                    float rock = 0.05f * MathF.Sin(walking * 0.5f - i * 0.7f); // (each plate rocks a little on its joint)
+
+                    pose.Plates[i] = at;
+                    pose.Angles[i] = MathF.Atan2(way.Y, way.X) + rock;
+                    pose.Widths[i] = plateWidth;
+
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        Vector2 outward = new Vector2(-way.Y, way.X) * side;
+                        Vector2 root = at + outward * (plateWidth * 0.42f);
+                        float wave = walking - i * MathF.Tau * DanmakusuBalance.MOMOYO_LEG_WAVES / n + (side > 0 ? MathF.PI : 0f);
+                        float forward = (30f - 70f * share) * MathF.PI / 180f + stroke * MathF.Sin(wave);
+                        Vector2 upper = outward * MathF.Cos(forward) + way * MathF.Sin(forward);
+                        Vector2 knee = root + upper * (width * DanmakusuBalance.MOMOYO_LEG_UPPER);
+                        float bent = forward - (50f + 12f * MathF.Cos(wave)) * MathF.PI / 180f;
+                        Vector2 lower = outward * MathF.Cos(bent) + way * MathF.Sin(bent);
+                        Vector2 foot = knee + lower * (width * DanmakusuBalance.MOMOYO_LEG_LOWER);
+
+                        pose.Limbs[limbs++] = (root, knee, width * 0.13f);
+                        pose.Limbs[limbs++] = (knee, foot, width * 0.1f);
+                    }
+                }
+
+                pose.Legs = limbs;
+
+                // the long feelers at its tail, swaying
+                {
+                    Vector2 tailWay = new Vector2(MathF.Cos(pose.Angles[n - 1]), MathF.Sin(pose.Angles[n - 1]));
+                    Vector2 root = pose.Plates[n - 1] - tailWay * (spacing * 0.5f);
+
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        float spread = (14f + 6f * MathF.Sin(seconds * 3.1f + side)) * MathF.PI / 180f * side;
+                        Vector2 first = turned(-tailWay, spread);
+                        Vector2 middle = root + first * (width * 1.1f);
+                        Vector2 second = turned(first, (8f + 5f * MathF.Sin(seconds * 4.3f + side * 2f)) * MathF.PI / 180f * side);
+                        pose.Limbs[limbs++] = (root, middle, width * 0.12f);
+                        pose.Limbs[limbs++] = (middle, middle + second * (width * 1.2f), width * 0.09f);
+                    }
+                }
+
+                // the fangs at its head, opening and closing
+                Vector2 headAhead = new Vector2(MathF.Cos(pose.HeadAngle), MathF.Sin(pose.HeadAngle));
+                Vector2 headSide = new Vector2(-headAhead.Y, headAhead.X);
+
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float open = (20f + 18f * (0.5f + 0.5f * MathF.Sin(seconds * 5f))) * MathF.PI / 180f * side;
+                    Vector2 root = pose.Head + headAhead * (width * 0.3f) + headSide * (width * 0.2f * side);
+                    pose.Limbs[limbs++] = (root, root + turned(headAhead, open) * (width * 0.45f), width * 0.14f);
+                }
+
+                pose.Fangs = 2;
+                pose.Hurting = limbs;
+
+                // the feelers at its head, waving (they do not hurt)
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float spread = (28f + 9f * MathF.Sin(seconds * 2.3f + side * 1.3f)) * MathF.PI / 180f * side;
+                    Vector2 root = pose.Head + headAhead * (width * 0.4f) + headSide * (width * 0.16f * side);
+                    Vector2 first = turned(headAhead, spread);
+                    Vector2 middle = root + first * (width * 1.0f);
+                    Vector2 second = turned(first, (12f + 6f * MathF.Sin(seconds * 3.7f + side)) * MathF.PI / 180f * side);
+                    pose.Limbs[limbs++] = (root, middle, width * 0.08f);
+                    pose.Limbs[limbs++] = (middle, middle + second * (width * 1.1f), width * 0.06f);
+                }
+
+                pose.Count = limbs;
+
+                // (a circle round all of it, to pass it over quickly)
+                pose.Middle = pose.Plates[n / 2];
+                float reach = 0f;
+
+                for (int i = 0; i < pose.Count; i++)
+                    reach = Math.Max(reach, Math.Max(Vector2.Distance(pose.Limbs[i].A, pose.Middle), Vector2.Distance(pose.Limbs[i].B, pose.Middle)));
+
+                pose.Reach = Math.Max(reach, Vector2.Distance(pose.Head, pose.Middle) + width) + width;
+                return pose;
+            }
+
+            /// <summary>Is <paramref name="point"/> within <paramref name="reach"/> of the centipede (its plates, its head and its limbs; its head's feelers too if <paramref name="feelers"/>)?</summary>
+            private static bool touches(Pose pose, Vector2 point, float reach, bool feelers)
+            {
+                if (Vector2.Distance(point, pose.Head) <= pose.Widths[0] * 0.48f + reach)
                     return true;
 
-                for (int k = 0; k < 8; k++)
+                for (int i = 0; i < pose.Plates.Length; i++)
                 {
-                    float angle = k * MathF.Tau / 8f;
+                    if (Vector2.Distance(point, pose.Plates[i]) <= pose.Widths[i] * 0.45f + reach)
+                        return true;
+                }
 
-                    if (Mask.At(u + MathF.Cos(angle) * ru, v + MathF.Sin(angle) * rv))
+                int count = feelers ? pose.Count : pose.Hurting;
+
+                for (int i = 0; i < count; i++)
+                {
+                    var (a, b, thick) = pose.Limbs[i];
+
+                    if (distanceToSegment(point, a, b) <= thick * 0.4f + reach)
                         return true;
                 }
 
                 return false;
+            }
+
+            private static bool offScreen(Pose pose, Vector2 low, Vector2 high, float margin)
+            {
+                bool outside(Vector2 p) => p.X < low.X - margin || p.X > high.X + margin || p.Y < low.Y - margin || p.Y > high.Y + margin;
+
+                if (!outside(pose.Head))
+                    return false;
+
+                foreach (Vector2 plate in pose.Plates)
+                {
+                    if (!outside(plate))
+                        return false;
+                }
+
+                return true;
             }
 
             /// <summary>A block bursts into a square of grey bullets that keeps its shape as it flies out.</summary>
@@ -283,7 +545,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 f.addFlash(t, at, radius * DanmakusuBalance.RICOCHET_FLASH_SIZE * 2f);
             }
 
-            /// <summary>The blocks that lie hurt like a slider body; so does the centipede, where its picture is.</summary>
+            /// <summary>The blocks that lie hurt like a slider body; so does the centipede, where it is drawn (not its head's feelers).</summary>
             public override bool Hurts(BulletField f, double now)
             {
                 if (f.failed || order.Length == 0)
@@ -306,16 +568,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
 
-                double life = crawlLife(f);
-
                 foreach (var crawler in crawlers)
                 {
-                    if (now < crawler.Appear || now > crawler.Appear + life)
+                    if (now < crawler.Appear || now >= crawler.GoneAt)
                         continue;
 
-                    Vector2 centre = crawlerAt(crawler, now);
+                    var pose = poseAt(f, crawler, now);
 
-                    if (Vector2.Distance(centre, player) <= crawlerLength(f) * 0.5f + hit && inCrawler(f, crawler, centre, player, hit))
+                    if (Vector2.Distance(pose.Middle, player) <= pose.Reach + hit && touches(pose, player, hit, false))
                         return true;
                 }
 
@@ -331,28 +591,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (fade > 0.01f)
                 {
+                    // (those coming out first, so that the ones lying hide where they come out of)
                     foreach (var block in blocks)
                     {
-                        if (t < block.Thrown || t >= block.GoneAt)
+                        if (t < block.Thrown || t >= block.Lands || t >= block.GoneAt)
                             continue;
 
-                        Vector2 at = cellCentre(block.Cell);
+                        float u = (float)((t - block.Thrown) / Math.Max(block.Lands - block.Thrown, 1));
+                        f.stageBack.Add(StageTexture.MomoyoStone, Vector2.Lerp(block.From, cellCentre(block.Cell), smoothStep(u)), cellSize, 0f, fade, Color4.White);
+                    }
 
-                        // (it flies from her, turning, and grows to its size as it lands)
-                        if (t < block.Lands)
-                        {
-                            float u = (float)((t - block.Thrown) / Math.Max(block.Lands - block.Thrown, 1));
-                            float eased = smoothStep(u);
-                            Vector2 place = Vector2.Lerp(block.From, at, eased);
-                            f.stageBack.Add(StageTexture.MomoyoStone, place, cellSize * (0.6f + 0.4f * eased), (1f - eased) * 360f, fade, Color4.White);
-                            continue;
-                        }
-
-                        f.stageBack.Add(StageTexture.MomoyoStone, at, cellSize, 0f, fade, Color4.White);
+                    foreach (var block in blocks)
+                    {
+                        if (lies(block, t))
+                            f.stageBack.Add(StageTexture.MomoyoStone, cellCentre(block.Cell), cellSize, 0f, fade, Color4.White);
                     }
                 }
-
-                double life = crawlLife(f);
 
                 foreach (var crawler in crawlers)
                 {
@@ -367,56 +621,51 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
                     }
 
-                    if (t < crawler.Appear || t > crawler.Appear + life)
+                    if (t < crawler.Appear || t >= crawler.GoneAt)
                         continue;
 
-                    Vector2 back = -crawler.Way;
-                    f.stageBack.Add(StageTexture.Centipede, crawlerAt(crawler, t), new Vector2(crawlerLength(f), crawlerHeight(f)), MathF.Atan2(back.Y, back.X) * 180f / MathF.PI, 1f, Color4.White);
+                    drawCrawler(f, poseAt(f, crawler, t));
                 }
             }
 
-            /// <summary>Where the centipede's picture is (not see-through), in cells, read from the picture itself once.</summary>
-            private static class Mask
+            /// <summary>The centipede, piece by piece: its legs and its tail's feelers, its fangs, its plates from its tail on, its head, the feelers at its head.</summary>
+            private void drawCrawler(BulletField f, Pose pose)
             {
-                public static readonly int Width, Height;
-                private static readonly bool[,] cells;
-                private const int cell_px = 2;
+                int n = pose.Plates.Length;
+                float width = crawlerWidth(f);
+                float spacing = crawlerLength(f) / (n + 2.5f);
 
-                static Mask()
+                for (int i = 0; i < pose.Hurting; i++)
+                    drawLimb(f, pose.Limbs[i]);
+
+                for (int i = n - 1; i >= 0; i--)
                 {
-                    using var stream = typeof(MiningAct).Assembly.GetManifestResourceStream("osu.Game.Rulesets.Danmakusu.Resources.Textures.momoyo_centipede.png");
-
-                    if (stream == null)
-                    {
-                        Width = 400;
-                        Height = 211;
-                        cells = new bool[1, 1];
-                        return;
-                    }
-
-                    using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
-                    Width = image.Width;
-                    Height = image.Height;
-                    cells = new bool[(Width + cell_px - 1) / cell_px, (Height + cell_px - 1) / cell_px];
-
-                    for (int y = 0; y < Height; y++)
-                    {
-                        for (int x = 0; x < Width; x++)
-                        {
-                            if (image[x, y].A >= 128)
-                                cells[x / cell_px, y / cell_px] = true;
-                        }
-                    }
+                    // (the plate's picture is as long as 0.6 of it and as wide as 0.97 of it)
+                    f.stageBack.Add(StageTexture.CentipedePlate, pose.Plates[i], new Vector2(spacing * 1.3f / 0.6f, pose.Widths[i] / 0.97f), pose.Angles[i] * 180f / MathF.PI, 1f, Color4.White);
                 }
 
-                /// <summary>Is the picture there at (<paramref name="u"/>, <paramref name="v"/>), 0..1 across and down?</summary>
-                public static bool At(float u, float v)
-                {
-                    if (u < 0f || v < 0f || u >= 1f || v >= 1f)
-                        return false;
+                f.stageBack.Add(StageTexture.CentipedeHead, pose.Head, new Vector2(width * 1.05f / 0.82f, width * 0.95f / 0.8f), pose.HeadAngle * 180f / MathF.PI, 1f, Color4.White);
 
-                    return cells[Math.Min((int)(u * cells.GetLength(0)), cells.GetLength(0) - 1), Math.Min((int)(v * cells.GetLength(1)), cells.GetLength(1) - 1)];
-                }
+                for (int i = pose.Hurting; i < pose.Count; i++)
+                    drawLimb(f, pose.Limbs[i]);
+            }
+
+            /// <summary>One joint of a limb, from <paramref name="limb"/>'s A to its B, as thick as it is at its root.</summary>
+            private static void drawLimb(BulletField f, (Vector2 A, Vector2 B, float Thick) limb)
+            {
+                Vector2 along = limb.B - limb.A;
+                float length = along.Length;
+
+                if (length < 0.5f)
+                    return;
+
+                along /= length;
+                float rod = StageLayer.CENTIPEDE_LEG_TO - StageLayer.CENTIPEDE_LEG_FROM;
+                float whole = length / rod;
+
+                // (the picture's middle is not the rod's: it is shifted towards the thin end)
+                Vector2 centre = (limb.A + limb.B) * 0.5f - along * (whole * ((StageLayer.CENTIPEDE_LEG_FROM + StageLayer.CENTIPEDE_LEG_TO) * 0.5f - 0.5f));
+                f.stageBack.Add(StageTexture.CentipedeLeg, centre, new Vector2(whole, limb.Thick / StageLayer.CENTIPEDE_LEG_ROOT), MathF.Atan2(along.Y, along.X) * 180f / MathF.PI, 1f, Color4.White);
             }
         }
     }

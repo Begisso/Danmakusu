@@ -15,7 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // is not split: it comes out the mirrored way as it went in. The prism hurts like a slider body.
         // Where a bullet goes in or comes out the halo glows a little brighter for a moment. Like Nazrin's arrowheads the bullets in the prism are simulated step by step (they only fly straight on, but the prism turns under them).
         // Since 2026-11-25 every one of the seven split bullets has a narrow beam for a tail, SUNNY_TAIL_BEATS of its way long, in its colour, narrowing to a point; it hurts like a slider body. Since
-        // 2026-11-25 its middle is its colour too, lighter (SUNNY_TAIL_MIDDLE_LIGHT; it was white), and it goes on out after its bullet when that has left the screen (it went at once).
+        // 2026-11-25 its middle is its colour too, lighter (SUNNY_TAIL_MIDDLE_LIGHT; it was white), and it goes on out after its bullet when that has left the screen (it went at once). Since 2026-11-28 a
+        // bullet in the prism, before it splits, has such a tail too, in its own colour: its way along the side shows in the prism.
         // ======================================================================================================================================================
 
         private sealed class PrismAct : StageAct
@@ -113,6 +114,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 flashes.Clear();
                 tailed.Clear();
                 firstTailed = 0;
+                prismTails.Clear();
+                firstPrismTail = 0;
                 tailShapes.Forget();
                 ClearBullets();
             }
@@ -121,6 +124,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             /// <summary>The split bullets (in Bullets), each with the colour of its tail.</summary>
             private readonly List<(int Index, Color4 Colour)> tailed = new List<(int, Color4)>();
+
+            /// <summary>The bullets in the prism (2026-11-28), each with the colour of its trace there: only drawn.</summary>
+            private readonly List<(int Index, Color4 Colour)> prismTails = new List<(int, Color4)>();
+
+            private int firstPrismTail;
 
             private readonly MomentShapes tailShapes = new MomentShapes();
             private readonly List<Vector2> tailLine = new List<Vector2>(8);
@@ -169,6 +177,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 while (firstTailed < tailed.Count && Bullets[tailed[firstTailed].Index].Until + tailMs < now)
                     firstTailed++;
+
+                while (firstPrismTail < prismTails.Count && Bullets[prismTails[firstPrismTail].Index].Until + tailMs < now)
+                    firstPrismTail++;
             }
 
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
@@ -176,9 +187,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed)
                     return;
 
-                for (int k = firstTailed; k < tailed.Count; k++)
+                for (int k = firstTailed; k < tailed.Count + prismTails.Count - firstPrismTail; k++)
                 {
-                    var (index, colour) = tailed[k];
+                    var (index, colour) = k < tailed.Count ? tailed[k] : prismTails[firstPrismTail + k - tailed.Count];
 
                     if (!tailOf(f, index, t, tailLine))
                         continue;
@@ -308,7 +319,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Trail = Bullets[index].Trail!,
                 });
 
-                flash(t, to, f.palette[((stored.Style % f.palette.Length) + f.palette.Length) % f.palette.Length]);
+                // (it leaves a trace in the prism too, in its own colour, as the split ones do behind them: 2026-11-28, "bullets that are in prism and about to disperse also leave trace in prism". It is
+                // only drawn: it lies in the prism, which hurts anyway - asked about by the autoplay too, those traces doubled what Sunny cost)
+                Color4 own = f.palette[((stored.Style % f.palette.Length) + f.palette.Length) % f.palette.Length];
+                prismTails.Add((index, own));
+
+                flash(t, to, own);
                 return true;
             }
 

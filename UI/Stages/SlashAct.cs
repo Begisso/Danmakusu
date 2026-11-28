@@ -9,7 +9,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     public partial class BulletField
     {
         // ======================================================================================================================================================
-        // Youmu Konpaku: in her attacks she watches every sixteenth bullet on the screen. Every two beats of an attack eighteen thin slashes go through them, two by two, each as different from the ones before it as the bullets allow (what lies at the edge of the screen does not count), across the whole screen: straight beams, see-through and harmless for
+        // Youmu Konpaku: in her attacks she watches every sixteenth bullet on the screen. Every two beats of an attack 1 + YOUMU_MORE_SLASHES thin slashes (nine since 2026-11-28; eighteen, then thirteen) go through them, two by two, each as different from the ones before it as the bullets allow (what lies at the edge of the screen does not count), across the whole screen: straight beams, see-through and harmless for
         // four beats, then solid and twice as thick for two, hurting like a slider body, then fading out. A slash that turns solid cuts the bullets across it in two (see CuttingAct); where it crosses the beam of a slider it pokes a hole in it, and the slices it cuts out fall like the
         // petals of a tree. She herself throws rings of beams, as Luna Child does, all the time her section lasts, in a spinner too; hers are straight and fly straight out of her, end first.
         // ======================================================================================================================================================

@@ -90,70 +90,33 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         private static Vector2[] glyph(int count, out float[]? scales)
         {
             var strokes = CurseGlyph.STROKES;
-            var lengths = new float[strokes.Length];
-            float total = 0f, farthest = 0f;
+            float farthest = 0f;
 
-            for (int s = 0; s < strokes.Length; s++)
+            foreach (var stroke in strokes)
             {
-                for (int i = 0; i < strokes[s].Length; i++)
-                {
-                    farthest = Math.Max(farthest, strokes[s][i].Length);
-
-                    if (i > 0)
-                        lengths[s] += Vector2.Distance(strokes[s][i - 1], strokes[s][i]);
-                }
-
-                total += lengths[s];
+                foreach (var point in stroke)
+                    farthest = Math.Max(farthest, point.Length);
             }
 
-            // (how many each stroke has: two at least, the rest by length)
-            var given = new int[strokes.Length];
-            int left = count;
-
-            for (int s = 0; s < strokes.Length; s++)
-            {
-                given[s] = Math.Min(2, left);
-                left -= given[s];
-            }
-
-            for (int n = 0; n < left; n++)
-            {
-                int best = 0;
-                float most = float.MinValue;
-
-                for (int s = 0; s < strokes.Length; s++)
-                {
-                    float room = lengths[s] / given[s];
-
-                    if (room > most)
-                    {
-                        most = room;
-                        best = s;
-                    }
-                }
-
-                given[best]++;
-            }
-
+            // (since 2026-11-28 every corner of every stroke is a bullet, in the order the stroke goes, and the rest go between them by length: beams drawn through a stroke's bullets are the stroke itself -
+            // her rings are drawn in beams, CurseAct; before, every stroke had its two ends and the rest by its length, and a corner fell between two bullets)
+            int[][] between = GlyphBetween(count);
             var points = new List<Vector2>(count);
 
             for (int s = 0; s < strokes.Length; s++)
             {
-                for (int k = 0; k < given[s]; k++)
+                var stroke = strokes[s];
+
+                for (int j = 0; j + 1 < stroke.Length && points.Count < count; j++)
                 {
-                    float along = given[s] > 1 ? lengths[s] * k / (given[s] - 1) : lengths[s] * 0.5f;
-                    var stroke = strokes[s];
-                    int i = 1;
+                    points.Add(stroke[j] / farthest);
 
-                    while (i < stroke.Length - 1 && along > Vector2.Distance(stroke[i - 1], stroke[i]))
-                    {
-                        along -= Vector2.Distance(stroke[i - 1], stroke[i]);
-                        i++;
-                    }
-
-                    float piece = Vector2.Distance(stroke[i - 1], stroke[i]);
-                    points.Add(Vector2.Lerp(stroke[i - 1], stroke[i], piece > 0f ? Math.Clamp(along / piece, 0f, 1f) : 0f) / farthest);
+                    for (int k = 1; k <= between[s][j] && points.Count < count; k++)
+                        points.Add(Vector2.Lerp(stroke[j], stroke[j + 1], k / (float)(between[s][j] + 1)) / farthest);
                 }
+
+                if (points.Count < count)
+                    points.Add(stroke[^1] / farthest);
             }
 
             var directions = new Vector2[count];
@@ -168,6 +131,85 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             }
 
             return directions;
+        }
+
+        /// <summary>
+        /// How many bullets of a ring of <paramref name="count"/> laid out as 呪 go between every two corners of every stroke (<see cref="CurseGlyph.STROKES"/>, stroke by stroke, piece by piece): every corner
+        /// has one, and the rest are shared out where the pieces are longest for the bullets they have.
+        /// </summary>
+        public static int[][] GlyphBetween(int count)
+        {
+            var strokes = CurseGlyph.STROKES;
+            var between = new int[strokes.Length][];
+            int corners = 0;
+
+            for (int s = 0; s < strokes.Length; s++)
+            {
+                between[s] = new int[Math.Max(strokes[s].Length - 1, 0)];
+                corners += strokes[s].Length;
+            }
+
+            for (int n = corners; n < count; n++)
+            {
+                int bestS = 0, bestJ = 0;
+                float most = float.MinValue;
+
+                for (int s = 0; s < strokes.Length; s++)
+                {
+                    for (int j = 0; j < between[s].Length; j++)
+                    {
+                        float room = Vector2.Distance(strokes[s][j], strokes[s][j + 1]) / (between[s][j] + 1);
+
+                        if (room > most)
+                        {
+                            most = room;
+                            bestS = s;
+                            bestJ = j;
+                        }
+                    }
+                }
+
+                between[bestS][bestJ]++;
+            }
+
+            return between;
+        }
+
+        /// <summary>How many corners the strokes of 呪 have together (<see cref="CurseGlyph.STROKES"/>): a ring of as many bullets has one on each and no more (Noroiko's, drawn in beams).</summary>
+        public static int GlyphCorners
+        {
+            get
+            {
+                int corners = 0;
+
+                foreach (var stroke in CurseGlyph.STROKES)
+                    corners += stroke.Length;
+
+                return corners;
+            }
+        }
+
+        /// <summary>The bullets of every stroke of a ring of <paramref name="count"/> laid out as 呪: the first one and how many, in the order the stroke goes (a stroke with too few left has fewer).</summary>
+        public static (int First, int Count)[] GlyphRuns(int count)
+        {
+            var strokes = CurseGlyph.STROKES;
+            int[][] between = GlyphBetween(count);
+            var runs = new (int, int)[strokes.Length];
+            int next = 0;
+
+            for (int s = 0; s < strokes.Length; s++)
+            {
+                int length = strokes[s].Length;
+
+                foreach (int b in between[s])
+                    length += b;
+
+                length = Math.Clamp(count - next, 0, length);
+                runs[s] = (next, length);
+                next += length;
+            }
+
+            return runs;
         }
 
         private const float glyph_nearest = 0.15f;

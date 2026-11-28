@@ -66,15 +66,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         private float mirrorAngle;
         private Vector2 mirrorCentre;
+        private Vector2 mirrorFlip = Vector2.One;
 
         /// <summary>
         /// The field is turned by <paramref name="degrees"/> round <paramref name="centre"/> (Seija's mirrored screen): the HUD is turned back and moved so that it
         /// stays where it is on the screen, upright.
         /// </summary>
-        public void SetMirror(float degrees, Vector2 centre)
+        public void SetMirror(float degrees, Vector2 centre, Vector2? flip = null)
         {
             mirrorAngle = degrees;
             mirrorCentre = centre;
+            mirrorFlip = flip ?? Vector2.One; // (mirrored left to right or top to bottom: the HUD is mirrored back - 2026-11-28)
 
             if (!viewSet)
                 viewFocus = centre;
@@ -361,9 +363,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // viewFocus: the HUD goes where that brings it to `top`, viewZoom times as small, so it stays where it was on the screen, as big as it was)
             float radians = mirrorAngle * MathF.PI / 180f;
             Vector2 offset = (top - mirrorCentre) / viewZoom;
-            Position = viewFocus + new Vector2(offset.X * MathF.Cos(radians) + offset.Y * MathF.Sin(radians), -offset.X * MathF.Sin(radians) + offset.Y * MathF.Cos(radians));
+            Vector2 turned = new Vector2(offset.X * MathF.Cos(radians) + offset.Y * MathF.Sin(radians), -offset.X * MathF.Sin(radians) + offset.Y * MathF.Cos(radians));
+            Position = viewFocus + new Vector2(turned.X / mirrorFlip.X, turned.Y / mirrorFlip.Y); // (a field mirrored left to right or top to bottom: back through the mirror - 2026-11-28)
             Rotation = -mirrorAngle;
-            Scale = new Vector2(1f / viewZoom);
+            Scale = new Vector2(1f / (viewZoom * mirrorFlip.X), 1f / (viewZoom * mirrorFlip.Y));
 
             double lastEnd = Math.Max(periods[^1].End, mapEnd);
 

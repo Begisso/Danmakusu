@@ -269,6 +269,19 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 foreach (var sphere in SphereAct.Schedule(period))
                     list.Add(new Cue { Time = sphere.Start, Name = "yuyuko_petals" }); // (the one thrown with it goes at the same moment: 2026-11-25, it had a sound of its own when it was thrown later)
+
+                if (period.End > period.ShootStart)
+                    list.Add(new Cue { Time = period.End, Name = "yuyuko_petals" }); // (the white one she throws as her section ends: 2026-11-28)
+            }
+
+            // Orange: the sound of Yuyuko's petals flying off the tree at every split of her oranges (2026-11-28)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Citrus || period.End <= period.ShootStart)
+                    continue;
+
+                foreach (double at in CitrusAct.SplitTimes(period))
+                    list.Add(new Cue { Time = at, Name = "yuyuko_petals" });
             }
 
             // Konngara: Byakuren's beam sound as every sweep of her beam starts (2026-11-27)
@@ -278,6 +291,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     continue;
 
                 foreach (double at in SweepAct.SpinTimes(period))
+                    list.Add(new Cue { Time = at, Name = "touhou_strike" });
+            }
+
+            // Lunasa: Byakuren's beam sound as every volley of her beams turns solid (2026-11-28)
+            foreach (var period in bosses)
+            {
+                if (period.Boss?.Mechanic != BossMechanic.Violin || period.End <= period.ShootStart)
+                    continue;
+
+                foreach (double at in ViolinAct.SolidTimes(period))
                     list.Add(new Cue { Time = at, Name = "touhou_strike" });
             }
 

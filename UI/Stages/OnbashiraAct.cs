@@ -16,6 +16,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // they stop turning, each talisman flies off straight out from the middle of its circle at KANAKO_FLY_SPEED times a plain bullet's speed (and the circle's way on top), and for KANAKO_WARN_BEATS before
         // that a red arrow beside every one points that way. Later the same day: the circles half as wide (KANAKO_CIRCLE_RADII), thrown half as often (KANAKO_EVERY_BEATS) and the talismans fly off at
         // half a plain bullet's speed.
+        // Since 2026-11-28 the circles come out of her middle, growing as they fly out (from the edge of her magic circle before).
         // She always stands in the middle (2026-11-21). A circle that has wholly left the screen turns round and flies back the way it came,
         // its talismans dark blue, as everything a boss shoots does in her section (the rest of that is an op, see BossOps).
         // Since 2026-11-26 ("all boss bullets are colored red, returned ones blue") her talismans, and every bullet a boss shoots in her section, are red until they turn round and blue after; and her
@@ -85,7 +86,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private void throwVolley(BulletField f, int k, double t, Vector2 centre, float aim)
             {
                 float ring = f.circleRadius * DanmakusuBalance.KANAKO_CIRCLE_RADII;
-                float hubOut = DanmakusuBalance.MAGIC_CIRCLE_RADIUS; // (2026-11-24: the circles come out of the edge of her magic circle, growing - they were ring x KANAKO_HUB_OUT out, as big as they get)
+                // (2026-11-28, "circles grow from centre instead": the circles come out of her middle, growing as they fly out; from the edge of her magic circle from 2026-11-24, and before that ring x
+                // KANAKO_HUB_OUT out, as big as they get)
+                float hubOut = 0f;
                 float turn = k % 2 == 0 ? 1f : -1f;
                 float hubOmega = turn * (float)(Math.Tau / (beat * DanmakusuBalance.KANAKO_HUB_TURN_BEATS));
                 float ringOmega = turn * (float)(Math.Tau / (beat * DanmakusuBalance.KANAKO_RING_TURN_BEATS));
@@ -102,9 +105,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     float hubPhase = aim + c * MathF.Tau / DanmakusuBalance.KANAKO_CIRCLES;
                     float leaveAngle = hubPhase + hubOmega * (float)(spinUntil - t);
-                    Vector2 hubThen = centre + new Vector2(MathF.Cos(leaveAngle), MathF.Sin(leaveAngle)) * hubOut;
-                    Vector2 away = hubThen - centre;
-                    Vector2 velocity = (away.LengthSquared > 1e-4f ? Vector2.Normalize(away) : Vector2.UnitY) * speed;
+                    Vector2 away = new Vector2(MathF.Cos(leaveAngle), MathF.Sin(leaveAngle)); // (its way out: from the middle, by its angle)
+                    Vector2 hubThen = centre + away * hubOut;
+                    Vector2 velocity = away * speed;
 
                     // (when it has wholly left the screen it turns round, and is gone when it has wholly left it again on the other side)
                     double outAt = spinUntil + timeOut(hubThen, velocity, low, high);

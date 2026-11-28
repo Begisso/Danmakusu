@@ -10,7 +10,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Yuuka Kazami: all through her section every fourth bullet that goes out of the bottom of the screen grows into a sunflower there, after flashing on the ground for a beat. All the heads are alike (a dark brown middle, sixteen yellow petals); the stems
-        // are not: each has its own height, lean and bend, and leaves of its own, so the bottom of the screen looks like a field, and each sways slowly left and right. The stem does not hurt, the head hurts like a slider body. After eight beats the stem shrinks back
+        // are not: each has its own height, lean and bend, and leaves of its own, so the bottom of the screen looks like a field, and each sways slowly left and right. The head hurts like a slider body, and since
+        // 2026-11-28 the stem and its green leaves do too (they did not). After eight beats the stem shrinks back
         // into the ground and the head flies up, five degrees to the left (the first flower) or to the right (the second), and so on; its petals leave it as a ring of sixteen yellow petals that fly away slowly, as Yuyuko's flowers do.
         // ======================================================================================================================================================
 
@@ -215,6 +216,43 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
+            /// <summary>The stems hurt like a slider body (2026-11-28, "sunflower body ... deal dmg too": they did not).</summary>
+            public override bool Hurts(BulletField f, double now)
+            {
+                if (f.failed || flowers.Count == 0)
+                    return false;
+
+                Vector2 player = f.characterPosition;
+                float reach = f.circleRadius * DanmakusuBalance.YUUKA_STEM_WIDTH * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                float sway = f.circleRadius * DanmakusuBalance.YUUKA_SWAY_CIRCLES;
+
+                foreach (var flower in flowers)
+                {
+                    if (now < flower.Born)
+                        continue;
+
+                    float up = height(flower, now);
+
+                    // (nowhere near its stem: not looked at)
+                    if (up <= 0.01f || player.Y < f.stageMax.Y - flower.Height * up - reach || MathF.Abs(player.X - flower.X) > MathF.Abs(flower.Lean) + MathF.Abs(flower.Bend) + sway + reach)
+                        continue;
+
+                    Vector2 previous = stemPoint(f, flower, 0f, now);
+
+                    for (int i = 1; i <= stem_points; i++)
+                    {
+                        Vector2 point = stemPoint(f, flower, up * i / stem_points, now);
+
+                        if (distanceToSegment(player, previous, point) <= reach)
+                            return true;
+
+                        previous = point;
+                    }
+                }
+
+                return false;
+            }
+
             public override void Beads(BulletField f, double t, List<StageBead> into)
             {
                 if (f.failed)
@@ -244,15 +282,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         float side = (flower.Number + k) % 2 == 0 ? 1f : -1f;
                         Vector2 outward = Vector2.Normalize(new Vector2(side, -0.45f));
 
+                        // (they hurt since 2026-11-28, "sunflower body and green petals deal dmg too")
                         into.Add(new StageBead
                         {
                             Position = stemPoint(f, flower, at, t) + outward * (unit * 1.1f * stemNow),
                             Radius = unit * 1.3f * stemNow,
+                            Hit = unit * 1.3f * stemNow * DanmakusuBalance.BULLET_HITBOX_SCALE,
                             Shape = BulletShape.Petal,
                             Direction = -outward,
                             Overlay = BulletRenderer.TINT_SEAWEED,
                             OverlayAmount = 1f,
-                            Harmless = true,
                         });
                     }
 

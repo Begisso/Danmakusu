@@ -21,6 +21,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Since 2026-11-22 every crack is jagged as a crack in the ground (SUIKA_JAG), the stomp's thin ones with branches of their own (SUIKA_THIN_BRANCHES), and drawn as molten rock (the user's second
         // picture): a glow round it, a dark crust along its edges and, inside, a seamless picture of cracked lava (StageLayer.BakeLava) running along it. All the cracks of a frame are drawn layer by
         // layer together, so they run into each other without a seam. Every sound of hers plays twice at once.
+        // 2026-11-28: where glows lie over each other the brighter shows, not both (MeshQuad.Brightest: "crack bloom absolute seamless, no overlaps"), and the soft edge of the impact band is three times
+        // as wide (SUIKA_IMPACT_FEATHER_PX).
         // 2026-11-24: the jags a little sharper, more and longer branches, each with a twig and the longer ones two; the glow follows the crack's line smoothed (it folded into wedges round the jags' corners);
         // the impact frame follows only the crack's widest bend, in finer pieces, round at both ends (where its band folded over itself it turned back in jagged slivers), and its stars are on and round the
         // crack (they were by the edges of the screen); two ellipses at the wall, not four.
@@ -1113,10 +1115,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 a = glowPoints[i - 1], b = glowPoints[i];
                     Vector2 sa = glowSides[i - 1] * bandWidths[start + i - 1], sb = glowSides[i] * bandWidths[start + i];
 
+                    // (where glows lie over each other - two cracks crossing, a glow and its round end - the brighter shows, not both: 2026-11-28, "crack bloom absolute seamless, no overlaps")
                     foreach (float sign in new[] { 1f, -1f })
                     {
-                        f.stageMeshes.Add(new MeshQuad { A = a, B = b, C = a + sa * sign, D = b + sb * sign, Near = inner, Far = inner }); // (under the crack)
-                        f.stageMeshes.Add(new MeshQuad { A = a + sa * sign, B = b + sb * sign, C = a + sa * (sign * glow_out), D = b + sb * (sign * glow_out), Near = inner, Far = far });
+                        f.stageMeshes.Add(new MeshQuad { A = a, B = b, C = a + sa * sign, D = b + sb * sign, Near = inner, Far = inner, Brightest = true }); // (under the crack)
+                        f.stageMeshes.Add(new MeshQuad { A = a + sa * sign, B = b + sb * sign, C = a + sa * (sign * glow_out), D = b + sb * (sign * glow_out), Near = inner, Far = far, Brightest = true });
                     }
                 }
 
@@ -1279,7 +1282,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     float a0 = MathF.PI * j / segments, a1 = MathF.PI * (j + 1) / segments;
                     Vector2 d0 = side * MathF.Cos(a0) + forward * MathF.Sin(a0), d1 = side * MathF.Cos(a1) + forward * MathF.Sin(a1);
-                    f.stageMeshes.Add(new MeshQuad { A = p + d0 * (w * from), B = p + d1 * (w * from), C = p + d0 * (w * to), D = p + d1 * (w * to), Near = inner, Far = far });
+                    f.stageMeshes.Add(new MeshQuad { A = p + d0 * (w * from), B = p + d1 * (w * from), C = p + d0 * (w * to), D = p + d1 * (w * to), Near = inner, Far = far, Brightest = glow });
                 }
             }
 
@@ -1360,7 +1363,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     bandOutline.Add(bandRight[i]);
 
                 capOutline(bandLineAt(k, 0f), firstSide, bandWidthAt(f, k, 0f), -1f);
-                f.impactStars.AddOutline(bandOutline, DanmakusuBalance.IMPACT_BAND_FEATHER_PX); // (a wide soft edge: 2026-11-25, the same day - 1.5 px was not seen)
+                f.impactStars.AddOutline(bandOutline, DanmakusuBalance.SUIKA_IMPACT_FEATHER_PX); // (a wide soft edge: 2026-11-25, the same day - 1.5 px was not seen; three times as wide since 2026-11-28)
 
                 impactStarsOf(f, k, flash);
                 f.impactStars.ShapesDone();

@@ -280,6 +280,22 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             return marks;
         }
 
+        /// <summary>
+        /// Kisume: when each of her stops begins - every KISUME_EVERY_BEATS of her section, the first after she has gone along the top for the rest of it - KISUME_STOP_BEATS long: her beams' preview for
+        /// KISUME_PREVIEW_BEATS, then the beams fired for KISUME_BEAM_BEATS (her act and the planner's beams go by the same times).
+        /// </summary>
+        public static List<double> KisumeStops(BossPeriod period)
+        {
+            var stops = new List<double>();
+            double beat = Math.Max(period.BeatLength, 1);
+            double every = beat * DanmakusuBalance.KISUME_EVERY_BEATS;
+
+            for (double t = period.ShootStart + every - beat * DanmakusuBalance.KISUME_STOP_BEATS; t < period.End && stops.Count < 20000; t += every)
+                stops.Add(t);
+
+            return stops;
+        }
+
         /// <summary>Mima: when her moons appear: every sixteen beats from the start of her section, as long as it lasts (a moon goes on to its end, also after the section).</summary>
         public static List<double> MoonMarks(BossPeriod period)
         {
@@ -860,15 +876,16 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     case BossMechanic.Galaxy:
                     {
                         // Megumu: every eight beats every bullet on the screen turns into a star like Marisa's (a freeze that takes no time and leaves it a star) and ricochets once off the border before the next turn
-                        // (since 2026-11-26 every second bullet of a ring, "halve the amount of star bullets": the others fly on as they were)
+                        // (since 2026-11-26 every second bullet of a ring, "halve the amount of star bullets": the others fly on as they were; since 2026-11-28, "halve the star bullets amount" again,
+                        // every fourth - two of every eight, MEGUMU_STARS_OF_EIGHT)
                         double gap = Math.Max(period.BeatLength, 1) * DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS;
 
                         foreach (double mark in LunaMarks(period, DanmakusuBalance.MEGUMU_STARS_EVERY_BEATS))
                         {
-                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark, BornBefore = mark, SkipSharp = true, After = MarisaStar, EveryOther = true });
+                            bullets.Add(new TrajectoryOp { Kind = TrajectoryOpKind.Freeze, Time = mark, End = mark, BornBefore = mark, SkipSharp = true, After = MarisaStar, OfEight = DanmakusuBalance.MEGUMU_STARS_OF_EIGHT });
                             bullets.Add(new TrajectoryOp
                             {
-                                Kind = TrajectoryOpKind.Bounce, Time = mark, End = mark + gap, BornBefore = mark, SkipSharp = true, After = MarisaStar, EveryOther = true,
+                                Kind = TrajectoryOpKind.Bounce, Time = mark, End = mark + gap, BornBefore = mark, SkipSharp = true, After = MarisaStar, OfEight = DanmakusuBalance.MEGUMU_STARS_OF_EIGHT,
                                 Bounces = new System.Collections.Concurrent.ConcurrentDictionary<(int, int, int), (double Time, Vector2 Position)>(),
                             });
                         }

@@ -329,8 +329,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>A block of Momoyo's stone (Resources/Textures/momoyo_stone.png, the user's picture of a stone block, 16 x 16 pixels made sharp again with Tools/Bake `pixels`, 2026-11-27): 128 x 128.</summary>
         MomoyoStone,
 
-        /// <summary>Momoyo's centipede (Resources/Textures/momoyo_centipede.png, the user's picture cut out of its white background with Tools/Bake `cutout`, 2026-11-27): its head on the left, 400 x 211.</summary>
-        Centipede,
+        /// <summary>
+        /// Momoyo's centipede, piece by piece (2026-11-28: drawn here in the colours of the user's picture, which was a single 400 x 211 picture until then): a plate of its body seen from above, its
+        /// way along x (the head to the right), 256 x 256 ...
+        /// </summary>
+        CentipedePlate,
+
+        /// <summary>... its head, the way it goes to the right, 256 x 256 ...</summary>
+        CentipedeHead,
+
+        /// <summary>... and one joint of a leg (feelers, fangs), from its root on the left to its thin end on the right, 256 x 64.</summary>
+        CentipedeLeg,
 
         /// <summary>One slice of Orange's orange (Resources/Textures/orange.png, the user's picture of an orange cut across: ten slices), the top one, cut out of the whole: the picture is the whole orange's square, see-through but for that slice, so that it turns round the orange's middle (2026-11-25): 512 x 512.</summary>
         OrangeSlice,
@@ -389,6 +398,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
         /// <summary>Noroiko's 呪 (Resources/Textures/noroiko_curse.png, white, baked from the user's picture by Tools/Bake glyph: 2026-11-26).</summary>
         CurseGlyph,
+
+        /// <summary>YuugenMagan's circles (Resources/Textures/yuugen_swirl.png: the user's red and white swirl, cut out round by Tools/Bake disc - 2026-11-28).</summary>
+        YuugenSwirl,
     }
 
     /// <summary>
@@ -610,7 +622,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.RumiaFumo => BossCharacter.LoadResource(renderer, "Textures.rumia_fumo.png"),
                     StageTexture.KogasaUmbrella => BossCharacter.LoadResource(renderer, "Textures.kogasa_umbrella.png"),
                     StageTexture.MomoyoStone => BossCharacter.LoadResource(renderer, "Textures.momoyo_stone.png"),
-                    StageTexture.Centipede => BossCharacter.LoadResource(renderer, "Textures.momoyo_centipede.png"),
+                    StageTexture.CentipedePlate => bake(renderer, makeCentipedePlate(false)),
+                    StageTexture.CentipedeHead => bake(renderer, makeCentipedePlate(true)),
+                    StageTexture.CentipedeLeg => bake(renderer, makeCentipedeLeg()),
                     StageTexture.OrangeSlice => bake(renderer, makeOrangeSlice()),
                     StageTexture.PhotoFrame => bake(renderer, makePhotoFrame(false)),
                     StageTexture.PhotoGlass => bake(renderer, makePhotoFrame(true)),
@@ -651,6 +665,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     StageTexture.RikakoSatellite => BossCharacter.LoadResource(renderer, "Textures.rikako_satellite.png"),
                     >= StageTexture.RikakoRock0 and <= StageTexture.RikakoRock13 => BossCharacter.LoadResource(renderer, $"Textures.rikako_rock_{kind - StageTexture.RikakoRock0}.png"),
                     StageTexture.CurseGlyph => BossCharacter.LoadResource(renderer, "Textures.noroiko_curse.png"),
+                    StageTexture.YuugenSwirl => BossCharacter.LoadResource(renderer, "Textures.yuugen_swirl.png"),
                     _ => null,
                 };
             }
@@ -740,6 +755,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             if (share > 0.01f)
                 addSprite(ringFamily[high], centre, size, alpha * share, colour);
+        }
+
+        /// <summary>
+        /// A ring as <see cref="AddRing"/>, squashed across to <paramref name="flat"/> of its width and turned <paramref name="degrees"/>: an ellipse <paramref name="radius"/> along its long axis (Takane's orbits,
+        /// 2026-11-28; the band is as thin as it is along it, thinner across).
+        /// </summary>
+        public void AddEllipse(Vector2 centre, float radius, float flat, float degrees, float halfWidth, float alpha, Color4 colour)
+        {
+            if (ringFamily == null || radius < 1f)
+                return;
+
+            int before = used;
+            AddRing(centre, radius, halfWidth, alpha, colour);
+
+            for (int i = before; i < used; i++)
+            {
+                pool[i].Size = new Vector2(2f * radius, 2f * radius * Math.Clamp(flat, 0.01f, 1f));
+                pool[i].Rotation = degrees;
+            }
         }
 
         private void addSprite(Texture? texture, Vector2 position, Vector2 size, float alpha, Color4 colour)
@@ -2456,6 +2490,150 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             return image;
         }
 
+        // ---- Momoyo's centipede (2026-11-28) ----
+
+        /// <summary>
+        /// A plate of the centipede's body seen from above (its way along x), or its head: golden, darker to its sides and its rim, lighter across its middle, a seam at its back edge and a line down its
+        /// middle (as the user's picture); the head rounder and more orange, with two dark eyes.
+        /// </summary>
+        private static Image<Rgba32> makeCentipedePlate(bool head)
+        {
+            const int size = 256;
+            const int samples = 3;
+            var image = new Image<Rgba32>(size, size);
+            float ax = head ? 0.82f : 0.6f, ay = head ? 0.8f : 0.97f, power = head ? 2.2f : 2.8f;
+            Vector3 inner = head ? new Vector3(232, 164, 60) : new Vector3(240, 188, 76);
+            Vector3 outer = head ? new Vector3(180, 104, 32) : new Vector3(196, 128, 40);
+            Vector3 light = new Vector3(255, 236, 168), rim = new Vector3(118, 70, 22), eye = new Vector3(58, 28, 10);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Vector3 sum = Vector3.Zero;
+                    float a = 0f;
+
+                    for (int sy = 0; sy < samples; sy++)
+                    {
+                        for (int sx = 0; sx < samples; sx++)
+                        {
+                            float u = (x + (sx + 0.5f) / samples - size / 2f) / (size / 2f);
+                            float v = (y + (sy + 0.5f) / samples - size / 2f) / (size / 2f);
+                            float s = MathF.Pow(MathF.Pow(MathF.Abs(u) / ax, power) + MathF.Pow(MathF.Abs(v) / ay, power), 1f / power);
+
+                            if (s > 1f)
+                                continue;
+
+                            a += 1f;
+                            Vector3 colour = Vector3.Lerp(inner, outer, MathF.Pow(s, 1.5f));
+
+                            // (lighter across its middle, a little to the front)
+                            float shine = MathF.Exp(-MathF.Pow((u - 0.1f * ax) / (0.42f * ax), 2f)) * MathF.Sqrt(Math.Max(0f, 1f - MathF.Abs(v) / ay)) * 0.35f;
+                            colour = Vector3.Lerp(colour, light, shine);
+
+                            if (!head)
+                            {
+                                // (the seam at its back edge, under the plate behind it, and the line down its middle)
+                                colour *= 1f - 0.22f * Math.Clamp((-u / ax - 0.62f) / 0.2f, 0f, 1f);
+
+                                if (MathF.Abs(v) < 0.03f)
+                                    colour *= 0.88f;
+                            }
+                            else
+                            {
+                                colour *= 1f - 0.18f * Math.Clamp((u / ax - 0.55f) / 0.4f, 0f, 1f); // (its front darker)
+
+                                if (MathF.Abs(v) < 0.025f && u > -0.2f)
+                                    colour *= 0.86f;
+
+                                for (int side = -1; side <= 1; side += 2)
+                                {
+                                    float du = (u - 0.42f) / 0.12f, dv = (v - side * 0.42f) / 0.1f;
+
+                                    if (du * du + dv * dv <= 1f)
+                                        colour = (du + 0.4f) * (du + 0.4f) + (dv + 0.4f) * (dv + 0.4f) < 0.12f ? new Vector3(230, 220, 200) : eye; // (a spot of light in it)
+                                }
+                            }
+
+                            // (its dark rim)
+                            float edge = Math.Clamp((s - 0.86f) / 0.11f, 0f, 1f);
+                            sum += Vector3.Lerp(colour, rim, edge * edge * (3f - 2f * edge));
+                        }
+                    }
+
+                    if (a <= 0f)
+                    {
+                        image[x, y] = new Rgba32(0, 0, 0, 0);
+                        continue;
+                    }
+
+                    sum /= a;
+                    image[x, y] = new Rgba32((byte)Math.Clamp(sum.X, 0, 255), (byte)Math.Clamp(sum.Y, 0, 255), (byte)Math.Clamp(sum.Z, 0, 255), (byte)(a / (samples * samples) * 255f));
+                }
+            }
+
+            return image;
+        }
+
+        /// <summary>One joint of a centipede's leg: a golden rod narrowing from its round root on the left to its thin round end on the right, with a dark rim and a darker knob at its root.</summary>
+        /// <summary>Where the rod of <see cref="StageTexture.CentipedeLeg"/> runs (shares of its width, from the middle of its root to the middle of its end), and how thick its root is (a share of its height).</summary>
+        public const float CENTIPEDE_LEG_FROM = (32f * CENTIPEDE_LEG_ROOT + 1f) / 256f, CENTIPEDE_LEG_TO = (256f - 32f * 0.35f - 1f) / 256f, CENTIPEDE_LEG_ROOT = 0.85f;
+
+        private static Image<Rgba32> makeCentipedeLeg()
+        {
+            const int width = 256, height = 64;
+            const int samples = 3;
+            const float root = CENTIPEDE_LEG_ROOT, tip = 0.35f;
+            var image = new Image<Rgba32>(width, height);
+            float half = height / 2f;
+            float x0 = CENTIPEDE_LEG_FROM * width, x1 = CENTIPEDE_LEG_TO * width;
+            Vector3 inner = new Vector3(236, 182, 72), outer = new Vector3(180, 112, 36), rim = new Vector3(110, 64, 20);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector3 sum = Vector3.Zero;
+                    float a = 0f;
+
+                    for (int sy = 0; sy < samples; sy++)
+                    {
+                        for (int sx = 0; sx < samples; sx++)
+                        {
+                            float px = x + (sx + 0.5f) / samples, py = y + (sy + 0.5f) / samples;
+                            float t = Math.Clamp((px - x0) / (x1 - x0), 0f, 1f);
+                            float radius = half * (root + (tip - root) * t);
+                            float dx = px - (x0 + t * (x1 - x0)), dy = py - half;
+                            float distance = MathF.Sqrt(dx * dx + dy * dy);
+
+                            if (distance > radius)
+                                continue;
+
+                            a += 1f;
+                            Vector3 colour = Vector3.Lerp(inner, outer, MathF.Pow(distance / radius, 1.6f));
+
+                            if (t < 0.1f)
+                                colour *= 0.85f; // (the knob of the joint)
+
+                            float edge = Math.Clamp((distance - (radius - 3f)) / 3f, 0f, 1f);
+                            sum += Vector3.Lerp(colour, rim, edge);
+                        }
+                    }
+
+                    if (a <= 0f)
+                    {
+                        image[x, y] = new Rgba32(0, 0, 0, 0);
+                        continue;
+                    }
+
+                    sum /= a;
+                    image[x, y] = new Rgba32((byte)Math.Clamp(sum.X, 0, 255), (byte)Math.Clamp(sum.Y, 0, 255), (byte)Math.Clamp(sum.Z, 0, 255), (byte)(a / (samples * samples) * 255f));
+                }
+            }
+
+            return image;
+        }
+
         private static Image<Rgba32> makeGlow()
         {
             const int size = 128;
@@ -2640,10 +2818,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             arcUsed = 0;
         }
 
+        /// <summary>(Tools/SectionCheck, DRAW_AT: sees every picture added to any layer - what, where, how big, turned how far; null when unused)</summary>
+        public static Action<StageTexture, Vector2, Vector2, float>? AddProbe;
+
+        /// <summary>(Tools/SectionCheck, DRAW_AT) The picture of one of the textures drawn here (only those made here that a tool looks at), or null.</summary>
+        public static Image<Rgba32>? PictureOf(StageTexture texture) => texture switch
+        {
+            StageTexture.CentipedePlate => makeCentipedePlate(false),
+            StageTexture.CentipedeHead => makeCentipedePlate(true),
+            StageTexture.CentipedeLeg => makeCentipedeLeg(),
+            _ => null,
+        };
+
         public void Add(StageTexture texture, Vector2 position, Vector2 size, float degrees, float alpha, Color4 colour, bool additive = false)
         {
             if (alpha <= 0.002f)
                 return;
+
+            AddProbe?.Invoke(texture, position, size, degrees);
 
             if (used >= pool.Length)
             {

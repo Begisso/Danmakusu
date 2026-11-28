@@ -17,6 +17,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Since 2026-11-24 every slide is heard (Kagerou's swing). Since 2026-11-26 ("moves right into player position 3 times with half speed instead") each slide goes straight into where the
         // player was as it started, all the way, at half the speed it had, as long as until the next one begins (from 2026-11-24 it went half the way to where Elly would stop, after the player); the
         // beam behind her is half as thick.
+        // Since 2026-11-28 ("half the trace thickness. Trace is seamless. Meira - she doesn't run mid flying. Double the flying speed"): she no longer stands between the MEIRA_FLIGHTS flights of a round -
+        // each starts as the one before gets there (MEIRA_FLIGHT_LEAST_BEATS after it began at least), straight at where the player is then; then she stands until the round's flying is over; twice as fast;
+        // the beam half as thick, and a round's beams drawn as one piece (no seams where two flights meet). Her fans are of talismans (the planner's).
         // Where she slides depends on where the player is, so it is followed step by step (MEIRA_STEP_MS) and kept: going back in time takes the steps back.
         // ======================================================================================================================================================
 
@@ -33,8 +36,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private readonly double beat;
             private readonly List<Slide> slides = new List<Slide>();
-            private readonly List<double> slideStarts = new List<double>();
-            private readonly List<double> slideEnds = new List<double>();
             private readonly List<Vector2> line = new List<Vector2>();
             private Vector2 standing;
             private bool known;
@@ -47,26 +48,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 beat = Math.Max(period.BeatLength, 1);
                 Start = period.ShootStart;
                 End = period.End;
-
-                double cycle = beat * DanmakusuBalance.MEIRA_CYCLE_BEATS;
-                double gap = beat * DanmakusuBalance.MEIRA_SLIDING_BEATS / DanmakusuBalance.MEIRA_SLIDES;
-
-                for (int k = 0; Start + k * cycle < End; k++)
-                {
-                    for (int j = 0; j < DanmakusuBalance.MEIRA_SLIDES; j++)
-                    {
-                        double start = Start + k * cycle + j * gap;
-
-                        if (start >= End)
-                            break;
-
-                        slideStarts.Add(start);
-                        slideEnds.Add(Math.Min(start + Math.Min(gap, beat * DanmakusuBalance.MEIRA_SLIDE_LONGEST_BEATS), End));
-                    }
-                }
             }
 
             private double cycleMs => beat * DanmakusuBalance.MEIRA_CYCLE_BEATS;
+
+            /// <summary>When the flying of round <paramref name="k"/> is over (she stands and shoots then).</summary>
+            private double flyingEnds(int k) => Math.Min(Start + k * cycleMs + beat * DanmakusuBalance.MEIRA_SLIDING_BEATS, End);
+
+            /// <summary>
+            /// When the next flight starts, after the last one (or none): as she gets there - the next of the MEIRA_FLIGHTS of a round goes on at once to where the player is then (2026-11-28, "she doesn't
+            /// run mid flying"; from 2026-11-24 the three began evenly over the flying, and she stood where each ended until the next) - but not sooner than MEIRA_FLIGHT_LEAST_BEATS after it began.
+            /// After the last of a round, the first of the next round.
+            /// </summary>
+            private double nextFlight()
+            {
+                if (slides.Count == 0)
+                    return Start;
+
+                var last = slides[^1];
+                int k = roundOf(last.Start);
+                int inRound = 0;
+
+                for (int i = slides.Count - 1; i >= 0 && roundOf(slides[i].Start) == k; i--)
+                    inRound++;
+
+                double arrived = last.Stopped ? last.Start + (last.Steps.Count - 1) * DanmakusuBalance.MEIRA_STEP_MS : last.Until;
+                double next = Math.Max(arrived, last.Start + beat * DanmakusuBalance.MEIRA_FLIGHT_LEAST_BEATS);
+
+                return inRound < DanmakusuBalance.MEIRA_FLIGHTS && next < flyingEnds(k) ? next : Start + (k + 1) * cycleMs;
+            }
 
             /// <summary>When the beams of round <paramref name="k"/> go: as the next round begins, or as her section ends.</summary>
             private double goneAt(int k) => Math.Min(Start + (k + 1) * cycleMs, End);
@@ -117,10 +127,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (slides.Count > 0)
                     extend(f, slides[^1], now);
 
-                while (slides.Count < slideStarts.Count && slideStarts[slides.Count] <= now)
+                for (double startAt = nextFlight(); startAt <= now && startAt < End && slides.Count < 100000; startAt = nextFlight())
                 {
                     int index = slides.Count;
-                    var slide = new Slide { Start = slideStarts[index], Until = slideEnds[index] };
+                    var slide = new Slide { Start = startAt, Until = flyingEnds(roundOf(startAt)) };
                     slide.Steps.Add(slides.Count > 0 ? slides[^1].Steps[^1] : standing);
 
                     // (since 2026-11-26 straight into where the player is as it starts, all the way: "moves right into player position 3 times with half speed instead". From 2026-11-24 she went
@@ -311,9 +321,25 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         line.Add(now);
 
                     if (line.Count >= 2)
+                    {
+                        // (the beams of a round are one piece, drawn layer by layer together: no seams where one flight's meets the next's - 2026-11-28, "trace is seamless")
+                        int round = roundOf(slide.Start);
+
+                        if (round != pieceRound)
+                        {
+                            pieceRound = round;
+                            piece = ++f.beamPieces;
+                        }
+
                         f.addPlainBeam(line, half, core, border, ref beams, ref pointTotal);
+                        f.laserInstances[beams - 1].Piece = piece;
+                    }
                 }
+
+                pieceRound = -1;
             }
+
+            private int pieceRound = -1, piece;
 
             /// <summary>Her beams hurt like a slider body until they go.</summary>
             public override bool Hurts(BulletField f, double now)

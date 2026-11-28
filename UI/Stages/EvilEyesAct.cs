@@ -15,6 +15,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // is where her sliders' beams come from, as Junko's do, one beam each at the player (the planner). Every YUUGENMAGAN_THUNDER_BEATS every eye flashes white for YUUGENMAGAN_WARN_BEATS, its bolt shown see-through meanwhile, and then strikes
         // a bolt of Tojiko's lightning the way its number says, twice as thick, with twice as many branches, twice as long, solid for YUUGENMAGAN_BOLT_BEATS (it hurts like a slider body). Every circle hit and
         // slider over in her section is thrown from her eyes in turn at the player, golden, falling as Urumi's do (ObjectFallAct with FromEye).
+        // Since 2026-11-28 what an eye shoots goes the way from her to the player (parallel to it, from the eye), and two more YUUGENMAGAN_SPREAD_DEGREES to either side; her circles are the user's red and
+        // white swirl, turning slowly, each with a plain eye half as big whose pupil looks at the player.
         // ======================================================================================================================================================
 
         private sealed class EvilEyesAct : StageAct
@@ -121,29 +123,39 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 int kind = shot++ % shapes.Length;
                 Vector2 at = EyeAt(f, 1 + kind);
                 var stored = f.makeStored(emitter, t);
-                Vector2 way = f.characterPosition - at;
+
+                // (2026-11-28, "Eyes shoot parallel to line between boss and player, and also in 30 degree evenly spread too": the way from her to the player, from the eye - parallel to it, not at the
+                // player - and as many more YUUGENMAGAN_SPREAD_DEGREES apart to either side; it went from the eye at the player)
+                Vector2 way = f.characterPosition - place(f);
                 way = way.LengthSquared > 1e-4f ? Vector2.Normalize(way) : Vector2.UnitY;
                 float big = emitter.BigScale(bullet);
-                Vector2 velocity = way * Math.Max(stored.Speed, stageBulletSpeed(Period) * 0.5f);
+                float speed = Math.Max(stored.Speed, stageBulletSpeed(Period) * 0.5f);
+                int before = Bullets.Count;
 
-                AddBullet(new StageBullet
+                for (int k = -DanmakusuBalance.YUUGENMAGAN_SPREAD; k <= DanmakusuBalance.YUUGENMAGAN_SPREAD; k++)
                 {
-                    T0 = t,
-                    P0 = at,
-                    V = velocity,
-                    Face = way,
-                    Radius = stored.Radius * big,
-                    Hit = stored.Hit * big,
-                    Style = stored.Style,
-                    Shape = shapes[kind],
-                    Tint = stored.Tint,
-                    TintAmount = stored.TintAmount,
-                    Shade = stored.Shade,
-                    Untraced = true,
-                    Until = t + f.stageLife(velocity),
-                });
+                    Vector2 each = turned(way, k * DanmakusuBalance.YUUGENMAGAN_SPREAD_DEGREES * MathF.PI / 180f);
+                    Vector2 velocity = each * speed;
 
-                return true;
+                    AddBullet(new StageBullet
+                    {
+                        T0 = t,
+                        P0 = at,
+                        V = velocity,
+                        Face = each,
+                        Radius = stored.Radius * big,
+                        Hit = stored.Hit * big,
+                        Style = stored.Style,
+                        Shape = shapes[kind],
+                        Tint = stored.Tint,
+                        TintAmount = stored.TintAmount,
+                        Shade = stored.Shade,
+                        Untraced = true,
+                        Until = t + f.stageLife(velocity),
+                    });
+                }
+
+                return Bullets.Count > before;
             }
 
             // ---- the thunders ----
@@ -353,16 +365,23 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     flash = Math.Max(flash, (0.5f + 0.5f * MathF.Cos(u * u * MathF.PI * 8f)) * smoothStep(u / 0.2f));
                 }
 
+                // (2026-11-28, "This is her circles now. yuugen eye image here, simplify. Circle radius remains, eye is twice less radius, pupil always looking at player": every circle is the user's red and
+                // white swirl, as big as it was, turning slowly, and on it a plain eye half as big - white, outlined, its pupil towards the player. It was a purple circle with an eye picture on it.)
+                float swirl = (float)(t / (beat * DanmakusuBalance.YUUGENMAGAN_SWIRL_TURN_BEATS)) * 360f;
+                float eyeR = r * 0.5f;
+
                 for (int eye = 0; eye < EYES; eye++)
                 {
                     Vector2 at = EyeAt(f, eye);
                     Vector2 looks = f.characterPosition - at;
-                    float angle = looks.LengthSquared > 1f ? MathF.Atan2(looks.Y, looks.X) * 180f / MathF.PI : 90f;
+                    Vector2 towards = looks.LengthSquared > 1f ? Vector2.Normalize(looks) : Vector2.UnitY;
 
                     f.stageBack.Add(StageTexture.Glow, at, new Vector2(r * 3.2f), 0f, 0.45f * presence, new Color4(0.85f, 0.3f, 1f, 1f), true);
-                    f.stageBack.Add(StageTexture.Orb, at, new Vector2(r * 2f), 0f, presence, new Color4(0.55f, 0.2f, 0.75f, 1f));
-                    f.stageBack.Add(StageTexture.Orb, at, new Vector2(r * 2f * MOKOU_BODY_SCALE), 0f, presence, new Color4(0.16f, 0.05f, 0.22f, 1f));
-                    f.stageBack.Add(StageTexture.Eye, at, new Vector2(r * 1.7f), angle, presence, new Color4(1f, 0.85f, 0.95f, 1f));
+                    f.stageBack.Add(StageTexture.YuugenSwirl, at, new Vector2(r * 2f), (eye % 2 == 0 ? 1f : -1f) * swirl, presence, Color4.White);
+                    f.stageBack.Add(StageTexture.Orb, at, new Vector2(eyeR * 2.24f), 0f, presence, new Color4(0.08f, 0.02f, 0.05f, 1f));
+                    f.stageBack.Add(StageTexture.Orb, at, new Vector2(eyeR * 2f), 0f, presence, Color4.White);
+                    f.stageBack.Add(StageTexture.Orb, at + towards * (eyeR * 0.5f), new Vector2(eyeR * 0.9f), 0f, presence, new Color4(0.06f, 0.02f, 0.04f, 1f));
+                    f.stageBack.Add(StageTexture.Orb, at + towards * (eyeR * 0.5f) + new Vector2(-1f, -1f) * (eyeR * 0.14f), new Vector2(eyeR * 0.22f), 0f, 0.9f * presence, Color4.White);
 
                     if (flash > 0.01f)
                         f.stageBack.Add(StageTexture.Glow, at, new Vector2(r * 4.5f), 0f, flash * presence, Color4.White, true);

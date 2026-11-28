@@ -16,6 +16,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // way; not her own, not Yukari's train) comes apart into two of Matenshi's feathers, black as a crow's, which fly straight out to either side of her way, AYA_SLASH_SPEED times as fast as it was
         // (2026-11-22; it flew out whole to its own side). The feathers turn round as they fly, the two of a bullet opposite ways (AYA_FEATHER_SPIN, 2026-11-25). Each swing is heard (Kagerou's).
         // Her own shots are the planner's: fans of orange maple leaves that pull towards the player, from wherever she is.
+        // (2026-11-28: twice as often and the previews twice as long - every way is chosen AYA_PREVIEW_BEATS before she takes it, from where the dash before it ends, and she sets off AYA_REST_LEAST_BEATS
+        // after she has got to the edge; the next few show at once. Her trace half as thick (AYA_BEAM_WIDTH), her feathers half as big (AYA_FEATHER_SIZE).)
         // The ways she chose are kept: time going back takes the same ways again (the later ones are chosen when their time comes).
         // ======================================================================================================================================================
 
@@ -56,18 +58,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private double traceLife => beat * DanmakusuBalance.AYA_TRACE_BEATS;
 
-            private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.LASER_SIZE_SCALE;
+            private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.AYA_BEAM_WIDTH; // (half as thick since 2026-11-28)
 
             /// <summary>Where she is in dash <paramref name="d"/> at <paramref name="t"/>.</summary>
             private Vector2 placeIn(Dash d, double t)
                 => t <= d.Start ? d.From : t >= d.Arrive ? d.To : d.From + d.Way * (speed * (float)(t - d.Start));
 
-            /// <summary>The last dash whose way has been chosen by <paramref name="t"/>, or -1.</summary>
+            /// <summary>The dash she is on at <paramref name="t"/> (the last one she has set off on; before the first, the first, chosen by then), or -1.</summary>
             private int dashAt(double t)
             {
                 for (int k = dashes.Count - 1; k >= 0; k--)
                 {
-                    if (dashes[k].Chosen <= t)
+                    if (dashes[k].Start <= t || (k == 0 && dashes[k].Chosen <= t))
                         return k;
                 }
 
@@ -102,16 +104,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed)
                     return;
 
-                // (the next way is chosen as soon as she has got to the edge: the first one when she starts shooting)
+                // (since 2026-11-28, "double the flying frequency ... double the previews duration": she sets off again AYA_REST_LEAST_BEATS after she has got to the edge, on a grid of AYA_DASH_EVERY_BEATS,
+                // and every way is chosen AYA_PREVIEW_BEATS before she takes it, from where the dash before ends - shown all that while, so the next few show at once, one after the other. Until then the
+                // next way was chosen as she got to the edge and shown until she went, at least AYA_PREVIEW_LEAST_BEATS)
                 while (!done)
                 {
-                    double chooseAt = dashes.Count == 0 ? Start : dashes[^1].Arrive;
+                    double grid = beat * DanmakusuBalance.AYA_DASH_EVERY_BEATS;
+                    double earliest = dashes.Count == 0 ? Start + beat * DanmakusuBalance.AYA_PREVIEW_BEATS : dashes[^1].Arrive + beat * DanmakusuBalance.AYA_REST_LEAST_BEATS;
+                    double start = Start + Math.Ceiling((earliest - Start) / grid - 1e-6) * grid;
+                    double chooseAt = Math.Max(start - beat * DanmakusuBalance.AYA_PREVIEW_BEATS, dashes.Count == 0 ? Start : dashes[^1].Chosen);
 
                     if (chooseAt > now)
                         break;
-
-                    double grid = beat * DanmakusuBalance.AYA_DASH_EVERY_BEATS;
-                    double start = Start + Math.Ceiling((chooseAt + beat * DanmakusuBalance.AYA_PREVIEW_LEAST_BEATS - Start) / grid - 1e-6) * grid;
 
                     if (start >= Period.End)
                     {
@@ -326,8 +330,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     feather.Shape = BulletShape.Feather;
                     feather.Spin = DanmakusuBalance.AYA_FEATHER_SPIN * sign; // (it turns round as it flies, the two of a bullet opposite ways: 2026-11-25)
                     feather.SpinPhase = MathF.Atan2(side.Y * sign, side.X * sign);
-                    feather.Radius *= DanmakusuBalance.MATENSHI_FEATHER_SIZE;
-                    feather.Hit *= DanmakusuBalance.MATENSHI_FEATHER_SIZE;
+                    feather.Radius *= DanmakusuBalance.MATENSHI_FEATHER_SIZE * DanmakusuBalance.AYA_FEATHER_SIZE; // (half Matenshi's size since 2026-11-28)
+                    feather.Hit *= DanmakusuBalance.MATENSHI_FEATHER_SIZE * DanmakusuBalance.AYA_FEATHER_SIZE;
                     feather.Tint = BulletRenderer.TINT_HISAMI_HAIR; // (black, with a sheen: a crow's)
                     feather.TintAmount = 1f;
                     feather.Rimmed = true; // (with a white rim, to be seen on the dark: 2026-11-22)

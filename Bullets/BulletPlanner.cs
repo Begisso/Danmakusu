@@ -32,6 +32,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
     {
         private const float golden_angle = 2.3999632f;
 
+        /// <summary>How far Sanae's spinning star in the middle of the screen is turned at <paramref name="t"/> (radians; 2026-11-28): the rings that come out of it are turned so too (MiracleAct draws it).</summary>
+        public static float SanaeStarAngle(double t) => (float)(t / 1000.0 * DanmakusuBalance.SANAE_SOURCE_DEGREES_PER_SECOND * Math.PI / 180.0 % Math.Tau);
+
         // ---- which bosses do what: the long lists of the planner in one place (a new boss is an entry here, not another "|| ..." in a condition) ----
 
         /// <summary>Bosses whose attacks follow each other without a pause (Hecatia's, Raiko's, Mokou's, Letty's...).</summary>
@@ -1773,7 +1776,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     FollowsBoss = sparkLaser.FollowsBoss,
                     BossRank = sparkLaser.BossRank,
                     HalfWidth = circle * DanmakusuBalance.MARISA_SPARK_WIDE / DanmakusuBalance.LASER_PEAK_FACTOR,
-                    HitHalfWidth = circle * DanmakusuBalance.MARISA_SPARK_WIDE / DanmakusuBalance.LASER_PEAK_FACTOR * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                    HitHalfWidth = circle * DanmakusuBalance.MARISA_SPARK_WIDE / DanmakusuBalance.LASER_PEAK_FACTOR, // (all of it hurts, its outlines too: 2026-11-28, BulletField.beamHitScale)
                     Speed = speed * DanmakusuBalance.MARISA_SPARK_SPEED, // (it comes out twice as fast: it has grown in half the time)
                     BeamCount = beams,
                     Directions = new Vector2[beams],
@@ -2032,7 +2035,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     for (int i = 0; i < count; i++)
                         fan[i] = new Vector2(MathF.Cos(i * between), MathF.Sin(i * between));
 
-                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, radius, BulletShape.Circle, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: -spread / 2f);
+                    // (talismans since 2026-11-28, "she shoots talismans instead, fan of 5": basic bullets before)
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), fan, 0, radius, BulletShape.Talisman, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: -spread / 2f);
                     ring.OwnShot = true;
                     emitters.Add(ring);
                 }
@@ -2631,9 +2635,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 {
                     var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.TSUKASA_BALLS, 0f, out _);
                     float turn = shot % 2 * MathF.PI / DanmakusuBalance.TSUKASA_BALLS;
-                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t) * DanmakusuBalance.TSUKASA_BALL_SPEED, directions, 0, ballRadius, BulletShape.Circle, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: turn);
+                    // (big Marisa stars since 2026-11-28, "shoots big marisa stars instead": the bosses' soft star, turning; big balls drawn as sharp as Utsuho's before)
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t) * DanmakusuBalance.TSUKASA_BALL_SPEED, directions, 0, ballRadius, BulletShape.SoftStar, aimAtPlayer: true, followsBoss: true, straight: true, aimOffset: turn);
                     ring.KeepCount = true; // (six with another boss on the screen too)
-                    ring.Sharp = true;
                     ring.HurtsLikeSlider = true;
                     ring.OwnShot = true;
                     emitters.Add(ring);
@@ -3247,6 +3251,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             void planMechanics()
             {
                 List<(int Column, double Start, double End)>? kotoNotes = null; // (Yatsuhashi: the map's osu!mania convert, made once)
+                List<(int Column, double Start, double End)>? violinNotes = null; // (Lunasa's, 2026-11-28: with fewer keys)
 
                 // (first the ones that change rings, then the ones that make rings out of the rings that are there by then)
                 for (int pass = 0; pass < 2; pass++)
@@ -3324,8 +3329,35 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             // (each once: the stretches follow each other, and what one holds goes out as the next begins - 2026-11-24, it was held again by that one, and again, so nothing came out
                             // until her last stretch was over: "unfrozen osu and slider objects didn't shoot out bullets again")
                             var held = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                            var stretches = BossOps.StoneStretches(period);
 
-                            foreach (var (start, end) in BossOps.StoneStretches(period))
+                            // (2026-11-28, "if frozen slider is sliderwhistle - shoot out laserbeams too": a slider she holds - one that is over in a stretch - with a whistle, on its body or its head,
+                            // fires its beam along its path as it is let go, as the stretch ends; one whose beam begins in the stretch has it held to then below, the others get one more)
+                            foreach (var slider in beatmap.HitObjects.OfType<Slider>())
+                            {
+                                int s = stretches.FindIndex(stretch => slider.EndTime >= stretch.Start && slider.EndTime < stretch.End);
+
+                                if (s < 0 || slider.Path.Distance < 2)
+                                    continue;
+
+                                var head = slider.NodeSamples.Count > 0 ? slider.NodeSamples[0] : slider.Samples;
+                                bool bodyWhistle = has(slider.Samples, HitSampleInfo.HIT_WHISTLE);
+
+                                if (!bodyWhistle && !has(head, HitSampleInfo.HIT_WHISTLE))
+                                    continue;
+
+                                bool heldAlready = laserList.Exists(l => !l.FollowsBoss && !l.SpinnerLike && Math.Abs(l.StartTime - slider.StartTime) < 0.5 && Math.Abs(l.EndTime - slider.EndTime) < 0.5
+                                                                         && l.StartTime >= stretches[s].Start);
+
+                                if (heldAlready)
+                                    continue;
+
+                                addLaser(slider, bodyWhistle ? volumeOf(slider.Samples, HitSampleInfo.HIT_WHISTLE) : volumeOf(head, HitSampleInfo.HIT_WHISTLE));
+                                laserList[^1] = laserList[^1].Later(stretches[s].End - slider.StartTime);
+                                held.Add(laserList[^1]);
+                            }
+
+                            foreach (var (start, end) in stretches)
                             {
                                 for (int k = 0; k < emitters.Count; k++)
                                 {
@@ -3390,6 +3422,22 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             foreach (var note in kotoNotes)
                             {
                                 if (note.Start - fall >= period.ShootStart && note.Start <= period.End)
+                                    period.FallingNotes.Add(note);
+                            }
+
+                            break;
+                        }
+
+                        // Lunasa (2026-11-28): the notes of the map's osu!mania convert with a key for every gap between her beams, that come out in her section or while her last beams are there (ViolinAct)
+                        case BossMechanic.Violin when pass == 0:
+                        {
+                            violinNotes ??= ManiaNotes.Of(beatmap, DanmakusuBalance.LUNASA_BEAMS - 1);
+                            double beat = Math.Max(period.BeatLength, 1);
+                            double last = period.End + beat * (DanmakusuBalance.LUNASA_PREVIEW_BEATS + DanmakusuBalance.LUNASA_BEAM_BEATS);
+
+                            foreach (var note in violinNotes)
+                            {
+                                if (note.Start >= period.ShootStart && note.Start < last)
                                     period.FallingNotes.Add(note);
                             }
 
@@ -3614,6 +3662,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         {
                             foreach (var (start, end) in BossOps.Attacks(period))
                             {
+                                // (in the order they are fired: every second one comes out of her spinning star in the middle - 2026-11-28)
+                                var order = new List<int>();
+
                                 for (int i = 0; i < emitters.Count; i++)
                                 {
                                     var ring = emitters[i];
@@ -3621,9 +3672,24 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                     if (ring.Time < start || ring.Time >= end || ring.Derived || ring.Derive != DeriveKind.None || ring.Count == 0 || (ring.OwnShot && ring.Layout == RingShape.Star && ring.Ricochet) || ring.KeepsSize)
                                         continue; // (Utsuho's big balls and the trains are left as they are)
 
-                                    var made = ring.Layout != null
-                                        ? ring.RebuiltAs(ring.Layout == RingShape.Circle ? RingShape.Star : ring.Layout.Value, Math.Min(ring.Count * DanmakusuBalance.SANAE_COUNT_FACTOR, DanmakusuBalance.MAX_RING_BULLETS), 0f)
-                                        : ring;
+                                    order.Add(i);
+                                }
+
+                                order.Sort((a, b) => emitters[a].Time.CompareTo(emitters[b].Time));
+
+                                for (int n = 0; n < order.Count; n++)
+                                {
+                                    int i = order[n];
+                                    var ring = emitters[i];
+                                    int count = Math.Min(ring.Count * DanmakusuBalance.SANAE_COUNT_FACTOR, DanmakusuBalance.MAX_RING_BULLETS);
+
+                                    // (2026-11-28, "half of all bullets come out as star shaped rings from spinning big marisa star from the centre": every second ring is a five-pointed star fired from the
+                                    // middle of the screen, turned as her star there is turned then - MiracleAct draws it - not aimed; the others as before)
+                                    var made = n % 2 == 1 && !ring.FollowsBoss && !ring.OwnShot
+                                        ? ring.EvenRingFrom(RingShape.Star, count, SanaeStarAngle(ring.Time), OsuPlayfield.BASE_SIZE / 2f)
+                                        : ring.Layout != null
+                                            ? ring.RebuiltAs(ring.Layout == RingShape.Circle ? RingShape.Star : ring.Layout.Value, count, 0f)
+                                            : ring;
 
                                     emitters[i] = made.Scaled(DanmakusuBalance.SANAE_SIZE_FACTOR);
                                 }
@@ -3930,10 +3996,71 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                             {
                                 var ring = emitters[i];
 
-                                if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.FollowsBoss || ring.Sharp || ring.Shape == BulletShape.Train || ring.Layout == null || ring.Layout == RingShape.Curse)
+                                if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.FollowsBoss || ring.OwnShot || ring.Sharp || ring.Shape == BulletShape.Train || ring.Layout == RingShape.Curse || ring.Derived)
                                     continue;
 
-                                emitters[i] = ring.RebuiltAs(RingShape.Curse, Math.Clamp(Math.Max(ring.Count, DanmakusuBalance.NOROIKO_RING_LEAST), 1, DanmakusuBalance.MAX_RING_BULLETS), 0f);
+                                // (since 2026-11-28 also a ring that does not know its outline - laid out as 呪 as it was turned - and every one is drawn as the character in beams that grows as it flies out,
+                                // its bullets hidden: "her bullets are still not replaced by jp letter shape laserbeams"; CurseAct draws them and they hurt there)
+                                int count = RingLayout.GlyphCorners; // (a bullet on every corner, no more: they are hidden, the beams join them - 40 at least until 2026-11-28, NOROIKO_RING_LEAST)
+                                var cursed = ring.Layout != null ? ring.RebuiltAs(RingShape.Curse, count, 0f) : ring.AsEvenRing(RingShape.Curse, count);
+
+                                if (cursed.Layout != RingShape.Curse)
+                                    continue; // (one whose bullets start from places of their own)
+
+                                cursed.CurseBeams = true;
+                                cursed.KeepCount = true; // (not halved in a section of two bosses: see BulletEmitter.Halved)
+                                cursed.HiddenMask = cursed.Count >= 64 ? ulong.MaxValue : (1UL << cursed.Count) - 1;
+                                emitters[i] = cursed;
+                            }
+
+                            break;
+                        }
+
+                        // Kisume (2026-11-28, "she shots 4 beat long straight laserbeams down instead"): at every stop, after its preview (her act's), three straight beams from where she stands - one straight
+                        // down, the others KISUME_BEAM_FAN_DEGREES to either side - each fired for KISUME_BEAM_BEATS, so that long, flying down as a slider's beam does, as thick as one. (Three thick
+                        // beams that stood down from her for a beat, her act's, before.)
+                        case BossMechanic.WellBucket when pass == 0:
+                        {
+                            double beat = Math.Max(period.BeatLength, 1);
+                            double length = beat * DanmakusuBalance.KISUME_BEAM_BEATS;
+                            float halfWidth = radius * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
+                            float reach = (OsuPlayfield.BASE_SIZE + new Vector2(m * 2, m * 2)).Length;
+
+                            foreach (double stop in BossOps.KisumeStops(period))
+                            {
+                                double fire = stop + beat * DanmakusuBalance.KISUME_PREVIEW_BEATS;
+
+                                if (fire >= period.End)
+                                    break;
+
+                                float speed = beamSpeedAt(fire) * DanmakusuBalance.LASER_SPEED_FACTOR;
+
+                                for (int k = -1; k <= 1; k++)
+                                {
+                                    laserList.Add(new LaserEmitter
+                                    {
+                                        StartTime = fire,
+                                        EndTime = fire + length,
+                                        Origin = Vector2.Zero, // (the field puts it where she is as it begins, and it stays there: straight)
+                                        FollowsBoss = true,
+                                        BossRank = period.Rank,
+                                        Fan = 1e-4f, // (one beam, the way it is given: not at the player)
+                                        FanCentre = MathF.PI / 2f + k * DanmakusuBalance.KISUME_BEAM_FAN_DEGREES * MathF.PI / 180f,
+                                        HalfWidth = halfWidth,
+                                        HitHalfWidth = halfWidth * DanmakusuBalance.BULLET_HITBOX_SCALE,
+                                        Speed = speed,
+                                        BeamCount = 1,
+                                        Directions = new Vector2[1],
+                                        NoShake = true,
+                                        Silent = true, // (Byakuren's beam sound as they start is her act's)
+                                        CutAge = -1,
+                                        CutStretch = 1,
+                                        ShrinkDelay = -1,
+                                        GrowthPower = 2f,
+                                        PeakScale = 1f,
+                                        Lifetime = reach / speed + length,
+                                    });
+                                }
                             }
 
                             break;
@@ -4120,6 +4247,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                     DanmakusuBalance.BulletRadius(difficulty.CircleSize), BulletShape.Circle, straight: true);
                                 dots.Tint = UI.BulletRenderer.TINT_WHITE;
                                 dots.KeepCount = true;
+                                dots.EdgeGrow = DanmakusuBalance.DOREMY_DOT_EDGE_SIZE; // (2026-11-28: as big as they were in the middle of the playfield, three times that at its edge)
                                 copies.Add(dots);
                                 dotted++;
                             }
@@ -4353,9 +4481,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                                 // every bullet that is fired during an attack has two more of its kind right behind it
                                 var inside = emitters.Where(ring => ring.Time >= start && ring.Time < end && !ring.Derived && ring.Derive == DeriveKind.None && !ring.Deflector).OrderBy(ring => ring.Time).ToList();
                                 var behind = new List<BulletEmitter>();
+                                int counted = 0;
 
                                 foreach (var ring in inside)
                                 {
+                                    // (since 2026-11-28 only every RINGO_THREE_EVERY-th ring is a three, "halve the dangos amount. Halve the triplets amount": the skewered threes and the bare ones both half as many)
+                                    if (counted++ % DanmakusuBalance.RINGO_THREE_EVERY != 0)
+                                        continue;
+
                                     double gap = ring.VisualRadius * DanmakusuBalance.RINGO_BEHIND_SPACING / Math.Max(ring.Speed, 1e-4f);
                                     var second = ring.Delayed(gap);
                                     var third = ring.Delayed(gap * 2);

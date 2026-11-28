@@ -22,6 +22,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // preview for RIKAKO_BEAM_PREVIEW_BEATS, then solid for RIKAKO_BEAM_ON_BEATS, with the Master Spark's sound and a shake (RIKAKO_SHAKE). Since 2026-11-26 the beam is narrow where it leaves the
         // satellite and widens as Marisa's spark does (RIKAKO_BEAM_ROOT, over RIKAKO_BEAM_GROW_CIRCLES), and the satellite is drawn over it (and over the bullets).
         // Since 2026-11-27 it turns half as fast again, and when it starts turning the other way round its grid flashes (RIKAKO_TURN_FLASH_BEATS); twice as many asteroids, half as big.
+        // Since 2026-11-28 ("satelite turn frequency halved. Turn speed halved. Movement speed halved"): a new way every eight beats, turning half as fast again, flying half as fast; the flash is a
+        // white light round every line of the grid (LaserInstance.BloomUnfaded, RIKAKO_FLASH_BLOOM), not the lines themselves turning solid white.
         // A square grid of beams (lines RIKAKO_GRID_CIRCLES circle radii apart) over the whole screen goes with every satellite, turned and moved with it: see-through (RIKAKO_GRID_ALPHA) and harmless.
         // Every RIKAKO_WAVE_EVERY_BEATS of its flight the satellite sends out a thick grey wave (RIKAKO_WAVE_CIRCLES circle radii, see-through), with Byakuren's beam sound, that runs out to past the
         // farthest corner of the screen in RIKAKO_WAVE_BEATS; under it the grid turns solid - softly at the wave's edges - and goes see-through again behind it. Solid, the grid and the beam hurt like a
@@ -504,7 +506,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     var gridCore = new Color4(0.86f, 0.92f, 1f, 1f);
                     var gridBorder = DanmakusuBalance.BorderColour(new Color4(0.35f, 0.5f, 0.85f, 1f));
                     int piece = ++f.beamPieces;
-                    float flash = turnFlash(s, t); // (it starts turning the other way round: the whole grid flashes - 2026-11-27)
+                    float flash = turnFlash(s, t); // (it starts turning the other way round: a white light flashes round every line of the grid - 2026-11-28, "not laserbeams itselves, but white bloom around it"; the lines themselves flashed from 2026-11-27)
 
                     for (int across = 0; across < 2; across++)
                     {
@@ -528,11 +530,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                                 Vector2 point = through + along * (a + (b - a) * p / pieces);
                                 float solid = waveOver(f, s, point, t);
                                 line.Add(point);
-                                fades.Add(shown * Math.Max(DanmakusuBalance.RIKAKO_GRID_ALPHA + (1f - DanmakusuBalance.RIKAKO_GRID_ALPHA) * solid, flash * 0.85f));
+                                fades.Add(shown * (DanmakusuBalance.RIKAKO_GRID_ALPHA + (1f - DanmakusuBalance.RIKAKO_GRID_ALPHA) * solid));
                             }
 
-                            f.addPlainBeam(line, gridHalf, gridCore, gridBorder, ref beams, ref pointTotal, null, fades);
+                            f.addPlainBeam(line, gridHalf, gridCore, gridBorder, ref beams, ref pointTotal, null, fades, null, flash * shown * DanmakusuBalance.RIKAKO_FLASH_BLOOM);
                             f.laserInstances[beams - 1].Piece = piece;
+                            f.laserInstances[beams - 1].BloomUnfaded = true; // (as bright round a faint line as round a solid one)
                         }
                     }
 

@@ -100,7 +100,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
         /// <summary>
         /// Yatsuhashi: the notes of an 18-key osu!mania convert of the map that fall in her section (filled by the planner, see <see cref="ManiaNotes"/>): the lane, when the note is (its beam reaches the bottom of the
-        /// screen then) and when it ends (a held note's end; the note's time for a tap).
+        /// screen then) and when it ends (a held note's end; the note's time for a tap). Lunasa (2026-11-28): the notes of a convert with a key for every gap between her beams, that come out of the
+        /// starts of her beams in her section (ViolinAct).
         /// </summary>
         public System.Collections.Generic.List<(int Column, double Start, double End)> FallingNotes { get; } = new System.Collections.Generic.List<(int Column, double Start, double End)>();
 

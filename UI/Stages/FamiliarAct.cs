@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Ellen: she throws a fan of twenty ellipses at the player every two beats (the planner's; rings of talismans until 2026-11-14). Every two neighbouring ellipses of a fan - the first and the second, the
-        // third and the fourth... - are joined by a beam as wide as a slider's over and over, from the throw: see-through and harmless for a beat (the warning), solid and hurting like a slider body for a beat,
+        // third and the fourth... - are joined by a beam as wide as a slider's over and over, from the throw: see-through and harmless for a beat (the warning), solid and hurting like a slider body for ELLEN_BEAM_SOLID_BEATS (four since 2026-11-28; two, one before),
         // then gone for a beat, for as long as both are there.
         // Socrates, her cat (a white cat's face, twice as big as a plain bullet): it comes out of her and stays on her until its first jump; every four beats it jumps onto the bullet (anyone's) within four circle
         // radii of it that is nearest the player, if that one is nearer the player than the cat is, and rides it (where the bullet goes, it goes; if the bullet is gone, it stays where it was). A jump takes half

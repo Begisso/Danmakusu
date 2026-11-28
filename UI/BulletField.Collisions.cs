@@ -73,7 +73,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     markSlicesGone(laser, beam, n, now);
 
-                    if (n == 1 && !sliceGone[0] && laserLookBuffer[0]?.Harmless != true && Vector2.Distance(characterPosition, laserBuffer[0]) <= laserWidthBuffer[0] * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                    if (n == 1 && !sliceGone[0] && laserLookBuffer[0]?.Harmless != true && Vector2.Distance(characterPosition, laserBuffer[0]) <= laserWidthBuffer[0] * beamHitScale(laser) + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                         return true;
 
                     for (int p = 0; p + 1 < n; p++)
@@ -108,7 +108,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         float t = lengthSquared < 1e-9f ? 0f : Math.Clamp(Vector2.Dot(characterPosition - a, ab) / lengthSquared, 0f, 1f);
                         float width = laserWidthBuffer[p] + (laserWidthBuffer[p + 1] - laserWidthBuffer[p]) * t;
 
-                        if (Vector2.Distance(characterPosition, a + ab * t) <= width * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
+                        if (Vector2.Distance(characterPosition, a + ab * t) <= width * beamHitScale(laser) + DanmakusuBalance.PLAYER_HITBOX_RADIUS)
                             return true;
                     }
                 }
@@ -116,6 +116,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             return false;
         }
+
+        /// <summary>
+        /// How much of a beam's drawn width hurts: <see cref="DanmakusuBalance.BULLET_HITBOX_SCALE"/> of it - its edge is harmless -, but all of Marisa's Master Spark, its outlines too (2026-11-28, "outlines are
+        /// harmful too").
+        /// </summary>
+        private static float beamHitScale(LaserEmitter laser) => laser.Immune ? 1f : DanmakusuBalance.BULLET_HITBOX_SCALE;
 
         /// <summary>
         /// A rotating beam has slices in all directions, but every slice flies straight away from the origin, and the newest slice (fired when the
@@ -398,7 +404,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                     float smoke = stageSmokeCount > 0 ? smokeAt(positionB) : 0f;
                     float ripple = stageRippleCount > 0 ? rippleGrow(positionB) : 1f;
-                    float grow = emitter.KeepsSize ? 1f : (growMax > 1f ? ripple * smokeGrow(smoke) * (sukunaLevel > 0f ? sukunaGrow(positionB) : 1f) : 1f) * emitter.BigScale(b) * (lookB?.HitScale ?? 1f); // (Utsuho's big balls and the trains keep their size: their hitbox too) // (Rin's and Aunn's swollen bullets hurt as big as they are)
+                    float grow = emitter.KeepsSize ? 1f : (growMax > 1f ? ripple * smokeGrow(smoke) * (sukunaLevel > 0f ? sukunaGrow(positionB) : 1f) : 1f) * emitter.BigScale(b) * emitter.EdgeScale(positionB) * (lookB?.HitScale ?? 1f); // (Utsuho's big balls and the trains keep their size: their hitbox too) // (Rin's and Aunn's swollen bullets hurt as big as they are) // (Doremy's dots grow towards the edge: 2026-11-28)
 
                     // (Raiko: a bullet that her ripple has swollen far enough hurts like a slider body while it is swollen; what keeps its size is not swollen)
                     bool swollen = !emitter.KeepsSize && ripple >= 1f + (DanmakusuBalance.RAIKO_RIPPLE_GROW - 1f) * DanmakusuBalance.RAIKO_SLIDER_FROM;

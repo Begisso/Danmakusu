@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     {
         public override string Name => "Marathon";
         public override string Acronym => "MR";
-        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. Starting any map starts the first; each next one starts as soon as the one before is over, with the bullets it left on the screen.";
+        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. Starting any map starts the first; each next one starts as soon as the one before is over, with the bullets and beams it left on the screen.";
 
         [Obsolete("Score multipliers are not used any more (the base member is obsolete); kept because the base class asks for it.")]
         public override double ScoreMultiplier => 1;
@@ -89,6 +89,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         // (the field of the map played now, and the bullets the map before left on the screen - 2026-11-28, "transfer remaining bullets on the screen to next map": BulletField.Carry.cs)
         private static WeakReference<UI.BulletField>? playing;
         private static UI.CarriedBullet[]? carried;
+        private static UI.CarriedBeam[]? carriedBeams; // (2026-11-28, "carry beams to the next map too")
         private static int carriedFrom = -1;
 
         private const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
@@ -180,8 +181,9 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             if (due && playing != null && playing.TryGetTarget(out var field))
             {
                 carried = field.CarryOff();
+                carriedBeams = field.CarryOffBeams(); // (and the beams: 2026-11-28)
                 carriedFrom = position;
-                Logger.Log($"Danmakusu: Marathon: {carried.Length} bullets go on to the next map");
+                Logger.Log($"Danmakusu: Marathon: {carried.Length} bullets and {carriedBeams.Length} beams go on to the next map");
             }
 
             if (!due)
@@ -196,6 +198,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             running = false;
             due = false;
             carried = null;
+            carriedBeams = null;
             carriedFrom = -1;
         }
 
@@ -214,8 +217,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
             if (carried != null && carriedFrom >= 0 && index > carriedFrom)
             {
-                field.CarryIn(carried);
-                Logger.Log($"Danmakusu: Marathon map {index + 1} starts with {carried.Length} bullets of the map before");
+                field.CarryIn(carried, carriedBeams);
+                Logger.Log($"Danmakusu: Marathon map {index + 1} starts with {carried.Length} bullets and {carriedBeams?.Length ?? 0} beams of the map before");
             }
         }
 
@@ -270,6 +273,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 position = 0;
                 due = false;
                 carried = null;
+                carriedBeams = null;
                 carriedFrom = -1;
                 starting = true;
 

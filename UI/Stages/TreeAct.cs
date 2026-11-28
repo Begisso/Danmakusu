@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Game.Rulesets.Danmakusu.Bullets;
@@ -15,6 +15,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // are darkened) grow on it; when the attack ends their petals fly away as pink petal bullets, and the next attack grows new ones. When she goes the tree grows backwards until it is gone. The wood and the petals hurt
         // like a slider body. Everything that leaves the top of the screen meanwhile turns into purple petals and falls (see BossOps).
         // A bullet that leaves the bottom grows a flower only in her attacks since 2026-11-26 (one that left in a pause counted for the next attack).
+        // Since 2026-11-28 the tree's own flowers start growing again as soon as the ones before have flown away, in the pause too (they waited for the next attack), and fly away as that attack ends.
         // ======================================================================================================================================================
 
         private sealed class TreeAct : StageAct
@@ -439,6 +440,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return -1;
             }
 
+            /// <summary>
+            /// When the flowers that fly away as attack <paramref name="j"/> ends start growing: as her first attack starts, and for every later one as soon as the flowers before them have flown away - in the pause
+            /// too (2026-11-28, "flowers keep spawning on tree right after shooting away flowers"; they waited for the next attack).
+            /// </summary>
+            private double flowersFrom(int j) => j == 0 ? attacks[0].Start : attacks[j - 1].End;
+
+            /// <summary>The attack whose flowers are on the tree at <paramref name="t"/> (growing since the ones before flew away), or -1.</summary>
+            private int flowering(double t)
+            {
+                for (int j = 0; j < attacks.Count; j++)
+                {
+                    if (t >= flowersFrom(j) && t < attacks[j].End)
+                        return j;
+                }
+
+                return -1;
+            }
+
             /// <summary>Flower <paramref name="i"/> of attack <paramref name="attack"/>: where its middle sits (in the tree's units), how long one of its petals is (a share of the tree's height), how it is turned (radians), its tone (0..1), and when it starts to grow (after its branch has reached it).</summary>
             private void flower(int attack, int i, out Vector2 at, out float length, out float turn, out float tone, out double born)
             {
@@ -456,7 +475,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 // the tree's own flowers come out soon after the attack starts, the others when a bullet has crossed the bottom of the screen; or when their branch has got there, if it is still growing (they show
                 // on it as it grows)
                 double wanted = i < DanmakusuBalance.YUYUKO_OWN_FLOWERS
-                    ? attacks[attack].Start + hash01(Id, key, 44) * DanmakusuBalance.YUYUKO_PETAL_SPREAD_BEATS * beat
+                    ? flowersFrom(attack) + hash01(Id, key, 44) * DanmakusuBalance.YUYUKO_PETAL_SPREAD_BEATS * beat // (from when the ones before flew away: 2026-11-28; from the attack's start before)
                     : crossings[attack][i - DanmakusuBalance.YUYUKO_OWN_FLOWERS];
 
                 born = Math.Max(wanted, reachOf(attack, i));
@@ -696,7 +715,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     shape.EndRun();
                 }
 
-                int attack = activeAttack(t);
+                int attack = flowering(t); // (the flowers on the tree then: since 2026-11-28 in the pauses too)
 
                 if (attack < 0)
                     return;
@@ -756,7 +775,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
 
                 // the flowers
-                int attack = activeAttack(now);
+                int attack = flowering(now);
 
                 if (attack < 0)
                     return false;
@@ -778,7 +797,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             public override void Dims(BulletField f, double t, List<StageDim> into)
             {
-                int attack = activeAttack(t);
+                int attack = flowering(t); // (the flowers on the tree then: since 2026-11-28 in the pauses too)
 
                 if (attack < 0 || t < Start || t >= Gone)
                     return;
@@ -832,7 +851,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     f.stageBack.Add(StageTexture.Cone, apex + new Vector2(0f, total * 0.5f), new Vector2(total, 2f * halfWidth), 90f, DanmakusuBalance.YUYUKO_BEAM_ALPHA * shining, new Color4(1f, 0.95f, 0.75f, 1f), true);
                 }
 
-                int attack = activeAttack(t);
+                int attack = flowering(t); // (the flowers on the tree then: since 2026-11-28 in the pauses too)
 
                 if (attack < 0 || t < Start || t >= Gone)
                     return;
@@ -871,7 +890,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// </summary>
             public int AddPetals(BulletField f, double t, int count)
             {
-                int attack = activeAttack(t);
+                int attack = flowering(t); // (the flowers on the tree then: since 2026-11-28 in the pauses too)
 
                 if (attack < 0 || t < Start || t >= Gone)
                     return count;

@@ -13,6 +13,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // KISUME_EVERY_BEATS she stops for KISUME_STOP_BEATS: three thick beams down from her - the middle one straight down, the others KISUME_BEAM_FAN_DEGREES left and right of it (side by side until the same day) - KISUME_BEAM_HALF_CIRCLES circle radii half wide, show see-through for
         // KISUME_PREVIEW_BEATS, then are solid for the rest of the stop with Byakuren's beam sound, hurting like a slider body, and go. Everything fired in her section comes from the top and falls
         // (BossOps: TrajectoryOpKind.FromTop). How far she has gone is worked out frame by frame (the player is where they are then); a seek back starts her again over the player.
+        // Since 2026-11-28 ("she shots 4 beat long straight laserbeams down instead. Also rope connects her and top wall"): every KISUME_EVERY_BEATS she stops for KISUME_STOP_BEATS: the three ways
+        // show see-through for KISUME_PREVIEW_BEATS, then three beams as thick as a slider's are fired along them from where she stands for KISUME_BEAM_BEATS (the planner's: so long, straight, flying
+        // down); she hangs from the top of the screen on a rope.
         // ======================================================================================================================================================
 
         private sealed class BucketAct : StageAct
@@ -31,13 +34,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Period = period;
                 beat = Math.Max(period.BeatLength, 1);
 
-                var list = new List<double>();
-                double every = beat * DanmakusuBalance.KISUME_EVERY_BEATS;
-
-                for (double t = period.ShootStart + every - beat * DanmakusuBalance.KISUME_STOP_BEATS; t < period.End && list.Count < 20000; t += every)
-                    list.Add(t);
-
-                stops = list.ToArray();
+                stops = BossOps.KisumeStops(period).ToArray(); // (the planner's beams go by the same times)
                 Start = period.Start;
                 End = period.End + beat * 2;
             }
@@ -117,7 +114,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 }
             }
 
-            private float halfWidth(BulletField f) => f.circleRadius * DanmakusuBalance.KISUME_BEAM_HALF_CIRCLES;
+            /// <summary>How wide half a beam's preview is: a slider's beam, as the beams are (2026-11-28).</summary>
+            private float halfWidth(BulletField f) => f.stageBaseRadius(Period) * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
 
             /// <summary>Which way beam <paramref name="beam"/> (0..2) goes from her: the middle one straight down, the others KISUME_BEAM_FAN_DEGREES left and right of it (2026-11-27; side by side, KISUME_BEAM_GAP_CIRCLES apart, before).</summary>
             private static Vector2 beamWay(int beam)
@@ -128,25 +126,38 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private static float reach(BulletField f) => Vector2.Distance(f.stageMin, f.stageMax) + 100f;
 
+            private static readonly Color4 rope_body = new Color4(0.7f, 0.53f, 0.3f, 1f);
+            private static readonly Color4 rope_edge = new Color4(0.33f, 0.22f, 0.1f, 1f);
+            private static readonly Color4 rope_core = new Color4(0.86f, 0.72f, 0.46f, 1f);
+
             public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
             {
-                int k = stopAt(t);
-
-                if (f.failed || k < 0 || double.IsNaN(simTime))
+                if (f.failed || double.IsNaN(simTime) || t < Period.Start || t > Period.End)
                     return;
 
-                bool solid = t >= fireAt(k);
-                double end = stops[k] + stopMs;
-                float alpha = solid
-                    ? 1f - smoothStep((t - (end - beat * 0.25)) / (beat * 0.25))
-                    : DanmakusuBalance.BEAM_PREVIEW_ALPHA * smoothStep((t - stops[k]) / (beat * 0.25));
+                float y = top(f);
+
+                // (the rope she hangs from, from the top of the screen down to her: 2026-11-28, "rope connects her and top wall"; it does not hurt)
+                line.Clear();
+                line.Add(new Vector2(x, f.stageMin.Y - 4f));
+                line.Add(new Vector2(x, y));
+                f.addPlainBeam(line, Math.Max(f.circleRadius * DanmakusuBalance.KISUME_ROPE_CIRCLES, 1.5f), rope_body, rope_edge, ref beams, ref pointTotal);
+                f.laserInstances[beams - 1].Wood = true; // (under everything, as a tree's wood)
+                f.laserInstances[beams - 1].CoreColour = rope_core;
+
+                // (the preview of her beams, see-through, while she stops before firing them: the beams themselves are the planner's, fired from where she stands - 2026-11-28)
+                int k = stopAt(t);
+
+                if (k < 0 || t >= fireAt(k))
+                    return;
+
+                float alpha = DanmakusuBalance.BEAM_PREVIEW_ALPHA * smoothStep((t - stops[k]) / (beat * 0.25));
 
                 if (alpha < 0.01f)
                     return;
 
                 var core = new Color4(0.85f, 1f, 0.9f, 1f);
                 var border = DanmakusuBalance.BorderColour(new Color4(0.2f, 0.7f, 0.5f, 1f)); // (her green)
-                float y = top(f);
 
                 for (int beam = 0; beam < 3; beam++)
                 {
@@ -156,33 +167,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     line.Add(new Vector2(x, y) + beamWay(beam) * reach(f));
                     fades.Add(alpha);
                     fades.Add(alpha);
-                    f.addPlainBeam(line, halfWidth(f), core, border, ref beams, ref pointTotal, null, fades, null, solid ? 0.6f : 0f);
+                    f.addPlainBeam(line, halfWidth(f), core, border, ref beams, ref pointTotal, null, fades);
                 }
-            }
-
-            /// <summary>The beams hurt like a slider body while they are solid.</summary>
-            public override bool Hurts(BulletField f, double now)
-            {
-                int k = stopAt(now);
-
-                if (f.failed || k < 0 || now < fireAt(k) || double.IsNaN(simTime))
-                    return false;
-
-                Vector2 player = f.characterPosition;
-                float reach = halfWidth(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
-
-                if (player.Y < top(f) - reach)
-                    return false;
-
-                Vector2 from = new Vector2(x, top(f));
-
-                for (int beam = 0; beam < 3; beam++)
-                {
-                    if (distanceToSegment(player, from, from + beamWay(beam) * BucketAct.reach(f)) <= reach)
-                        return true;
-                }
-
-                return false;
             }
         }
     }

@@ -22,6 +22,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // the other half are see-through (IKU_HARMLESS_ALPHA) and harmless, then the other way round (BulletEmitter.StarPhase), fading from one to the other. Her own rings no longer curl nor leave beams
         // behind them, and nothing is tied (the traces and ties above are left for no ring now).
         // 2026-11-27 ("bullets are connected by slider laserbeams. By default all ring of 5s form perfect shape stars"): the stars are slider beams - the ring's own colour and edge, as wide as a slider's beam - and every ring is rebuilt as an even circle of five (BulletEmitter.AsEvenRing), also one that was five already.
+        // 2026-11-28 ("laserbeams do not disconnect by themselves"): a star stays whole while any of its corners is on the screen - a corner that has left it, hit or been taken stays where its ring has it -
+        // and is gone, all of it at once, when none is (a corner leaving the screen broke it there).
         // ======================================================================================================================================================
 
         private sealed class ThunderAct : StageAct
@@ -58,16 +60,36 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return ((stretch + ring.StarPhase) & 1) == 1;
             }
 
-            /// <summary>The five points of star <paramref name="ring"/> at <paramref name="t"/>, in the order its beam joins them, into <see cref="line"/>; a bullet that is gone breaks it (false: nothing of it).</summary>
+            /// <summary>
+            /// The five points of star <paramref name="ring"/> at <paramref name="t"/>, in the order its beam joins them, into <see cref="line"/> (false: nothing of it). Since 2026-11-28 ("laserbeams do not
+            /// disconnect by themselves") a bullet that has left the screen, been used up or been taken keeps its corner where its ring has it - the star is whole while any corner is on the screen, and gone,
+            /// all of it, once none is: until then a corner that left the screen (or hit the player, or that another boss's act took) broke it there.
+            /// </summary>
             private bool starLine(BulletField f, BulletEmitter ring, double t, double now, List<(int From, int To)> runs)
             {
                 line.Clear();
                 runs.Clear();
                 int runStart = 0;
 
+                // (once all five corners have left the screen, the star is gone, all of it at once: kept on until then, its inner lines swept the whole screen long after - the autoplay was hit 42
+                // times in 20 s, nowhere safe)
+                bool anyOn = false;
+
+                for (int m = 0; m < 5 && m < ring.Count; m++)
+                {
+                    if (ring.Time <= now && place(f, ring, m, t, out Vector2 corner) && corner.X >= f.stageMin.X && corner.X <= f.stageMax.X && corner.Y >= f.stageMin.Y && corner.Y <= f.stageMax.Y)
+                    {
+                        anyOn = true;
+                        break;
+                    }
+                }
+
+                if (!anyOn)
+                    return false;
+
                 foreach (int m in star_order)
                 {
-                    if (!there(ring, m, now) || !place(f, ring, m, t, out Vector2 at))
+                    if (ring.Time > now || !place(f, ring, m, t, out Vector2 at))
                     {
                         if (line.Count - runStart >= 2)
                             runs.Add((runStart, line.Count));

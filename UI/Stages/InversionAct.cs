@@ -17,6 +17,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // look). The clone is gone as the screen turns. And the whole screen fills with big see-through arrows,
         // the ones on her dress, in a grid: red ones flowing sideways from the side the player is nearer to the other, blue ones from the top or the bottom, whichever is nearer, to the other (as the warning starts: where the
         // turn will throw the player), fading in over a beat and out by the turn.
+        // Since 2026-11-28 her attacks mirror in five ways in turn (BulletField.MirrorKind): the first turns the screen upside down, the second mirrors it left to right (only the sideways arrows warn), the
+        // third top to bottom (only those going up or down), the fourth turns the screen but leaves the character under the mouse, the fifth leaves the screen and puts the character at the mirror image
+        // of the mouse; then again from the first. Her clone stands where the turn will show her (none before the fifth: the screen stays).
         // ======================================================================================================================================================
 
         private sealed class InversionAct : StageAct
@@ -82,9 +85,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (u < 0f)
                     return;
 
-                // (the clone: where she will be seen when the screen has turned round its middle)
+                // (the clone: where she will be seen when the screen has turned round its middle - or been mirrored left to right, or top to bottom; a turn that leaves the screen as it is has none)
+                var kind = f.MirrorKindAt(turn);
+
+                if (kind == MirrorKind.PlayerOnly)
+                    return;
+
+                Vector2 her = f.bossVisualOf(Period), middle = f.MirrorCentre;
                 f.seijaCloneLevel = Math.Max(f.seijaCloneLevel, smoothStep(u / 0.3f));
-                f.seijaCloneAt = 2f * f.MirrorCentre - f.bossVisualOf(Period);
+                f.seijaCloneAt = kind switch
+                {
+                    MirrorKind.Horizontal => new Vector2(2f * middle.X - her.X, her.Y),
+                    MirrorKind.Vertical => new Vector2(her.X, 2f * middle.Y - her.Y),
+                    _ => 2f * middle - her,
+                };
                 f.seijaCloneSlot = Period.BossSlot;
                 f.seijaCloneTurn = turn;
             }
@@ -96,8 +110,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 var red = new Color4(1f, 0.12f, 0.15f, 1f);
 
-                // (while the screen is upside down a big see-through red glow lies round the player, coming and going as the screen turns)
-                float inverted = f.MirrorAngleAt(t) / 180f;
+                // (while the screen is upside down a big see-through red glow lies round the player, coming and going as the screen turns - or is mirrored any way: 2026-11-28)
+                float inverted = f.MirrorAmountAt(t);
 
                 if (inverted > 0.002f && t >= Start && t < End)
                     f.stageBack.Add(StageTexture.Glow, f.characterPosition, new Vector2(f.circleRadius * DanmakusuBalance.SEIJA_GLOW_RADII * 2f), 0f, DanmakusuBalance.SEIJA_GLOW_ALPHA * inverted, red, true);
@@ -196,14 +210,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 var red = new Color4(0.93f, 0.12f, 0.18f, 1f);
                 var blue = new Color4(0.16f, 0.36f, 0.95f, 1f);
 
+                // (2026-11-28: before a mirror left to right only the sideways arrows warn, before one top to bottom only those that go up or down; the other turns have both)
+                var kind = f.MirrorKindAt(turn);
+                bool sideways = kind != MirrorKind.Vertical, upDown = kind != MirrorKind.Horizontal;
+
                 for (int row = -1; row <= DanmakusuBalance.SEIJA_GRID_ROWS; row++)
                 {
                     for (int column = -1; column <= columns; column++)
                     {
                         Vector2 corner = min + new Vector2(column * cell, row * cell);
 
-                        f.stageBack.Add(StageTexture.SeijaArrow, corner + new Vector2(cell * 0.5f + shift * flow.X, cell * 0.5f), new Vector2(size), flow.X > 0f ? 0f : 180f, alpha, red);
-                        f.stageBack.Add(StageTexture.SeijaArrow, corner + new Vector2(0f, shift * flow.Y), new Vector2(size), flow.Y > 0f ? 90f : -90f, alpha, blue);
+                        if (sideways)
+                            f.stageBack.Add(StageTexture.SeijaArrow, corner + new Vector2(cell * 0.5f + shift * flow.X, cell * 0.5f), new Vector2(size), flow.X > 0f ? 0f : 180f, alpha, red);
+
+                        if (upDown)
+                            f.stageBack.Add(StageTexture.SeijaArrow, corner + new Vector2(0f, shift * flow.Y), new Vector2(size), flow.Y > 0f ? 90f : -90f, alpha, blue);
                     }
                 }
             }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using osu.Game.Rulesets.Danmakusu.Bullets;
 using osuTK;
+using osuTK.Graphics;
 
 namespace osu.Game.Rulesets.Danmakusu.UI
 {
@@ -12,6 +13,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // a small flower of MEDICINE_PETALS of Yuyuko's tree's petals (pink, MEDICINE_PETAL_SIZE as big as a plain bullet) bursts out, flying away at a bullet's speed. The bullets of this frame are put on a
         // grid as they are looked at (as Misumaru's are); the one seen second goes at once, the other a frame later. In her attacks she shoots streams from all round her magic circle: MEDICINE_STREAMS points
         // on its edge, evenly, turning MEDICINE_TURN_DEGREES_PER_BEAT, each a bullet every MEDICINE_STREAM_BEATS straight out, MEDICINE_STREAM_SPEED times a bullet's speed (into a pool of acts).
+        // Since 2026-11-28 a small pink wave goes out where two met (MEDICINE_WAVE_MS, to MEDICINE_WAVE_GROW times their size; a white flash before).
         // ======================================================================================================================================================
 
         private sealed class PoisonAct : StageAct
@@ -52,6 +54,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 cells.Clear();
                 entries.Clear();
                 doomed.Clear();
+                waves.Clear();
                 gridTime = double.NaN;
                 streamNext = double.NaN;
                 burst = 0;
@@ -230,7 +233,40 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     });
                 }
 
-                f.addFlash(t, at, size * DanmakusuBalance.RICOCHET_FLASH_SIZE * 0.5f);
+                // (a small pink wave goes out where they met: 2026-11-28, "small pink wave flash on bullets clash zone" - a white flash, as of a ricochet, before)
+                waves.Add((t, at, size));
+
+                if (waves.Count > most_waves)
+                    waves.RemoveAt(0);
+            }
+
+            private const int most_waves = 256;
+            private readonly List<(double Time, Vector2 At, float Size)> waves = new List<(double, Vector2, float)>();
+
+            public override void Draw(BulletField f, double t)
+            {
+                if (f.failed || waves.Count == 0)
+                    return;
+
+                double life = DanmakusuBalance.MEDICINE_WAVE_MS;
+                var pink = new Color4(1f, 0.5f, 0.75f, 1f);
+
+                for (int i = waves.Count - 1; i >= 0; i--)
+                {
+                    var (time, at, size) = waves[i];
+                    double age = t - time;
+
+                    if (age < 0)
+                        continue;
+
+                    if (age > life)
+                        continue; // (the rings are scanned one after the other: the list is not quite in time order)
+
+                    float u = (float)(age / life);
+                    float reach = size * (1f + (DanmakusuBalance.MEDICINE_WAVE_GROW - 1f) * (1f - (1f - u) * (1f - u)));
+                    float half = Math.Max(size * 0.3f * (1f - u), 1f);
+                    f.stageRipple.AddRing(at, reach + half, half, 0.85f * (1f - u), pink);
+                }
             }
         }
     }

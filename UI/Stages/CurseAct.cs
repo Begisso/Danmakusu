@@ -107,6 +107,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private double homing => beat * DanmakusuBalance.NOROIKO_HOMING_BEATS;
 
+            /// <summary>How big a curse is at <paramref name="t"/> (px tall): hers as thrown; a slider's grows as it flies (2026-11-28, "sliders don't shoot growing jp laserbeams"), from NOROIKO_SLIDER_GROW_FROM of its size to all of it while it homes.</summary>
+            private float sizeAt(Throw thrown, double t)
+            {
+                if (thrown.Side != 0)
+                    return thrown.Size;
+
+                float grown = (float)Math.Clamp((t - thrown.T) / homing, 0, 1);
+                return thrown.Size * (DanmakusuBalance.NOROIKO_SLIDER_GROW_FROM + (1f - DanmakusuBalance.NOROIKO_SLIDER_GROW_FROM) * grown);
+            }
+
             public override double MechanicsEnd => throws.Length > 0 ? throws[^1].T + homing : double.NegativeInfinity;
 
             public override void Reset(BulletField f, double time)
@@ -271,13 +281,14 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 at = placeOf(f, flight, t);
+                    float size = sizeAt(thrown, t);
 
-                    if (!onScreen(f, at, thrown.Size))
+                    if (!onScreen(f, at, size))
                         continue;
 
                     float shown = smoothStep((t - thrown.T) / 120.0);
-                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_BLOOM_SIZE), 0f, DanmakusuBalance.NOROIKO_BLOOM_ALPHA * shown, Color4.White, true);
-                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(thrown.Size * DanmakusuBalance.NOROIKO_GLOW_SIZE), 0f, DanmakusuBalance.NOROIKO_GLOW_ALPHA * shown, Color4.White, true);
+                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(size * DanmakusuBalance.NOROIKO_BLOOM_SIZE), 0f, DanmakusuBalance.NOROIKO_BLOOM_ALPHA * shown, Color4.White, true);
+                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(size * DanmakusuBalance.NOROIKO_GLOW_SIZE), 0f, DanmakusuBalance.NOROIKO_GLOW_ALPHA * shown, Color4.White, true);
                     // (the character itself is its beams: DrawBeams)
                 }
             }
@@ -352,10 +363,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 at = placeOf(f, flight, now);
-                    float half = strokeHalf(f, thrown.Size) * DanmakusuBalance.BULLET_HITBOX_SCALE + reach;
+                    float size = sizeAt(thrown, now);
+                    float half = strokeHalf(f, size) * DanmakusuBalance.BULLET_HITBOX_SCALE + reach;
 
                     // (nowhere near it: its strokes are not looked at)
-                    if (MathF.Abs(player.X - at.X) > thrown.Size * 0.5f + half || MathF.Abs(player.Y - at.Y) > thrown.Size * 0.5f + half)
+                    if (MathF.Abs(player.X - at.X) > size * 0.5f + half || MathF.Abs(player.Y - at.Y) > size * 0.5f + half)
                         continue;
 
                     // (its beams hurt where they are drawn: 2026-11-27)
@@ -363,7 +375,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     {
                         for (int i = 0; i + 1 < stroke.Length; i++)
                         {
-                            if (distanceToSegment(player, at + stroke[i] * thrown.Size, at + stroke[i + 1] * thrown.Size) <= half)
+                            if (distanceToSegment(player, at + stroke[i] * size, at + stroke[i + 1] * size) <= half)
                                 return true;
                         }
                     }
@@ -397,12 +409,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue;
 
                     Vector2 at = placeOf(f, flight, t);
+                    float size = sizeAt(thrown, t);
 
-                    if (!onScreen(f, at, thrown.Size))
+                    if (!onScreen(f, at, size))
                         continue;
 
                     float shown = smoothStep((t - thrown.T) / 120.0);
-                    float half = strokeHalf(f, thrown.Size);
+                    float half = strokeHalf(f, size);
 
                     foreach (var stroke in CurseGlyph.STROKES)
                     {
@@ -411,7 +424,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                         foreach (var point in stroke)
                         {
-                            strokePoints.Add(at + point * thrown.Size);
+                            strokePoints.Add(at + point * size);
                             strokeFades.Add(shown);
                         }
 
@@ -419,6 +432,351 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     }
                 }
             }
+        }
+
+        // ======================================================================================================================================================
+        // Noroiko's rings (2026-11-28, "her bullets are still not replaced by jp letter shape laserbeams"): every ring of the map's bullets in her section is 呪 drawn in beams - slider beams in the ring's own
+        // colours - that grows as it flies out from where it was fired. The planner lays the ring out as the character, a bullet on every corner of every stroke (RingShape.Curse, RingLayout.GlyphCorners),
+        // and hides its bullets (BulletEmitter.CurseBeams); here every stroke is a beam through its corners, wherever the ring's closed form has them (a boss that turns, freezes or mirrors them turns the
+        // character with them), and the beams hurt like a slider body. A corner that is gone breaks its stroke there. One act for every section of hers (a borrowed one too), so that no ring is drawn twice.
+        // Where the corners of every ring are is worked out once for a moment, on several cores, and kept for the drawing and the hits of that moment (with Kokoro's ops every corner is a trace).
+        // ======================================================================================================================================================
+
+        private sealed class CurseRingsAct : StageAct
+        {
+            private readonly BulletEmitter[] rings;
+            private readonly (int First, int Count)[][] runs;
+            private readonly double longest;
+            private readonly GridShapes grid = new GridShapes();
+
+            // (where the corners of ring i were worked out last: at points[i * most ...], when, and which were there)
+            private readonly int most;
+            private readonly Vector2[] points;
+            private readonly double[] at;
+            private readonly ulong[] alive;
+            private readonly float[] solid;
+
+            /// <summary>Every ring before this one is gone (worked out in Update; going back in time starts it over).</summary>
+            private int firstLive;
+
+            public CurseRingsAct(BulletField f, BossPeriod period)
+            {
+                Period = period;
+
+                var list = new List<BulletEmitter>();
+
+                foreach (var ring in f.emitters)
+                {
+                    // (not a ring made at the time out of other bullets: Shion's copies, shards - those of hers have nothing to be made from, their bullets are hidden)
+                    if (ring.CurseBeams && ring.Count > 1 && !ring.Derived && ring.Derive == DeriveKind.None)
+                        list.Add(ring);
+                }
+
+                list.Sort((a, b) => a.Time.CompareTo(b.Time));
+                rings = list.ToArray();
+
+                var byCount = new Dictionary<int, (int, int)[]>();
+                runs = new (int, int)[rings.Length][];
+
+                for (int i = 0; i < rings.Length; i++)
+                {
+                    if (!byCount.TryGetValue(rings[i].Count, out var r))
+                        byCount[rings[i].Count] = r = RingLayout.GlyphRuns(rings[i].Count);
+
+                    runs[i] = r;
+                    longest = Math.Max(longest, rings[i].Lifetime * 2);
+                    most = Math.Max(most, rings[i].Count);
+                }
+
+                points = new Vector2[rings.Length * most];
+                at = new double[rings.Length];
+                alive = new ulong[rings.Length];
+                solid = new float[rings.Length];
+                Array.Fill(at, double.NaN);
+                reachMost = f.circleRadius * DanmakusuBalance.NOROIKO_RING_REACH_CIRCLES;
+
+                Start = rings.Length > 0 ? rings[0].Time : period.ShootStart;
+                End = rings.Length > 0 ? rings[^1].Time + longest : period.End;
+            }
+
+            public override void Reset(BulletField f, double time)
+            {
+                firstLive = 0;
+                grid.Forget();
+                Array.Fill(at, double.NaN);
+            }
+
+            public override void Update(BulletField f, double now)
+            {
+                // (a ring whose character has grown as big as it gets is done with too, though its hidden bullets fly on)
+                while (firstLive < rings.Length && rings[firstLive].Time <= now && (rings[firstLive].Time + rings[firstLive].Lifetime * 2 < now || double.IsNaN(ownTime(f, rings[firstLive], now))))
+                    firstLive++;
+            }
+
+            /// <summary>How wide half a stroke is: a slider's beam.</summary>
+            private float half(BulletField f) => f.stageBaseRadius(Period) * DanmakusuBalance.LASER_SIZE_SCALE * DanmakusuBalance.VolumeSizeScale(100);
+
+            /// <summary>The ring's clock at <paramref name="t"/>, or NaN when it is not there then (not fired yet, gone, or grown as big as it gets).</summary>
+            private double ownTime(BulletField f, BulletEmitter ring, double t)
+            {
+                if (ring.Time > t || ring.Retired)
+                    return double.NaN;
+
+                double own = ring.WithoutFrozenTime(f.effects.Effective(ring, t));
+                return own - ring.Time > ring.Lifetime || ring.RemovedAt(t) || ring.RadiusAt(own) >= reachMost ? double.NaN : own;
+            }
+
+            /// <summary>How far the farthest corner gets from where the ring was fired (px): then it has faded out.</summary>
+            private float reachMost;
+
+            /// <summary>How solid the character of a ring is at its own time <paramref name="own"/>: fading out as its farthest corner nears <see cref="reachMost"/>.</summary>
+            private float solidAt(BulletEmitter ring, double own)
+                => Math.Clamp((reachMost - ring.RadiusAt(own)) / (reachMost * DanmakusuBalance.NOROIKO_RING_FADE_SHARE), 0f, 1f);
+
+            /// <summary>Can a stroke of the ring be within <paramref name="reach"/> of <paramref name="around"/>? Within its outer circle round where it was fired; any ring that something bends, yes.</summary>
+            private static bool near(BulletEmitter ring, double own, Vector2 around, float reach)
+            {
+                if (ring.Ops != null || ring.Swirl != null || ring.Curl != 0f || ring.Origins != null || ring.Waves || ring.SlowsToWall || ring.Gravity != 0f || ring.Falling || ring.WrapsOnce
+                    || (ring.Deflections != null && ring.Deflections.Count > 0))
+                    return true;
+
+                return Vector2.Distance(around, ring.Origin) - reach <= ring.RadiusAt(own);
+            }
+
+            /// <summary>The rings that can be there at <paramref name="t"/>: from the first one not gone up to the last one fired by then.</summary>
+            private int lastFiredBy(double t)
+            {
+                int lo = firstLive, hi = rings.Length;
+
+                while (lo < hi)
+                {
+                    int mid = (lo + hi) >> 1;
+
+                    if (rings[mid].Time <= t)
+                        lo = mid + 1;
+                    else
+                        hi = mid;
+                }
+
+                return lo;
+            }
+
+            /// <summary>Where the corners of ring <paramref name="i"/> are at <paramref name="t"/> (its own time <paramref name="own"/>), unless they are known for that moment already.</summary>
+            private void place(int i, double t, double own)
+            {
+                if (at[i] == t)
+                    return;
+
+                var ring = rings[i];
+                ulong there = 0;
+                int from = i * most;
+
+                for (int b = 0; b < ring.Count; b++)
+                {
+                    ring.Evaluate(b, own, out points[from + b], out _, out bool on);
+
+                    if (on)
+                        there |= 1UL << b;
+                }
+
+                alive[i] = there;
+                solid[i] = solidAt(ring, own);
+                at[i] = t;
+            }
+
+            private readonly List<int> placing = new List<int>(512);
+            private readonly List<double> placingOwn = new List<double>(512);
+
+            /// <summary>The corners of every ring that is there at <paramref name="t"/> (and that <paramref name="wanted"/> wants), on several cores when there are many; their numbers into <see cref="placing"/>.</summary>
+            private void placeAll(BulletField f, double t, Func<BulletEmitter, double, bool>? wanted)
+            {
+                placing.Clear();
+                placingOwn.Clear();
+                int last = lastFiredBy(t);
+
+                for (int i = firstLive; i < last; i++)
+                {
+                    double own = ownTime(f, rings[i], t);
+
+                    if (double.IsNaN(own) || (wanted != null && !wanted(rings[i], own)))
+                        continue;
+
+                    placing.Add(i);
+                    placingOwn.Add(own);
+                }
+
+                int stale = 0;
+
+                foreach (int i in placing)
+                {
+                    if (at[i] != t)
+                        stale++;
+                }
+
+                if (stale >= parallel_from)
+                    System.Threading.Tasks.Parallel.For(0, placing.Count, parallelOptions, k => place(placing[k], t, placingOwn[k]));
+                else
+                {
+                    for (int k = 0; k < placing.Count; k++)
+                        place(placing[k], t, placingOwn[k]);
+                }
+            }
+
+            private const int parallel_from = 24;
+
+            private readonly List<Vector2> piece = new List<Vector2>(16);
+
+            /// <summary>Stroke <paramref name="run"/> of ring <paramref name="i"/> as placed: its unbroken pieces one after the other into <see cref="piece"/>, <paramref name="next"/> where to go on from (false: no more).</summary>
+            private bool nextPiece(int i, (int First, int Count) run, ref int next)
+            {
+                piece.Clear();
+                int from = i * most;
+                ulong there = alive[i];
+                int end = run.First + run.Count;
+
+                for (; next < end; next++)
+                {
+                    if ((there & (1UL << next)) != 0)
+                    {
+                        piece.Add(points[from + next]);
+                        continue;
+                    }
+
+                    if (piece.Count >= 2)
+                    {
+                        next++;
+                        return true;
+                    }
+
+                    piece.Clear();
+                }
+
+                return piece.Count >= 2;
+            }
+
+            public override void DrawBeams(BulletField f, double t, ref int beams, ref int pointTotal)
+            {
+                if (f.failed || rings.Length == 0 || t < Start || t > End)
+                    return;
+
+                float width = half(f);
+                placeAll(f, t, null);
+
+                foreach (int i in placing)
+                {
+                    var ring = rings[i];
+                    int style = f.styleOf(ring);
+                    Color4 body = f.palette.Length > 0 ? f.palette[style % f.palette.Length] : Color4.White;
+                    Color4 border = f.borderPalette.Length > 0 ? f.borderPalette[style % f.borderPalette.Length] : new Color4(0.95f, 0.12f, 0.2f, 1f);
+
+                    foreach (var run in runs[i])
+                    {
+                        int next = run.First;
+
+                        while (next < run.First + run.Count && nextPiece(i, run, ref next))
+                        {
+                            pieceFades.Clear();
+
+                            for (int k = 0; k < piece.Count; k++)
+                                pieceFades.Add(solid[i]);
+
+                            f.addPlainBeam(piece, width, body, border, ref beams, ref pointTotal, null, pieceFades);
+                        }
+                    }
+                }
+            }
+
+            private readonly List<float> pieceFades = new List<float>(16);
+
+            private Vector2 asked;
+            private float askedReach;
+
+            private bool touches(BulletField f, double now, Vector2 player)
+            {
+                float reach = half(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS;
+                asked = player;
+                askedReach = reach;
+                placeAll(f, now, nearAskedFn ??= nearAsked);
+
+                foreach (int i in placing)
+                {
+                    if (solid[i] < 0.5f)
+                        continue; // (more than half faded: harmless)
+
+                    foreach (var run in runs[i])
+                    {
+                        int next = run.First;
+
+                        while (next < run.First + run.Count && nextPiece(i, run, ref next))
+                        {
+                            for (int k = 0; k + 1 < piece.Count; k++)
+                            {
+                                if (distanceToSegment(player, piece[k], piece[k + 1]) <= reach)
+                                    return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            private bool nearAsked(BulletEmitter ring, double own) => near(ring, own, asked, askedReach);
+
+            private Func<BulletEmitter, double, bool>? nearAskedFn;
+
+            /// <summary>(the autoplay) Every stroke near <paramref name="around"/> at <paramref name="t"/> into <paramref name="shape"/>, <paramref name="extra"/> px wider.</summary>
+            private void fill(BulletField f, MomentShapes.Moment shape, double t, float extra, Vector2 around, float range)
+            {
+                float reach = half(f) * DanmakusuBalance.BULLET_HITBOX_SCALE + DanmakusuBalance.PLAYER_HITBOX_RADIUS + extra;
+                asked = around;
+                askedReach = range + reach;
+                placeAll(f, t, nearAskedFn ??= nearAsked);
+
+                foreach (int i in placing)
+                {
+                    if (solid[i] < 0.5f)
+                        continue;
+
+                    foreach (var run in runs[i])
+                    {
+                        int next = run.First;
+
+                        while (next < run.First + run.Count && nextPiece(i, run, ref next))
+                        {
+                            foreach (var p in piece)
+                                shape.Point(p, reach);
+
+                            shape.EndRun();
+                        }
+                    }
+                }
+            }
+
+            /// <summary>Its beams hurt like a slider body.</summary>
+            public override bool Hurts(BulletField f, double now)
+            {
+                if (f.failed || rings.Length == 0 || now < Start || now > End)
+                    return false;
+
+                Vector2 player = f.characterPosition;
+
+                // (the autoplay, for many places at a few moments: everything near it at the nearest moment of a grid, as much wider as the strokes grow in half a step)
+                if (autoAsking)
+                {
+                    var shape = grid.Get(now, f.Time.Current, out double moment, out bool fresh);
+
+                    if (fresh)
+                        fill(f, shape, moment, stageBulletSpeed(Period) * 2f * (float)(GridShapes.GRID_MS / 2), f.realCharacterPosition, auto_range);
+
+                    return shape.Touches(player);
+                }
+
+                return touches(f, now, player);
+            }
+
+            /// <summary>(the autoplay looks this far round the character at most: px)</summary>
+            private const float auto_range = 360f;
         }
     }
 }

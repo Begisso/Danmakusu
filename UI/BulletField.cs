@@ -228,6 +228,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>The attacks of Seija (start, end): the screen is turned round during each.</summary>
         private readonly (double Start, double End)[] mirrorWindows;
 
+        /// <summary>How each of them mirrors (2026-11-28): see <see cref="MirrorKind"/>.</summary>
+        private readonly MirrorKind[] mirrorKinds;
+
         /// <summary>The bullets' and beams' ops (see <see cref="BossOps"/>); the ones that mirror or send to a point are kept at the centre of the screen.</summary>
         private readonly TrajectoryOp[] bulletOps;
 
@@ -303,8 +306,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     laser.Clock = beamClock;
             }
 
-            // Seija turns the screen round during every attack of hers
-            var mirrorList = new List<(double, double)>();
+            // Seija turns the screen round during every attack of hers (since 2026-11-28 in five ways in turn, attack by attack through her section: MirrorKind)
+            var mirrorList = new List<(double Start, double End, MirrorKind Kind)>();
 
             foreach (var period in bosses)
             {
@@ -314,11 +317,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 int attacks = Math.Min(period.LaserStarts.Length, period.LaserEnds.Length);
 
                 for (int i = 0; i < attacks; i++)
-                    mirrorList.Add((period.LaserStarts[i], period.LaserEnds[i]));
+                    mirrorList.Add((period.LaserStarts[i], period.LaserEnds[i], MirrorKindOf(i)));
             }
 
-            mirrorList.Sort((a, b) => a.Item1.CompareTo(b.Item1));
-            mirrorWindows = mirrorList.ToArray();
+            mirrorList.Sort((a, b) => a.Start.CompareTo(b.Start));
+            mirrorWindows = mirrorList.Select(w => (w.Start, w.End)).ToArray();
+            mirrorKinds = mirrorList.Select(w => w.Kind).ToArray();
 
             // what the bosses' mechanics do to the bullets and beams that are flying: Seija's bounce, Cirno's freeze, Yukari's pause, Sakuya's time stop (see BossOps)
             BossOps.Build(bosses, out bulletOps, out var laserOps);
@@ -514,6 +518,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             koishiMarks = markList.ToArray();
             this.sliderZones = sliderZones; // (before the stage: Urumi's act takes the objects from them)
             this.circleZones = circleZones;
+            this.circleRadius = circleRadius; // (before the stage too: an act that sizes what it makes by it when it is made - Noroiko's curses - had 0, and every curse she threw from 2026-11-23 to 28 was a dot)
             buildStage();
             buildCues();
 
@@ -552,7 +557,6 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             // (a map whose sections all belong to the first bosses has none of the others on the HUD; a place nobody has had is filled, so that the numbers stay right)
             var anyBoss = slots.Find(boss => boss != null);
             slotBosses = anyBoss == null ? System.Array.Empty<BossInfo>() : slots.Select(boss => boss ?? anyBoss).ToArray();
-            this.circleRadius = circleRadius;
             this.damagePerBullet = damagePerBullet;
             this.damagePerSliderTick = damagePerSliderTick;
             this.cursorScreenPosition = cursorScreenPosition;
@@ -873,7 +877,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 kaguyaBackground = new Box { Colour = ColourInfo.GradientVertical(new Color4(0.02f, 0.04f, 0.2f, 1f), new Color4(0f, 0.005f, 0.04f, 1f)), Alpha = 0f }, // (Kaguya's sections: a night of dark blue, darker towards the bottom)
                 impactBackground = new Box { Colour = Color4.White, Alpha = 0f }, // (the World's Ender's impact frame: a white screen, under everything that goes black)
                 verdantBackground = new Box { Colour = new Color4(0.12f, 0.2f, 0.05f, 1f), Alpha = 0f }, // (Daiyousei's attacks: a dark warm green dim)
-                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang, StageTexture.BossCircleWhite, StageTexture.KogasaUmbrella, StageTexture.Orb } // (Orb: YuugenMagan's eyes, 2026-11-27 - they were drawn with it here, where it was not, and not seen)
+                stageBack = new StageLayer(1024, false, new[] { StageTexture.Cone, StageTexture.Wedge, StageTexture.Light, StageTexture.Glow, StageTexture.Pane, StageTexture.Taiko, StageTexture.Skull, StageTexture.Eye, StageTexture.BearTrapOpen, StageTexture.BearTrapClosed, StageTexture.BigStar, StageTexture.HorseHead, StageTexture.Boat, StageTexture.Prism, StageTexture.ShootCone, StageTexture.KaguyaMoon, StageTexture.KaguyaMoonCap, StageTexture.BloodPool, StageTexture.SeijaArrow, StageTexture.Anchor, StageTexture.YinYang, StageTexture.BossCircleWhite, StageTexture.KogasaUmbrella, StageTexture.Orb }
+                    .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.EvilEyes) ? new[] { StageTexture.YuugenSwirl } : Enumerable.Empty<StageTexture>()).ToArray() // (Orb: YuugenMagan's eyes, 2026-11-27 - they were drawn with it here, where it was not, and not seen)
                     // (Matenshi's wings, their bones and feathers: only when she is on the map, as the World's Ender's Earth)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.FallenAngel)
                         ? Enumerable.Range(0, WingRig.Pieces).SelectMany(piece => new[] { StageTexture.WingRightPiece0 + piece, StageTexture.WingLeftPiece0 + piece })
@@ -896,7 +901,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         : Enumerable.Empty<StageTexture>())
                     // (Momoyo's stone blocks and her centipede, only when she is on the map: 2026-11-27)
                     .Concat(Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.Mining)
-                        ? new[] { StageTexture.MomoyoStone, StageTexture.Centipede }
+                        ? new[] { StageTexture.MomoyoStone, StageTexture.CentipedePlate, StageTexture.CentipedeHead, StageTexture.CentipedeLeg }
                         : Enumerable.Empty<StageTexture>()).ToArray()) { Grows = true }, // (Sunny Milk's prism, Flandre's eyes, Nue's cones, Raiko's drums, Sannyo's smoke, Okina's light, Seija's arrows, Murasa's anchors, Matenshi's wings, the yin-yang orbs: under the bullets)
                 stageEnder = Array.Exists(bosses, period => period.Boss?.Mechanic == BossMechanic.ThreeWorlds) ? new StageLayer(220, false, StageTexture.EarthChunk8, StageTexture.EarthChunk9, StageTexture.EarthChunk10, StageTexture.EarthChunk11, StageTexture.EarthDebris0, StageTexture.EarthDebris1, StageTexture.EarthDebris2, StageTexture.EarthDebris3, StageTexture.EarthDebris4, StageTexture.EarthDebris5, StageTexture.EarthDebris6, StageTexture.EarthDebris7, StageTexture.EarthDebris8, StageTexture.EarthDebris9, StageTexture.EarthDebris10, StageTexture.EarthDebris11, StageTexture.EarthDebris12, StageTexture.EarthDebris13, StageTexture.EarthDebris14, StageTexture.EarthDebris15, StageTexture.EarthDebris16, StageTexture.EarthDebris17, StageTexture.EarthDebris18, StageTexture.EarthDebris19, StageTexture.EarthDebris20, StageTexture.EarthDebris21, StageTexture.EarthDebris22, StageTexture.EarthDebris23, StageTexture.EarthDebris24, StageTexture.EarthDebris25, StageTexture.EarthDebris26, StageTexture.EarthDebris27, StageTexture.EarthDebris28, StageTexture.EarthDebris29, StageTexture.EarthDebris30, StageTexture.EarthDebris31, StageTexture.EarthDebris32, StageTexture.EarthDebris33, StageTexture.EarthDebris34, StageTexture.EarthDebris35, StageTexture.EarthDebris36, StageTexture.EarthDebris37, StageTexture.EarthDebris38, StageTexture.EarthDebris39, StageTexture.EarthDebris40, StageTexture.EarthDebris41, StageTexture.EarthDebris42, StageTexture.EarthDebris43, StageTexture.EarthDebris44, StageTexture.EarthDebris45, StageTexture.EarthDebris46, StageTexture.EarthDebris47, StageTexture.Earth, StageTexture.EarthBig, StageTexture.EarthCracks, StageTexture.EarthCracksWhite, StageTexture.EarthHoleGlow0, StageTexture.EarthHoleGlow1, StageTexture.EarthChunk0, StageTexture.EarthChunk1, StageTexture.EarthChunk2, StageTexture.EarthChunk3, StageTexture.EarthChunk4, StageTexture.EarthChunk5, StageTexture.EarthChunk6, StageTexture.EarthChunk7, StageTexture.EarthPieceHot0, StageTexture.EarthPieceHot1, StageTexture.EarthPieceHot2, StageTexture.EarthPieceHot3, StageTexture.EarthPieceHot4, StageTexture.EarthPieceHot5, StageTexture.EarthPieceHot6, StageTexture.EarthPieceHot7, StageTexture.EarthPieceHot8, StageTexture.EarthPieceHot9, StageTexture.EarthPieceHot10, StageTexture.EarthPieceHot11, StageTexture.EarthPieceHot12, StageTexture.EarthPieceHot13, StageTexture.EarthPieceHot14, StageTexture.EarthPieceHot15, StageTexture.Glow, StageTexture.EarthPiece0, StageTexture.EarthPiece1, StageTexture.EarthPiece2, StageTexture.EarthPiece3, StageTexture.EarthPiece4, StageTexture.EarthPiece5, StageTexture.EarthPiece6, StageTexture.EarthPiece7, StageTexture.EarthPiece8, StageTexture.EarthPiece9, StageTexture.EarthPiece10, StageTexture.EarthPiece11, StageTexture.EarthPiece12, StageTexture.EarthPiece13, StageTexture.EarthPiece14, StageTexture.EarthPiece15) { Grows = true } : new StageLayer(1, false), // (the World's Ender's Earth: under the bullets; its big pictures only when Hecatia is on the map)
                 stageRipple = new StageLayer(400, true, StageTexture.Ring, StageTexture.MagicCircle, StageTexture.Chevron, StageTexture.SeijaArrow) { Grows = true }, // (Raiko's ripples, Toyohime's circle, Wakasagihime's bubbles, Seija's arrows round the player and round her: only inside the screen; as many as there are)
@@ -1392,6 +1397,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             forgetKeptBeams(); // (what the hit check keeps of the beams is for this frame's drawing only)
             double now = Time.Current;
             mirrorRadians = MirrorAngleAt(now) * MathF.PI / 180f;
+            mirrorFlip = MirrorFlipAt(now);
+            mirrorCursor = MirrorCursorAt(now);
 
             // (the field is shaken a little while a beam fires: Position is that shake, and the simulation does not see it)
             Vector2? cursorScreen = cursorScreenPosition();
@@ -1526,10 +1533,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 act.Early(this, now);
 
             // the screen was turned or turned back: the character is where it was (the real mouse), but it must never be swept along a path through that frame
-            if (Math.Abs(mirrorRadians - previousMirrorRadians) > 1e-4f)
+            // (and so when it is mirrored left to right or top to bottom, or the character jumps to the mirror image of the mouse or back - 2026-11-28)
+            if (Math.Abs(mirrorRadians - previousMirrorRadians) > 1e-4f || mirrorFlip != previousMirrorFlip || mirrorCursor != previousMirrorCursor)
                 sweep = false;
 
             previousMirrorRadians = mirrorRadians;
+            previousMirrorFlip = mirrorFlip;
+            previousMirrorCursor = mirrorCursor;
 
             resetFreezePending = false;
 
@@ -3159,7 +3169,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         Position = position,
                         Radius = emitter.KeepsSize // (Utsuho's big balls and the trains: no other boss's mechanic changes their size)
                             ? emitter.VisualRadius
-                            : Math.Max(leastBulletRadius, (drawShape == BulletShape.Flower ? fallFlowerRadius * emitter.FlowerScale : ownRadius * (look?.Scale ?? 1f)) * emitter.BigScale(b) * (stageRippleCount > 0 ? rippleGrow(position) : 1f) * (smoke > 0f ? smokeGrow(smoke) : 1f) * (sukunaLevel > 0f ? sukunaGrow(position) : 1f) * (verdantLevel > 0f && !emitter.HurtsLikeSlider && !plain ? 1f + (DanmakusuBalance.DAIYOUSEI_SIZE - 1f) * verdantLevel : 1f)),
+                            : Math.Max(leastBulletRadius, (drawShape == BulletShape.Flower ? fallFlowerRadius * emitter.FlowerScale : ownRadius * (look?.Scale ?? 1f)) * emitter.BigScale(b) * emitter.EdgeScale(position) * (stageRippleCount > 0 ? rippleGrow(position) : 1f) * (smoke > 0f ? smokeGrow(smoke) : 1f) * (sukunaLevel > 0f ? sukunaGrow(position) : 1f) * (verdantLevel > 0f && !emitter.HurtsLikeSlider && !plain ? 1f + (DanmakusuBalance.DAIYOUSEI_SIZE - 1f) * verdantLevel : 1f)),
                         Style = style,
                         Direction = drawShape is BulletShape.Star or BulletShape.SoftStar ? emitter.Orientation(b, ringTime + fall) : direction, // stars spin
                         Shape = drawShape,

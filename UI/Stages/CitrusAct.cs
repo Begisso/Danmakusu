@@ -16,6 +16,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // the way it will fly. The slices (and a whole orange) hurt like a slider body; one that is growing does not. When her section is over the slices go on out and are gone.
         // Since 2026-11-26 everything turns round the middle once in ORANGE_SPIN_BEATS, clockwise (the slices fly out along their turning ways, so they sweep round), a flight takes twice as long, and
         // for ORANGE_WARN_BEATS before a slice comes back in over the edge of the screen a red arrow just inside the edge points in where it will come.
+        // Since 2026-11-28 ("Orange grow and shoot frequency doubled") ORANGE_ORANGES oranges take turns instead of two: one grows in the middle over a quarter of a flight and splits a quarter of a flight
+        // after the one before (the slices as fast as before); the arrows of a split are outside the orange, beyond its rind (on its slices before), and every split is heard - the sound of Yuyuko's
+        // petals flying off her tree.
         // Everything is a closed form of time.
         // ======================================================================================================================================================
 
@@ -30,18 +33,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 Period = period;
                 beat = Math.Max(period.BeatLength, 1);
-
-                // (it grows in her warning; without one, over ORANGE_GROW_BEATS as she starts)
-                double growFrom = period.Start < period.ShootStart - beat ? period.Start : period.ShootStart;
-                grownAt = Math.Max(period.ShootStart, growFrom + beat * DanmakusuBalance.ORANGE_GROW_BEATS);
-                firstSplit = grownAt + beat * DanmakusuBalance.ORANGE_HOLD_BEATS;
+                (Start, grownAt, firstSplit) = times(period);
                 ends = period.End;
-
-                Start = growFrom;
                 End = period.End + flightMs;
             }
 
+            /// <summary>When the first orange starts growing (in her warning; without one, over ORANGE_GROW_BEATS as she starts), when it has grown, and when it splits.</summary>
+            private static (double GrowFrom, double Grown, double FirstSplit) times(BossPeriod period)
+            {
+                double beat = Math.Max(period.BeatLength, 1);
+                double growFrom = period.Start < period.ShootStart - beat ? period.Start : period.ShootStart;
+                double grown = Math.Max(period.ShootStart, growFrom + beat * DanmakusuBalance.ORANGE_GROW_BEATS);
+                return (growFrom, grown, grown + beat * DanmakusuBalance.ORANGE_HOLD_BEATS);
+            }
+
+            /// <summary>Every split of her section (the cue of Yuyuko's petals flying off: 2026-11-28).</summary>
+            public static System.Collections.Generic.IEnumerable<double> SplitTimes(BossPeriod period)
+            {
+                double beat = Math.Max(period.BeatLength, 1);
+                double turn = beat * DanmakusuBalance.ORANGE_FLIGHT_BEATS / DanmakusuBalance.ORANGE_ORANGES;
+                var (_, _, first) = times(period);
+
+                for (double at = first; at < period.End; at += turn)
+                    yield return at;
+            }
+
             private double flightMs => beat * DanmakusuBalance.ORANGE_FLIGHT_BEATS;
+
+            /// <summary>How long after one orange splits the next one does: a flight shared out between the oranges.</summary>
+            private double turnMs => flightMs / DanmakusuBalance.ORANGE_ORANGES;
 
             /// <summary>It stays until what was flying out when her section ended has left the screen.</summary>
             public override double MechanicsEnd => End;
@@ -83,8 +103,9 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             /// <summary>
-            /// Orange <paramref name="j"/> (0 the first, 1 the second) at <paramref name="t"/>: how far its slices are from the middle (px), how big it is (0..1, growing), whether it is there and
+            /// Orange <paramref name="j"/> (0 the first, then in turn) at <paramref name="t"/>: how far its slices are from the middle (px), how big it is (0..1, growing), whether it is there and
             /// whether it is solid. Each flies out and back over a flight from its first split on, again and again; after her section what is flying out goes on out, and what was coming back turns out.
+            /// (Every one but the first grows over the turn before its split, while the one before it has just split.)
             /// </summary>
             private bool stateOf(BulletField f, int j, double t, out float distance, out float size, out bool solid)
             {
@@ -92,8 +113,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 size = 1f;
                 solid = true;
 
-                double split = j == 0 ? firstSplit : firstSplit + flightMs * 0.5;
-                double growFrom = j == 0 ? Start : firstSplit;
+                double split = firstSplit + j * turnMs;
+                double growFrom = j == 0 ? Start : split - turnMs;
                 double grown = j == 0 ? grownAt : split;
 
                 if (t < growFrom)
@@ -131,18 +152,18 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             /// <summary>The split of either orange that comes next after <paramref name="t"/> (or NaN).</summary>
             private double nextSplit(double t)
             {
-                double half = flightMs * 0.5;
+                double turn = turnMs;
 
                 if (t < firstSplit)
                     return firstSplit;
 
-                double k = Math.Ceiling((t - firstSplit) / half);
-                double at = firstSplit + k * half;
+                double k = Math.Ceiling((t - firstSplit) / turn);
+                double at = firstSplit + k * turn;
                 return at < ends ? at : double.NaN;
             }
 
             /// <summary>Which orange splits at <paramref name="at"/> (a time of <see cref="nextSplit"/>).</summary>
-            private int splitting(double at) => (int)Math.Round((at - firstSplit) / (flightMs * 0.5)) % 2;
+            private int splitting(double at) => (int)Math.Round((at - firstSplit) / turnMs) % DanmakusuBalance.ORANGE_ORANGES;
 
             /// <summary>She stands in the middle.</summary>
             public override bool BossAt(BulletField f, double now, out Vector2 position)
@@ -160,7 +181,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float r = radius(f);
                 float picture = r * 2f; // (the picture is the whole orange's square)
 
-                for (int j = 0; j < 2; j++)
+                for (int j = 0; j < DanmakusuBalance.ORANGE_ORANGES; j++)
                 {
                     if (!stateOf(f, j, t, out float distance, out float size, out bool solid))
                         continue;
@@ -179,21 +200,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float arrow = f.circleRadius * 1.2f;
                 var red = new Color4(1f, 0.2f, 0.15f, 1f);
 
-                // (the warning of the next split: a red arrow on every slice of the orange about to split, pointing the way it will fly, blinking faster as it comes)
+                // (the warning of the next split: a red arrow beyond the rind of every slice of the orange about to split - outside the orange since 2026-11-28, on the slice before -, pointing the way it will
+                // fly, blinking faster as it comes)
                 double next = nextSplit(t);
 
                 if (!double.IsNaN(next) && next - t < beat * DanmakusuBalance.ORANGE_WARN_BEATS)
                 {
                     int j = splitting(next);
 
-                    if (stateOf(f, j, t, out float distance, out _, out _))
+                    if (stateOf(f, j, t, out float distance, out float size, out _))
                     {
                         float level = warnLevel((next - t) / (beat * DanmakusuBalance.ORANGE_WARN_BEATS));
 
                         for (int s = 0; s < DanmakusuBalance.ORANGE_SLICES; s++)
                         {
                             Vector2 way = wayOf(s, t);
-                            f.stageRipple.Add(StageTexture.SeijaArrow, centre + way * (distance + r * 0.62f), new Vector2(arrow * 2.2f), MathF.Atan2(way.Y, way.X) * 180f / MathF.PI, level, red);
+                            f.stageRipple.Add(StageTexture.SeijaArrow, centre + way * (distance + r * size + arrow * 1.3f), new Vector2(arrow * 2.2f), MathF.Atan2(way.Y, way.X) * 180f / MathF.PI, level, red);
                         }
                     }
                 }
@@ -203,11 +225,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (t < ends)
                 {
                     float far = farOut(f);
-                    double half = flightMs * 0.5;
 
-                    for (int j = 0; j < 2; j++)
+                    for (int j = 0; j < DanmakusuBalance.ORANGE_ORANGES; j++)
                     {
-                        double split = j == 0 ? firstSplit : firstSplit + half;
+                        double split = firstSplit + j * turnMs;
 
                         if (t < split)
                             continue;
@@ -249,7 +270,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 float r = radius(f), margin = DanmakusuBalance.PLAYER_HITBOX_RADIUS;
                 float half = MathF.PI / DanmakusuBalance.ORANGE_SLICES;
 
-                for (int j = 0; j < 2; j++)
+                for (int j = 0; j < DanmakusuBalance.ORANGE_ORANGES; j++)
                 {
                     if (!stateOf(f, j, now, out float distance, out _, out bool solid) || !solid)
                         continue;
