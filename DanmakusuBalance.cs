@@ -5022,11 +5022,12 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float MEDICINE_TURN_DEGREES_PER_BEAT = 7.5f;
 
         // Momoyo Himemushi (2026-11-27): a block an osu! circle (times this) across, thrown every so many beats, flying so long, so many rings in from the walls; a centipede so many circle radii long, so fast, every so many beats of a pause, an arrow so long before; a block bursts into so many bullets
-        // (2026-11-28: a block comes out of the wall - or out of the block before it - in so many beats, 0.5 until then, when it flew from her; the centipede is so many plates, so wide (a share of its
+        // (2026-11-28: a block is thrown every so many beats, 0.5 until then - "twice frequency" - and flies so many beats, 0.5 until then - "quadruple less flying speed"; for a while that day it came
+        // out of the wall instead of flying from her, the user's "build out of playfield edges" read wrong: it meant the grid along the walls, as it was. The centipede is so many plates, so wide (a share of its
         // length), its legs so long (two joints, times its width), stroking so far (degrees) once every so many circle radii it goes, so many waves along its body; its path sways so far (times its width)
         // every so long a stretch (times its length); it turns at the player at most so many degrees a beat for so many beats, then goes straight on and away)
         public const float MOMOYO_BLOCK_CIRCLES = 1f;
-        public const double MOMOYO_THROW_EVERY_BEATS = 0.5;
+        public const double MOMOYO_THROW_EVERY_BEATS = 0.25;
         public const double MOMOYO_THROW_BEATS = 2;
         public const int MOMOYO_LAYERS = 2;
         public const float MOMOYO_CENTIPEDE_CIRCLES = 16f;

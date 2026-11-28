@@ -158,7 +158,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bosses
             [BossMechanic.WellBucket] = 3, // Kisume (2026-11-27: everything falls from the top; she follows you along the top and fires three thick beams down every four beats)
             [BossMechanic.KnifeTrail] = 3, // Louise (2026-11-27: every twentieth bullet big, leaving knives that wait eight beats and fly at you)
             [BossMechanic.Poison] = 3, // Medicine Melancholy (2026-11-27: bullets that touch burst into petals; fast streams from all round her)
-            [BossMechanic.Mining] = 4, // Momoyo Himemushi (2026-11-28: the blocks come out of the walls four times as slowly, the centipede turns at you for eight beats - one easier, one harder; 2026-11-27: stone blocks along the walls, a charging centipede that bursts them into squares of bullets)
+            [BossMechanic.Mining] = 4, // Momoyo Himemushi (2026-11-28: twice as many blocks, flying four times as slowly and hurting in flight, the centipede turns at you for eight beats; 2026-11-27: stone blocks along the walls, a charging centipede that bursts them into squares of bullets)
             [BossMechanic.Rooster] = 3, // Kutaka Niwatari (2026-11-27: everything at half speed; what the circles and sliders fire comes at you in two streams)
             [BossMechanic.Violin] = 5, // Lunasa Prismriver (4 until 2026-11-28, when her beams fanned out from her circle and stayed twice as long - one volley always there - cutting every bullet they touch, with osu!mania notes in their gaps; 2026-11-27: five parallel beams at you every eight beats; the objects break into pieces that hurt, cut in two along her beams)
 

@@ -10,10 +10,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Momoyo Himemushi (2026-11-27). The screen is a grid of cells as big as an osu! circle (MOMOYO_BLOCK_CIRCLES x its diameter, stretched a little so that they fit it exactly, wall to wall). In her
-        // attacks a block of stone (the user's stone picture) comes every MOMOYO_THROW_EVERY_BEATS into the next free cell along the walls - the cells against the walls first, then the ring inside
-        // them, MOMOYO_LAYERS rings at most, each ring in an order of its own - and lies there, hurting like a slider body, until her section is over. Since 2026-11-28 ("blocks should build out of
-        // playfield edges instead. Throw speed quadruple less, frequency remains") it is no longer thrown from her: it comes out of the wall next to its cell (out of the block before it, for the ring
-        // inside), sliding in over MOMOYO_THROW_BEATS (four times as long as the throw took).
+        // attacks she throws a block of stone (the user's stone picture) every MOMOYO_THROW_EVERY_BEATS into the next free cell along the walls - the cells against the walls first, then the ring inside
+        // them, MOMOYO_LAYERS rings at most, each ring in an order of its own: it flies from her for MOMOYO_THROW_BEATS, turning and growing to its size, and lies there until her section is over. It
+        // hurts like a slider body, where it is drawn, flying too (since 2026-11-28, "Momoyo should shoot blocks as before, with twice frequency but quadruple less flying speed. Hits like sliders": a
+        // throw every quarter beat, two beats in the air; only a block that lay hurt before).
         // In her pauses (at the start of each, and every MOMOYO_CENTIPEDE_EVERY_BEATS of a long one) a big centipede (MOMOYO_CENTIPEDE_CIRCLES circle radii long) comes in from behind the wall at her
         // back - a red arrow shows where for MOMOYO_CENTIPEDE_WARN_BEATS - and charges at where the player was, MOMOYO_CENTIPEDE_SPEED times a bullet's speed. Every block it goes through bursts into a
         // square of MOMOYO_BURST_BULLETS grey bullets that keeps its shape as it flies out; the cell is free again. Where she and the player are is taken as each centipede comes; a seek back lays the
@@ -33,7 +33,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 public int Cell;
                 public double Thrown, Lands;
-                public Vector2 From; // (where it comes out: the cell next to it, towards the nearest wall)
+                public Vector2 From; // (where she was as she threw it)
                 public double GoneAt = double.PositiveInfinity;
             }
 
@@ -170,23 +170,28 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             private Vector2 cellCentre(int cell) => gridMin + new Vector2((cell % columns + 0.5f) * cellSize.X, (cell / columns + 0.5f) * cellSize.Y);
 
-            /// <summary>The way from a cell to the nearest wall (the left, the right, the top, the bottom one, in that order when two are as near).</summary>
-            private Vector2 outward(int cell)
-            {
-                int i = cell % columns, j = cell / columns;
-                int left = i, right = columns - 1 - i, top = j, bottom = rows - 1 - j;
-                int least = Math.Min(Math.Min(left, right), Math.Min(top, bottom));
-
-                if (least == left)
-                    return -Vector2.UnitX;
-
-                if (least == right)
-                    return Vector2.UnitX;
-
-                return least == top ? -Vector2.UnitY : Vector2.UnitY;
-            }
-
             private static bool lies(Block block, double t) => t >= block.Lands && t < block.GoneAt;
+
+            /// <summary>Where a block is at <paramref name="t"/>, how big and turned how far (degrees): flying from her, turning and growing to its size as it lands; then in its cell. False before it is thrown or once it is gone.</summary>
+            private bool blockAt(Block block, double t, out Vector2 place, out Vector2 size, out float degrees)
+            {
+                place = cellCentre(block.Cell);
+                size = cellSize;
+                degrees = 0f;
+
+                if (t < block.Thrown || t >= block.GoneAt)
+                    return false;
+
+                if (t < block.Lands)
+                {
+                    float eased = smoothStep((t - block.Thrown) / Math.Max(block.Lands - block.Thrown, 1));
+                    place = Vector2.Lerp(block.From, place, eased);
+                    size = cellSize * (0.6f + 0.4f * eased);
+                    degrees = (1f - eased) * 360f;
+                }
+
+                return true;
+            }
 
             public override void Update(BulletField f, double now)
             {
@@ -196,7 +201,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (order.Length == 0)
                     makeGrid(f);
 
-                // the blocks: into the first free cell, along the walls first, each out of the wall next to it
+                // her throws: into the first free cell, along the walls first
                 while (nextThrow < throws.Length && throws[nextThrow] <= now)
                 {
                     double t = throws[nextThrow++];
@@ -215,7 +220,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         continue; // (every cell is full)
 
                     lying[cell] = blocks.Count;
-                    blocks.Add(new Block { Cell = cell, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = cellCentre(cell) + outward(cell) * cellSize });
+                    blocks.Add(new Block { Cell = cell, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = f.bossPositionOf(Period) });
                 }
 
                 // the centipedes: from behind the wall at her back, at where the player is
@@ -545,7 +550,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 f.addFlash(t, at, radius * DanmakusuBalance.RICOCHET_FLASH_SIZE * 2f);
             }
 
-            /// <summary>The blocks that lie hurt like a slider body; so does the centipede, where it is drawn (not its head's feelers).</summary>
+            /// <summary>The blocks hurt like a slider body where they are drawn, flying or lying; so does the centipede (not its head's feelers).</summary>
             public override bool Hurts(BulletField f, double now)
             {
                 if (f.failed || order.Length == 0)
@@ -558,12 +563,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 {
                     foreach (var block in blocks)
                     {
-                        if (!lies(block, now))
+                        if (!blockAt(block, now, out Vector2 place, out Vector2 size, out float degrees))
                             continue;
 
-                        Vector2 off = player - cellCentre(block.Cell);
+                        // (in the block's own frame: it turns as it flies)
+                        Vector2 off = player - place;
+                        float angle = -degrees * MathF.PI / 180f;
+                        Vector2 local = new Vector2(off.X * MathF.Cos(angle) - off.Y * MathF.Sin(angle), off.X * MathF.Sin(angle) + off.Y * MathF.Cos(angle));
 
-                        if (MathF.Abs(off.X) <= cellSize.X * 0.5f + hit && MathF.Abs(off.Y) <= cellSize.Y * 0.5f + hit)
+                        if (MathF.Abs(local.X) <= size.X * 0.5f + hit && MathF.Abs(local.Y) <= size.Y * 0.5f + hit)
                             return true;
                     }
                 }
@@ -591,20 +599,17 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 if (fade > 0.01f)
                 {
-                    // (those coming out first, so that the ones lying hide where they come out of)
-                    foreach (var block in blocks)
-                    {
-                        if (t < block.Thrown || t >= block.Lands || t >= block.GoneAt)
-                            continue;
-
-                        float u = (float)((t - block.Thrown) / Math.Max(block.Lands - block.Thrown, 1));
-                        f.stageBack.Add(StageTexture.MomoyoStone, Vector2.Lerp(block.From, cellCentre(block.Cell), smoothStep(u)), cellSize, 0f, fade, Color4.White);
-                    }
-
+                    // (those lying first, so that the ones flying over them are seen)
                     foreach (var block in blocks)
                     {
                         if (lies(block, t))
                             f.stageBack.Add(StageTexture.MomoyoStone, cellCentre(block.Cell), cellSize, 0f, fade, Color4.White);
+                    }
+
+                    foreach (var block in blocks)
+                    {
+                        if (t < block.Lands && blockAt(block, t, out Vector2 place, out Vector2 size, out float degrees))
+                            f.stageBack.Add(StageTexture.MomoyoStone, place, size, degrees, fade, Color4.White);
                     }
                 }
 
