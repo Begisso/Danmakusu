@@ -62,6 +62,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy, // (2026-11-24: Iku's spiralling rings, Meira's fans, Narumi's ball, Parsee's balls and arrowheads)
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites, // (2026-11-25: Sara's gapless rings, Mai Teireida's talismans, Satono's stars, Takane's balls)
             BossMechanic.Cubes, BossMechanic.Pinwheel, // (2026-11-26: Yachie's rings and lattices; Yuiman's arrowheads - what is fired comes out of her points, so the placeholder's spirals doubled what they let out)
+            BossMechanic.History, BossMechanic.Beckon, // (2026-11-28: Keine's streams of beam are her act's; Mike's rings of big bullets)
         };
 
         /// <summary>Bosses whose spinners shoot their own bullets instead of the spinner's stars (what they turn into: the sets below; talismans otherwise).</summary>
@@ -85,6 +86,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.YinYang, BossMechanic.EvilEyes, BossMechanic.BigBat, BossMechanic.AngelOfDeath, BossMechanic.Underworld, BossMechanic.Sweep, // (2026-11-27: the six of Highly Responsive to Prayers)
             BossMechanic.Distance, BossMechanic.WellBucket, BossMechanic.KnifeTrail, BossMechanic.Poison, BossMechanic.Mining, // (2026-11-27: Komachi, Kisume, Louise, Medicine, Momoyo)
             BossMechanic.Rooster, BossMechanic.Violin, // (2026-11-27: Kutaka, Lunasa)
+            BossMechanic.History, BossMechanic.Harvest, BossMechanic.Beckon, // (2026-11-28: Keine, Minoriko - her spinner's stars are maple leaves -, Mike)
         };
 
         /// <summary>Of those, the ones whose spinner stars become round bullets, knives, arrowheads, ellipses (hearts: Koishi and Satori; stars: Tenshi; maple leaves: Shizuha).</summary>
@@ -114,6 +116,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             BossMechanic.Thunder, BossMechanic.Sword, BossMechanic.Statue, BossMechanic.Jealousy,
             BossMechanic.Gatekeeper, BossMechanic.Bamboo, BossMechanic.Myoga, BossMechanic.Satellites,
             BossMechanic.Cubes,
+            BossMechanic.History, BossMechanic.Beckon, // (2026-11-28: Keine's streams, Mike's rings)
         };
 
         /// <summary>Bosses with no big beams of their own, in their sections or their spinners (Nazrin, Zanmu, Reisen, Rumia, Flandre; also Doremy and the Akis, by id).</summary>
@@ -2128,6 +2131,25 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 }
             }
 
+            // Mike Goutokuji (2026-11-28): a ring of MIKE_RING_BULLETS bullets MIKE_BIG times as big as a plain one every MIKE_RING_EVERY_BEATS, every second ring turned half a step; each bursts MIKE_BURST_BEATS
+            // later into a ring of ellipses, or earlier under her golden wave into a golden ring (her act's)
+            void addMikeRings(Vector2 origin, double startTime, double endTime, double beatMs)
+            {
+                int shot = 0;
+
+                for (double t = startTime; t < endTime; t += beatMs * DanmakusuBalance.MIKE_RING_EVERY_BEATS, shot++)
+                {
+                    float phase = shot % 2 * MathF.PI / DanmakusuBalance.MIKE_RING_BULLETS;
+                    var directions = RingLayout.Create(RingShape.Circle, DanmakusuBalance.MIKE_RING_BULLETS, phase, out _);
+                    var ring = createEmitter(t, origin, DanmakusuBalance.SPIRAL_SPAWN_RADIUS, speedAt(t), directions, 0, radius * DanmakusuBalance.MIKE_BIG, BulletShape.Circle, followsBoss: true, straight: true);
+                    ring.Layout = RingShape.Circle;
+                    ring.LayoutPhase = phase;
+                    ring.KeepCount = true; // (eight with another boss on the screen too)
+                    ring.OwnShot = true;
+                    emitters.Add(ring);
+                }
+            }
+
             // Byakuren remembers where every fifth circle or slider of her section starts; 32 beats later five homing beams like her own (see HeadAct.Beams) start from round that place. The spots
             // follow each other at least 2 beats apart (0, 2, 4, ...): a spot waits for the one before it. She holds 5 spots at a time, over the whole map: with as many waiting to fire the next
             // one is not remembered, and when one has fired there is room again.
@@ -2640,6 +2662,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     ring.KeepCount = true; // (six with another boss on the screen too)
                     ring.HurtsLikeSlider = true;
                     ring.OwnShot = true;
+                    ring.SpinScale = DanmakusuBalance.TSUKASA_STAR_SPIN; // (2026-11-28, "stars spin speed halved")
                     emitters.Add(ring);
                 }
             }
@@ -2852,6 +2875,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     BossMechanic.Dango => BulletShape.Circle, // Ringo's round bullets
                     BossMechanic.ButterflyFans => BulletShape.Petal, // Yuyuko shoots petals instead of stars
                     BossMechanic.Autumn => BulletShape.Maple, // Shizuha's autumn leaves (orange, see planMechanics)
+                    BossMechanic.Harvest => BulletShape.Maple, // Minoriko's are maple leaves too (they bounce off her beams once: HarvestAct)
                     BossMechanic.Fortune => BulletShape.Circle, // Joon's are round (golden, and they fall: see planMechanics)
                     BossMechanic.Shockwave => BulletShape.Circle, // Yuugi's are basic bullets, twice as big (see planMechanics)
                     BossMechanic.Earthquake => BulletShape.Star, // Tenshi's are ricochet stars (see planMechanics)
@@ -2946,6 +2970,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                     // Takane's spinner: her rings of big balls in place of the spinner's stars
                     addTakaneBalls(bossPlanOrigin, attackStart, end, bossBeat);
                 }
+                else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Beckon)
+                {
+                    // Mike's spinner: her rings of big bullets in place of the spinner's stars
+                    addMikeRings(bossPlanOrigin, attackStart, end, bossBeat);
+                }
                 else if (kind == BossKind.Spinner && boss.Mechanic == BossMechanic.Masks)
                 {
                     // Kokoro's spinner: her very dense rings in place of the spinner's stars (what they are is her mood's: BossOps)
@@ -2984,6 +3013,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         addTeireidaTalismans(bossPlanOrigin, attackStart, end, bossBeat); // (Mai Teireida's rings of talismans; her beams are her act's)
                     else if (boss.Mechanic == BossMechanic.Satellites)
                         addTakaneBalls(bossPlanOrigin, attackStart, end, bossBeat); // (Takane's rings of big balls; what they grab is her act's)
+                    else if (boss.Mechanic == BossMechanic.Beckon)
+                        addMikeRings(bossPlanOrigin, attackStart, end, bossBeat); // (Mike's rings of big bullets; their bursts and her wave are her act's)
                     else if (boss.Mechanic == BossMechanic.Haniwa)
                         addShapeRings(bossPlanOrigin, attackStart, end, RingShape.Square, DanmakusuBalance.KEIKI_SQUARE_BULLETS, DanmakusuBalance.KEIKI_SQUARE_EVERY_BEATS); // (Keiki's very dense squares)
                     else if (boss.Mechanic == BossMechanic.Momentum)
@@ -3582,6 +3613,28 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                                 foreach (int i in removed.OrderByDescending(i => i))
                                     emitters.RemoveAt(i);
+                            }
+
+                            break;
+                        }
+
+                        // Mike (2026-11-28): every MIKE_GOLD_EVERY-th bullet fired in her section (anyone's, counted on over all the rings in the order they are fired; not her own big rings) is MIKE_GOLD_SIZE
+                        // times as big and golden - her golden wave bursts it into a golden ring (BeckonAct)
+                        case BossMechanic.Beckon when pass == 0:
+                        {
+                            long counted = 0;
+
+                            foreach (var ring in emitters.Where(r => r.Time >= period.ShootStart && r.Time < period.End && r.Count > 0 && r.Shape != BulletShape.Train && !(r.OwnShot && r.BossRank == period.Rank)).OrderBy(r => r.Time).ToList())
+                            {
+                                if (ring.BigBase < 0 && !ring.KeepsSize)
+                                {
+                                    ring.BigBase = (int)(counted % DanmakusuBalance.MIKE_GOLD_EVERY);
+                                    ring.BigEvery = DanmakusuBalance.MIKE_GOLD_EVERY;
+                                    ring.BigFactor = DanmakusuBalance.MIKE_GOLD_SIZE;
+                                    ring.BigGolden = true;
+                                }
+
+                                counted += ring.Count;
                             }
 
                             break;
@@ -5148,7 +5201,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                     var replacement = heartBoss ? BulletShape.Heart
                         : slotMechanic == BossMechanic.Earthquake ? BulletShape.Star
-                        : slotMechanic == BossMechanic.Autumn ? BulletShape.Maple
+                        : slotMechanic is BossMechanic.Autumn or BossMechanic.Harvest ? BulletShape.Maple
                         : round_spinner_bullets.Contains(slotMechanic) ? BulletShape.Circle
                         : knifeBoss ? BulletShape.Knife
                         : arrowhead_spinner_bullets.Contains(slotMechanic) ? BulletShape.Triangle
@@ -5713,11 +5766,14 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             // harmless at start for 4 beats, others are harmful, interchanging every 4 beats"): every ring fired in her sections (anyone's: the circles', the sliders', hers; not one that ricochets, homes, is
             // made out of others, a train or a big sharp ball, nor one whose outline is not known) is IKU_STAR_POINTS bullets, as a circle, joined as a star by ThunderAct; every second one starts harmful.
             // (From 2026-11-24 every five neighbouring bullets of a ring - every second one - were tied together, no further apart than IKU_TETHER_CIRCLES osu! circles.)
+            // (2026-11-28, "halve the amount": only every IKU_STAR_EVERY-th of those rings, in the order they are fired, is a star; the others stay as they are)
             {
                 int counted = 0;
 
                 foreach (var period in bossList.Where(period => period.Boss?.Mechanic == BossMechanic.Thunder))
                 {
+                    var candidates = new List<int>();
+
                     for (int i = 0; i < emitters.Count; i++)
                     {
                         var ring = emitters[i];
@@ -5725,6 +5781,19 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         if (ring.Time < period.ShootStart || ring.Time >= period.End || ring.Derived || ring.Derive != DeriveKind.None || ring.Ricochet || ring.Homing || ring.Sharp
                             || ring.Shape == BulletShape.Train || ring.Count == 0 || ring.StarLinked)
                             continue;
+
+                        candidates.Add(i);
+                    }
+
+                    candidates.Sort((a, b) => emitters[a].Time != emitters[b].Time ? emitters[a].Time.CompareTo(emitters[b].Time) : a.CompareTo(b));
+
+                    for (int c = 0; c < candidates.Count; c++)
+                    {
+                        if (c % DanmakusuBalance.IKU_STAR_EVERY != 0)
+                            continue;
+
+                        int i = candidates[c];
+                        var ring = emitters[i];
 
                         // (every ring an even circle of five, also one that was five already and one that did not know its outline: 2026-11-27, "by default all ring of 5s form perfect shape stars")
                         var star = ring.AsEvenRing(RingShape.Circle, DanmakusuBalance.IKU_STAR_POINTS);

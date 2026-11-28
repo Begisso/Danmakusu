@@ -376,7 +376,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 looks = f.characterPosition - at;
                     Vector2 towards = looks.LengthSquared > 1f ? Vector2.Normalize(looks) : Vector2.UnitY;
 
-                    f.stageBack.Add(StageTexture.Glow, at, new Vector2(r * 3.2f), 0f, 0.45f * presence, new Color4(0.85f, 0.3f, 1f, 1f), true);
+                    // (the swirl's white is see-through since 2026-11-28, "clear circles background", and the purple glow behind it is gone: only its red arms and black rim are drawn)
                     f.stageBack.Add(StageTexture.YuugenSwirl, at, new Vector2(r * 2f), (eye % 2 == 0 ? 1f : -1f) * swirl, presence, Color4.White);
                     f.stageBack.Add(StageTexture.Orb, at, new Vector2(eyeR * 2.24f), 0f, presence, new Color4(0.08f, 0.02f, 0.05f, 1f));
                     f.stageBack.Add(StageTexture.Orb, at, new Vector2(eyeR * 2f), 0f, presence, Color4.White);

@@ -3133,8 +3133,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (look != null && reisenAlpha > 0f && look.Alpha < 1f)
                         fade = 1f - (1f - fade) * (1f - (1f - look.Alpha) * reisenAlpha);
 
-                    // (what Toyohime has pulled is golden and glows)
-                    bool golden = emitter.GoldMask != 0 && b < 64 && (emitter.GoldMask & (1UL << b)) != 0;
+                    // (what Toyohime has pulled is golden and glows; so is Mike's every tenth bullet)
+                    bool golden = emitter.Golden(b);
 
                     if (golden)
                     {

@@ -2046,6 +2046,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                             registerStage(new ViolinAct(period, circleZones, sliderZones));
                         break;
 
+                    case BossMechanic.History:
+                        // Keine: her streams from her magic circle and the places she records (2026-11-28)
+                        if (period.End > period.ShootStart)
+                            registerStage(new HistoryAct(this, period, circleZones, sliderZones));
+                        break;
+
+                    case BossMechanic.Harvest:
+                        // Minoriko: the bullets she records and shoots again as leaves, her beams, the leaves bouncing off them (2026-11-28)
+                        if (period.End > period.ShootStart)
+                            registerStage(new HarvestAct(this, period));
+                        break;
+
+                    case BossMechanic.Beckon:
+                        // Mike: her big bullets bursting, her golden waves (2026-11-28)
+                        if (period.End > period.ShootStart)
+                            registerStage(new BeckonAct(this, period));
+                        break;
+
                     case BossMechanic.Distance:
                         // Komachi: her stops and the arcs she throws (2026-11-27)
                         if (period.End > period.ShootStart)

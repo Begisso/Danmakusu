@@ -70,9 +70,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         private const double carry_step_ms = 16;
 
         /// <summary>Every bullet of the rings and the acts that is on the screen now, as it is (nothing when the player has failed).</summary>
-        public CarriedBullet[] CarryOff()
+        public CarriedBullet[] CarryOff() => bulletsOnScreen(null, most_carried);
+
+        /// <summary>Every bullet of the rings and the acts (but <paramref name="except"/>) that is on the screen now, as it is, <paramref name="limit"/> at most (Minoriko records them too, 2026-11-28).</summary>
+        private CarriedBullet[] bulletsOnScreen(StageAct? except, int limit)
         {
             var into = new List<CarriedBullet>();
+            int most_carried = limit;
 
             if (failed || palette.Length == 0)
                 return into.ToArray();
@@ -139,7 +143,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
             foreach (var act in stageActs)
             {
-                if (act.Bullets.Count == 0 || now < act.FirstT0 || now > act.LastUntil + slack)
+                if (act == except || act.Bullets.Count == 0 || now < act.FirstT0 || now > act.LastUntil + slack)
                     continue;
 
                 for (int i = 0; i < act.Bullets.Count && into.Count < most_carried; i++)

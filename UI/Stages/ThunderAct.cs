@@ -24,6 +24,8 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // 2026-11-27 ("bullets are connected by slider laserbeams. By default all ring of 5s form perfect shape stars"): the stars are slider beams - the ring's own colour and edge, as wide as a slider's beam - and every ring is rebuilt as an even circle of five (BulletEmitter.AsEvenRing), also one that was five already.
         // 2026-11-28 ("laserbeams do not disconnect by themselves"): a star stays whole while any of its corners is on the screen - a corner that has left it, hit or been taken stays where its ring has it -
         // and is gone, all of it at once, when none is (a corner leaving the screen broke it there).
+        // Later that day ("halve the amount ... Each beam connection has 5 gaps in it"): only every IKU_STAR_EVERY-th ring is a star (the planner; the others stay as they are), and every beam between two
+        // corners is in IKU_LINK_GAPS + 1 pieces with gaps between them, IKU_GAP_SHARE of its length in all - drawn, hurting and foreseen so.
         // ======================================================================================================================================================
 
         private sealed class ThunderAct : StageAct
@@ -108,6 +110,37 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             }
 
             private readonly List<(int From, int To)> starRuns = new List<(int, int)>();
+            private readonly List<(Vector2 A, Vector2 B)> dashList = new List<(Vector2, Vector2)>(32);
+
+            /// <summary>
+            /// The pieces of a star's beam from <paramref name="a"/> to <paramref name="b"/> (2026-11-28, "Each beam connection has 5 gaps in it"): IKU_LINK_GAPS gaps evenly along it, IKU_GAP_SHARE of its length
+            /// in all; each piece is shortened by its round ends (<paramref name="half"/>), so the gaps are as wide as they are meant to be.
+            /// </summary>
+            private void dashes(Vector2 a, Vector2 b, float half, List<(Vector2 A, Vector2 B)> into)
+            {
+                into.Clear();
+                Vector2 along = b - a;
+                float length = along.Length;
+
+                if (length < 1e-3f)
+                    return;
+
+                along /= length;
+                int pieces = DanmakusuBalance.IKU_LINK_GAPS + 1;
+                float gap = length * DanmakusuBalance.IKU_GAP_SHARE / Math.Max(DanmakusuBalance.IKU_LINK_GAPS, 1);
+                float dash = length * (1f - DanmakusuBalance.IKU_GAP_SHARE) / pieces;
+                float trim = Math.Min(half, dash * 0.5f - 0.25f);
+
+                for (int i = 0; i < pieces; i++)
+                {
+                    float from = i * (dash + gap) + Math.Max(trim, 0f), to = i * (dash + gap) + dash - Math.Max(trim, 0f);
+
+                    if (to < from)
+                        from = to = i * (dash + gap) + dash * 0.5f;
+
+                    into.Add((a + along * from, a + along * to));
+                }
+            }
             private readonly List<Vector2> piece = new List<Vector2>(8);
             private readonly double beat;
             private readonly List<Vector2> line = new List<Vector2>(64);
@@ -332,18 +365,24 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     float edge = smoothStep(into / soft) * smoothStep((swap - into) / soft);
                     float solid = harmful(ring, t) ? DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * edge : DanmakusuBalance.IKU_HARMLESS_ALPHA + (1f - DanmakusuBalance.IKU_HARMLESS_ALPHA) * (1f - edge);
 
+                    // (every beam between two corners in pieces, with gaps between them: 2026-11-28)
                     foreach (var (from, to) in starRuns)
                     {
-                        piece.Clear();
-                        fades.Clear();
-
-                        for (int i = from; i < to; i++)
+                        for (int i = from; i + 1 < to; i++)
                         {
-                            piece.Add(line[i]);
-                            fades.Add(solid);
-                        }
+                            dashes(line[i], line[i + 1], sliderHalf, dashList);
 
-                        f.addPlainBeam(piece, sliderHalf, starBody, starBorder, ref beams, ref pointTotal, null, fades);
+                            foreach (var (a, b) in dashList)
+                            {
+                                piece.Clear();
+                                fades.Clear();
+                                piece.Add(a);
+                                piece.Add(b + (b == a ? new Vector2(0.25f, 0f) : Vector2.Zero));
+                                fades.Add(solid);
+                                fades.Add(solid);
+                                f.addPlainBeam(piece, sliderHalf, starBody, starBorder, ref beams, ref pointTotal, null, fades);
+                            }
+                        }
                     }
                 }
             }
@@ -476,12 +515,21 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         || !starLine(f, ring, t, now, starRuns))
                         continue;
 
+                    float half = starHalf(f);
+
                     foreach (var (from, to) in starRuns)
                     {
-                        for (int i = from; i < to; i++)
-                            shape.Point(line[i], starReach);
+                        for (int i = from; i + 1 < to; i++)
+                        {
+                            dashes(line[i], line[i + 1], half, dashList);
 
-                        shape.EndRun();
+                            foreach (var (a, b) in dashList)
+                            {
+                                shape.Point(a, starReach);
+                                shape.Point(b, starReach);
+                                shape.EndRun();
+                            }
+                        }
                     }
                 }
             }
@@ -587,12 +635,22 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         || !starLine(f, ring, now, now, starRuns))
                         continue;
 
+                    float half = starHalf(f);
+
                     foreach (var (from, to) in starRuns)
                     {
                         for (int i = from; i + 1 < to; i++)
                         {
-                            if (distanceToSegment(player, line[i], line[i + 1]) <= starReach)
-                                return true;
+                            if (distanceToSegment(player, line[i], line[i + 1]) > starReach)
+                                continue; // (nowhere near this beam at all)
+
+                            dashes(line[i], line[i + 1], half, dashList);
+
+                            foreach (var (a, b) in dashList)
+                            {
+                                if (distanceToSegment(player, a, b) <= starReach)
+                                    return true;
+                            }
                         }
                     }
                 }

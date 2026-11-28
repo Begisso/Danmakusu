@@ -757,5 +757,23 @@
         /// along her beams while they are solid.
         /// </summary>
         Violin,
+
+        /// <summary>
+        /// Keine Kamishirasawa (2026-11-28): in her attacks three streams of beam, eight beats long, out of three points on the edge of her magic circle; every sixteen beats she records ten circles and
+        /// sliders, and sixteen beats after each, after a red flash there, five of them shoot five long straight beams and five a ring of five big bullets that split at the walls into five, and again.
+        /// </summary>
+        History,
+
+        /// <summary>
+        /// Minoriko Aki (2026-11-28): every sixteen beats she records where every bullet on the screen is and sixteen beats later shoots a maple leaf from there, the way it flew, a quarter as fast; every
+        /// eight beats of her attacks pairs of long beams all round her, standing still while they are there; every leaf bounces off her beams once.
+        /// </summary>
+        Harvest,
+
+        /// <summary>
+        /// Mike Goutokuji (2026-11-28): rings of eight big bullets that burst into rings of eight ellipses eight beats later; every tenth bullet is three times as big and golden; her golden wave bursts
+        /// every big bullet it goes over into a golden ring of as many bullets as would fit in it.
+        /// </summary>
+        Beckon,
     }
 }

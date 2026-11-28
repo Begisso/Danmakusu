@@ -101,6 +101,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>Bit n set = bullet n is shown golden and glowing (Toyohime has pulled it towards the player).</summary>
         public ulong GoldMask;
 
+        /// <summary>How fast its stars spin, times the usual (Tsukasa's big stars half as fast, 2026-11-28).</summary>
+        public float SpinScale = 1f;
+
+        /// <summary>Its big bullets (<see cref="BigScale"/>) are golden and glowing from the start (Mike's every tenth bullet, 2026-11-28: the planner's, kept when time goes back - Toyohime's <see cref="GoldMask"/> is not).</summary>
+        public bool BigGolden;
+
+        /// <summary>Is bullet <paramref name="bullet"/> drawn golden and glowing?</summary>
+        public bool Golden(int bullet) => (bullet < 64 && (GoldMask & (1UL << bullet)) != 0) || (BigGolden && BigScale(bullet) > 1f);
+
         /// <summary>How far (game time) the field has checked this ring's bullets against the moon; NaN = not at all.</summary>
         public double MoonScanned = double.NaN;
 
@@ -876,6 +885,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 FansOnLeaving = FansOnLeaving,
                 EdgeGrow = EdgeGrow,
                 CurseBeams = CurseBeams, // (Noroiko's: a copy is drawn as 呪 in beams too, its bullets hidden - 2026-11-28)
+                BigGolden = BigGolden, // (Mike's golden bullets stay golden in a copy)
+                SpinScale = SpinScale, // (Tsukasa's stars spin as slowly in a copy)
                 HiddenMask = CurseBeams ? (directions.Length >= 64 ? ulong.MaxValue : (1UL << directions.Length) - 1) : 0,
             };
         }
@@ -2250,7 +2261,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             if (Deflections != null && Deflections.TryGetValue(bullet, out var lying) && lying.Stuck && time >= lying.Time)
                 time = lying.Time;
 
-            double angle = DanmakusuBalance.STAR_SPIN_RATE * (time - Time);
+            double angle = DanmakusuBalance.STAR_SPIN_RATE * SpinScale * (time - Time);
             float cos = (float)Math.Cos(angle), sin = (float)Math.Sin(angle);
             Vector2 d = Directions[bullet];
 

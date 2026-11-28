@@ -1399,15 +1399,15 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const float AYA_DASH_SPEED = 8f; // (4 until 2026-11-22, the same day: twice as fast)
 
-        /// <summary>Her dashes start on a grid of this many beats (0.5 until 2026-11-28, "double the flying frequency"; 1 until 2026-11-22, the same day).</summary>
-        public const double AYA_DASH_EVERY_BEATS = 0.25;
+        /// <summary>Her dashes start on a grid of this many beats (0.25 for a while on 2026-11-28, "double the flying frequency", then 0.5 again, "halve the fly frequency"; 1 until 2026-11-22, the same day).</summary>
+        public const double AYA_DASH_EVERY_BEATS = 0.5;
 
         /// <summary>
         /// Aya (2026-11-28, "double the flying frequency ... double the previews duration"): she sets off again at least this many beats after she has got to the edge, and every way is shown this many
         /// beats before she takes it (the next few at once). Until then the next way was shown from when she got to the edge until she went, at least AYA_PREVIEW_LEAST_BEATS 0.75 later - 0.75-1.25 of a
         /// beat, which was also her rest (0.25 until 2026-11-25, "laserbeam preview doubled"; 0.5 until 2026-11-22).
         /// </summary>
-        public const double AYA_REST_LEAST_BEATS = 0.125; // (0.25 the same day made her 1.7 times as frequent, 138 dashes for 80)
+        public const double AYA_REST_LEAST_BEATS = 0.5; // (0.125 on a grid of 0.25 the same day: 200 dashes in 40 s of the Boss Rush; "halve the fly frequency" - 0.5 on 0.5: 103)
 
         public const double AYA_PREVIEW_BEATS = 2;
 
@@ -2182,6 +2182,9 @@ namespace osu.Game.Rulesets.Danmakusu
 
         /// <summary>Tsukasa (2026-11-28, "Recorded bullets come out evenly in star shape every 4 beats instead (each star shoots separately)"): her stars keep what they take and send it out every this many beats.</summary>
         public const double TSUKASA_RECORD_EVERY_BEATS = 4;
+
+        /// <summary>Tsukasa (2026-11-28, "stars spin speed halved"): her big stars spin this many times as fast as stars do.</summary>
+        public const float TSUKASA_STAR_SPIN = 0.5f;
 
         /// <summary>Yatsuhashi's approach circles (2026-11-14): they start this many times their closed size (as osu!'s), this opaque, their line this share of their closed radius on either side.</summary>
         public const float YATSUHASHI_APPROACH_SCALE = 4f;
@@ -4522,6 +4525,15 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float IKU_HARMLESS_ALPHA = 0.3f;
 
         /// <summary>
+        /// Iku (2026-11-28, "halve the amount ... Each beam connection has 5 gaps in it"): only every this many-th of the rings is a star (every one before), and every beam between two corners is broken
+        /// by this many gaps, evenly along it, which together take this share of its length (it was whole before).
+        /// </summary>
+        public const int IKU_STAR_EVERY = 2;
+
+        public const int IKU_LINK_GAPS = 5;
+        public const float IKU_GAP_SHARE = 0.35f;
+
+        /// <summary>
         /// Meira: every this many beats she slides after the player this many times, the slides starting evenly over the first this many beats, each at most this long (beats) and this many times a plain
         /// bullet's speed, stopping as near as Elly does (ELLY_RADIUS x ELLY_NEAR of the screen's height); her way is laid down a step every this many ms. The beam behind her is this many circle radii thick each side;
         /// as she slides again it goes, every this many circle radii of it a ring of this many basic bullets this big (of a plain one), as fast as a plain one.
@@ -5067,5 +5079,52 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float LUNASA_NOTE_STEP_PX = 24f;
         public const int LUNASA_PIECES = 6;
         public const float LUNASA_PIECE_SPEED = 1f;
+
+        // Keine Kamishirasawa (2026-11-28): so many points on her magic circle, a volley of streams every so many beats of her attacks, a red flash so long before, each point letting its beam out so long,
+        // the beam's ends flying so fast (times a plain bullet); every so many beats so many circles and sliders recorded, all shooting at once as the stretch is over, after a red flash and see-through
+        // beams so long (each shot KEINE_RECORD_DELAY_BEATS 16 after its own object until later that day): so many beams, solid so long, or a ring of so many bullets so big (plain bullets) that split at
+        // a wall into so many so big, fanned over so many degrees, and once more into plain ones
+        public const int KEINE_POINTS = 3;
+        public const double KEINE_STREAM_EVERY_BEATS = 8;
+        public const double KEINE_FLASH_BEATS = 1;
+        public const double KEINE_STREAM_BEATS = 8;
+        public const float KEINE_STREAM_SPEED = 3f;
+        public const double KEINE_RECORD_EVERY_BEATS = 16;
+        public const int KEINE_RECORDS = 10;
+        public const double KEINE_WARN_BEATS = 2;
+        public const int KEINE_BEAMS = 5;
+        public const double KEINE_BEAM_BEATS = 8;
+        public const int KEINE_RING = 5;
+        public const float KEINE_BIG = 3f;
+        public const float KEINE_MIDDLE = 1.5f;
+        public const int KEINE_SPLIT = 5;
+        public const float KEINE_SPLIT_FAN_DEGREES = 90f;
+
+        // Minoriko Aki (2026-11-28): every so many beats where every bullet on the screen is is recorded (so many at most), and so many beats later a maple leaf flies from there as fast as it did times this,
+        // see-through for so many beats before; every so many beats of her attacks so many pairs of beams round her (the two of a pair so many degrees apart), see-through so long, solid so long
+        public const double MINORIKO_RECORD_EVERY_BEATS = 16;
+        public const double MINORIKO_RESHOOT_BEATS = 16;
+        public const int MINORIKO_MOST = 400;
+        public const float MINORIKO_SLOW = 0.25f;
+        public const double MINORIKO_PREVIEW_BEATS = 4;
+        public const double MINORIKO_BEAM_EVERY_BEATS = 8;
+        public const int MINORIKO_PAIRS = 18;
+        public const float MINORIKO_PAIR_DEGREES = 5f;
+        public const double MINORIKO_BEAM_PREVIEW_BEATS = 2;
+        public const double MINORIKO_BEAM_BEATS = 8;
+
+        // Mike Goutokuji (2026-11-28): a ring of so many bullets so big (plain bullets) every so many beats, each bursting so many beats later into a ring of so many ellipses; every so many-th bullet of her
+        // section so big and golden; a golden wave every so many beats (from so many beats into her section on), so fast (times a plain bullet), so wide (circle radii)
+        public const int MIKE_RING_BULLETS = 8;
+        public const float MIKE_BIG = 3f;
+        public const double MIKE_RING_EVERY_BEATS = 4;
+        public const double MIKE_BURST_BEATS = 8;
+        public const int MIKE_BURST_BULLETS = 8;
+        public const int MIKE_GOLD_EVERY = 10;
+        public const float MIKE_GOLD_SIZE = 3f;
+        public const double MIKE_WAVE_EVERY_BEATS = 8;
+        public const double MIKE_WAVE_FIRST_BEATS = 4;
+        public const float MIKE_WAVE_SPEED = 2f;
+        public const float MIKE_WAVE_WIDTH = 0.6f;
     }
 }

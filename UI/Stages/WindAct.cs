@@ -17,9 +17,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (2026-11-22; it flew out whole to its own side). The feathers turn round as they fly, the two of a bullet opposite ways (AYA_FEATHER_SPIN, 2026-11-25). Each swing is heard (Kagerou's).
         // Her own shots are the planner's: fans of orange maple leaves that pull towards the player, from wherever she is.
         // (2026-11-28: twice as often and the previews twice as long - every way is chosen AYA_PREVIEW_BEATS before she takes it, from where the dash before it ends, and she sets off AYA_REST_LEAST_BEATS
-        // after she has got to the edge; the next few show at once. Her trace half as thick (AYA_BEAM_WIDTH), her feathers half as big (AYA_FEATHER_SIZE).)
+        // after she has got to the edge; the next few show at once. Her trace half as thick (AYA_BEAM_WIDTH), her feathers half as big (AYA_FEATHER_SIZE). Later that day, "halve the fly frequency": half as
+        // often again - on the half beats, resting half a beat at least: 103 dashes in 40 s of the Boss Rush for 200.)
         // The ways she chose are kept: time going back takes the same ways again (the later ones are chosen when their time comes).
         // ======================================================================================================================================================
+
+        /// <summary>(the bench, AYA_DASHES=1) How many dashes Aya has set off on.</summary>
+        public static int AyaDashes;
 
         private sealed class WindAct : StageAct
         {
@@ -126,6 +130,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     Vector2 from = dashes.Count == 0 ? f.bossPositionOf(Period) : dashes[^1].To;
                     Vector2 way = choose(f, from, out float length);
                     dashes.Add(new Dash { Chosen = chooseAt, Start = start, Arrive = start + length / Math.Max(speed, 1e-3f), From = from, To = from + way * length, Way = way });
+                    AyaDashes++;
                 }
 
                 // (every dash is heard as it goes: one of Kagerou's swings)

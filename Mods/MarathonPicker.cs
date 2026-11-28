@@ -32,7 +32,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     /// The maps of a marathon in the settings of <see cref="DanmakusuModMarathon"/> (2026-11-27): a search box that searches the library as song select's does (osu!'s own query parser and matching, for
     /// Danmakusu, so with its stars and converted maps), and a list of the maps it finds - the checked ones first, in their order - where a click checks a map or takes it out again. A checked map shows
     /// the number of its place in the marathon where an unchecked one shows an empty box. Under the search (2026-11-27): four checks for the modes whose maps are found (osu!standard alone at first),
-    /// how many maps Random checks (5 at first), Random - that many at random among everything found, replacing what was checked - and Clear. When Marathon is first put on with nothing checked, the
+    /// how many maps Random checks (5 at first), Random - that many more at random among everything found, after what is checked already (which it leaves alone since 2026-11-28) - and Clear. When Marathon is first put on with nothing checked, the
     /// map selected in song select is checked as its first.
     /// </summary>
     public partial class MarathonPicker : SettingsItem<string>
@@ -86,7 +86,10 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             /// <summary>Is a map of a mode that is checked?</summary>
             private static bool modeOn(BeatmapInfo beatmap, bool[] on) => beatmap.Ruleset.OnlineID is >= 0 and <= 3 && on[beatmap.Ruleset.OnlineID];
 
-            /// <summary>Random: as many maps as the box says, at random among all that are found (not only those shown); what was checked before is replaced.</summary>
+            /// <summary>
+            /// Random: as many maps as the box says, at random among all that are found (not only those shown), added after the ones checked already - those stay as they are, in their order (since 2026-11-28,
+            /// "Already Selected songs are not affected by random": what was checked before was replaced).
+            /// </summary>
             private void pickRandom()
             {
                 if (int.TryParse(amountBox.Text, out int typed))
@@ -94,10 +97,12 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
                 amountBox.Text = random_amount.ToString();
 
-                var pool = found.Select(beatmap => beatmap.MD5Hash).Distinct().ToList();
-                var picked = new List<string>();
+                var picked = DanmakusuModMarathon.MapsOf(current.Value).ToList();
+                var already = new HashSet<string>(picked);
+                var pool = found.Select(beatmap => beatmap.MD5Hash).Distinct().Where(md5 => !already.Contains(md5)).ToList();
+                int wanted = picked.Count + random_amount;
 
-                while (picked.Count < random_amount && pool.Count > 0)
+                while (picked.Count < wanted && pool.Count > 0)
                 {
                     int index = Random.Shared.Next(pool.Count);
                     picked.Add(pool[index]);

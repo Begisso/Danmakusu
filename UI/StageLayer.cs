@@ -399,7 +399,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         /// <summary>Noroiko's 呪 (Resources/Textures/noroiko_curse.png, white, baked from the user's picture by Tools/Bake glyph: 2026-11-26).</summary>
         CurseGlyph,
 
-        /// <summary>YuugenMagan's circles (Resources/Textures/yuugen_swirl.png: the user's red and white swirl, cut out round by Tools/Bake disc - 2026-11-28).</summary>
+        /// <summary>
+        /// YuugenMagan's circles (Resources/Textures/yuugen_swirl.png: the user's red and white swirl, cut out round by Tools/Bake disc - 2026-11-28; its white made see-through the same day, "clear circles
+        /// background": every pixel taken off white by how white it is, so the red arms and the black rim keep their smooth edges).
+        /// </summary>
         YuugenSwirl,
     }
 

@@ -60,7 +60,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 Vector2 velocity = (to - from) / (float)Math.Max(t - ScanPrevious, 1e-3);
 
                 // (its glow goes with the pieces: its own, a flashing one's, a golden one's - 2026-11-14, "sliced bullets should not lose their bloom and glow")
-                bool golden = emitter.GoldMask != 0 && bullet < 64 && (emitter.GoldMask & (1UL << bullet)) != 0;
+                bool golden = emitter.Golden(bullet);
                 float bloom = Math.Max(emitter.Bloom, golden ? DanmakusuBalance.TOYOHIME_GOLD_BLOOM : emitter.Flashes ? flashBloom(t - emitter.Time, emitter.RemoveAfter) : 0f);
 
                 if (CutProbe && (to - f.characterPosition).Length < 40f)

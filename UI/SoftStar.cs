@@ -150,10 +150,10 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     if (rimWidth > 0f)
                         colour = mix(colour, Color4.White, 1f - smoothstep(0.35f * rimWidth, rimWidth, -d));
 
-                    float haloAlpha = 0f;
-
-                    if (d > 0f)
-                        haloAlpha = glowStrength * MathF.Exp(-d / glowWidth) * (1f - smoothstep(0.5f * reach, 0.95f * reach, d)); // (gone before the edge of the picture)
+                    // (the glow is there at its fullest up to the outline and under the soft edge: until 2026-11-28 it began only outside the outline, so where the edge faded out the glow had not come in yet,
+                    // and a thin dark line of what is behind showed between the star and its glow - "remove that weird line in-between shape and bloom")
+                    float outside = Math.Max(d, 0f);
+                    float haloAlpha = glowStrength * MathF.Exp(-outside / glowWidth) * (1f - smoothstep(0.5f * reach, 0.95f * reach, outside)); // (gone before the edge of the picture)
 
                     float alpha = shapeAlpha + (1f - shapeAlpha) * haloAlpha;
 
