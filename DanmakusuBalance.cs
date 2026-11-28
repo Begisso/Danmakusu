@@ -793,7 +793,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_STOMP_CIRCLES = 8f; // (4 until 2026-11-21: "her own earthquake radius doubled, but 2 times thinner")
         public const float SUIKA_STOMP_SPEED = 2f;
         public const float SUIKA_MAGMA_BLOOM = 0.6f;
-        public const double SUIKA_TAIL_BEATS = 2;
+        public const double SUIKA_TAIL_BEATS = 1; // (2 until 2026-11-28, "halve the traces length")
         public const float SUIKA_TAIL_WIDTH = 0.45f;
         public const int SUIKA_WALL_PIECES = 2; // (4 until 2026-11-24: "halve the fan bullets amount that return from playfield")
         public const float SUIKA_WALL_PIECE_SIZE = 0.5f;
@@ -859,7 +859,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float SUIKA_FISSURE_CIRCLES = 2f;
         public const double SUIKA_FISSURE_STAY_BEATS = 8;
         public const int SUIKA_FISSURE_POINTS = 24;
-        public const int SUIKA_FISSURE_BULLETS = 4;
+        public const int SUIKA_FISSURE_BULLETS = 2; // (4 until 2026-11-28, "halve the spread out bullets count")
 
         /// <summary>
         /// Yuki: her beams are this many spinner star radii wide on each side, fly out this many times as fast as a plain bullet, a slice every this many ms; every this many-th slice leaves a scorch mark where it goes out, this
@@ -4415,8 +4415,8 @@ namespace osu.Game.Rulesets.Danmakusu
         /// </summary>
         public const double NOROIKO_EVERY_BEATS = 0.5;
 
-        public const float NOROIKO_CURSE_CIRCLES = 4f;
-        public const float NOROIKO_STROKE_CIRCLES = 0.24f; // (0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
+        public const float NOROIKO_CURSE_CIRCLES = 2f; // (4 until 2026-11-28, "halve her homing curses size": the sliders' too, and the strokes with them)
+        public const float NOROIKO_STROKE_CIRCLES = 0.12f; // (0.24 until 2026-11-28, halved with the curses: the same strokes on a curse half as big closed it up; 0.12 until 2026-11-25: the user saw no curses at all - thin and white-cored they passed for slider beams; twice as thick, red all through)
         public const float NOROIKO_STROKE_SHARE = 0.03f; // (2026-11-27, her curses in beams again: half a stroke is this much of the curse's height at least)
         public const float NOROIKO_BEAM_BLOOM = 0.6f;
         public const double NOROIKO_HOMING_BEATS = 8;
@@ -4424,8 +4424,8 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float NOROIKO_SPEED_TO = 2.5f;
         public const float NOROIKO_TURN_DEGREES = 45f;
         public const double NOROIKO_STEP_MS = 10;
-        public const float NOROIKO_SLIDER_LEAST = 3f;
-        public const float NOROIKO_SLIDER_MOST = 12f; // (10 until 2026-11-26)
+        public const float NOROIKO_SLIDER_LEAST = 1.5f; // (3 until 2026-11-28)
+        public const float NOROIKO_SLIDER_MOST = 6f; // (12 until 2026-11-28; 10 until 2026-11-26)
 
         /// <summary>
         /// Noroiko (2026-11-26, the user's picture of 呪: "they are white, they glow, they bloom ... size grows proportionally to slider duration"): her curses are the picture, white, over a soft white glow
@@ -4436,7 +4436,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const float NOROIKO_GLOW_ALPHA = 0.45f;
         public const float NOROIKO_BLOOM_SIZE = 2.4f;
         public const float NOROIKO_BLOOM_ALPHA = 0.25f;
-        public const float NOROIKO_SLIDER_CIRCLES_PER_BEAT = 4f;
+        public const float NOROIKO_SLIDER_CIRCLES_PER_BEAT = 2f; // (4 until 2026-11-28)
 
         /// <summary>Noroiko (2026-11-28, "sliders don't shoot growing jp laserbeams"): a slider's curse starts this much of its size and grows to all of it while it homes.</summary>
         public const float NOROIKO_SLIDER_GROW_FROM = 0.25f;

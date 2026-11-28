@@ -10,7 +10,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
     {
         // ======================================================================================================================================================
         // Rikako Asakura (2026-11-26, the user's pictures of the Earth from orbit, of asteroids and of a satellite).
-        // The Earth: in every attack of hers the picture of the Earth seen from orbit lies over the whole screen, RIKAKO_EARTH_ALPHA see-through, under the bullets; it fades in over a beat as the attack
+        // The Earth (all through her section since 2026-11-28, "background stays during her section"; in her attacks only before): the picture of the Earth seen from orbit lies over the whole screen, RIKAKO_EARTH_ALPHA see-through, under the bullets; it fades in over a beat as the attack
         // begins, with the sound of Yuyuko's tree growing, and out over a beat as it ends.
         // The asteroids: all through her section (Bullets/Asteroids.cs: closed forms, by a hash) rocks cut out of the user's picture fly across the screen from every side, each its own size, way, speed and
         // turn; they fade in as her section begins and out as it ends. Every bullet that flies into one bounces off it (BossOps: TrajectoryOpKind.Rocks); they do not hurt.
@@ -383,17 +383,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 Vector2 low = f.stageMin, high = f.stageMax;
 
-                // (the Earth over the whole screen in her attacks, as big as it must be to cover it)
-                foreach (var (start, end) in attacks)
+                // (the Earth over the whole screen all through her section, as big as it must be to cover it: 2026-11-28, "background stays during her section" - it came and went with each attack)
                 {
-                    float shown = smoothStep((t - start) / beat) * smoothStep((end - t) / beat);
+                    float shown = smoothStep((t - Period.ShootStart) / beat) * smoothStep((Period.End - t) / beat);
 
-                    if (shown <= 0.005f)
-                        continue;
-
-                    Vector2 screen = high - low;
-                    float cover = Math.Max(screen.X / 1920f, screen.Y / 1080f);
-                    f.stageBack.Add(StageTexture.RikakoEarth, (low + high) / 2f, new Vector2(1920f, 1080f) * cover, 0f, DanmakusuBalance.RIKAKO_EARTH_ALPHA * shown, Color4.White);
+                    if (shown > 0.005f)
+                    {
+                        Vector2 screen = high - low;
+                        float cover = Math.Max(screen.X / 1920f, screen.Y / 1080f);
+                        f.stageBack.Add(StageTexture.RikakoEarth, (low + high) / 2f, new Vector2(1920f, 1080f) * cover, 0f, DanmakusuBalance.RIKAKO_EARTH_ALPHA * shown, Color4.White);
+                    }
                 }
 
                 // (the asteroids there now, in her section)

@@ -32,8 +32,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     /// The maps of a marathon in the settings of <see cref="DanmakusuModMarathon"/> (2026-11-27): a search box that searches the library as song select's does (osu!'s own query parser and matching, for
     /// Danmakusu, so with its stars and converted maps), and a list of the maps it finds - the checked ones first, in their order - where a click checks a map or takes it out again. A checked map shows
     /// the number of its place in the marathon where an unchecked one shows an empty box. Under the search (2026-11-27): four checks for the modes whose maps are found (osu!standard alone at first),
-    /// how many maps Random checks (5 at first), Random - that many more at random among everything found, after what is checked already (which it leaves alone since 2026-11-28) - and Clear. When Marathon is first put on with nothing checked, the
-    /// map selected in song select is checked as its first.
+    /// how many maps Random checks (5 at first), Random - that many more at random among everything found, after what is checked already (which it leaves alone since 2026-11-28) - and Clear. The map selected in song select is locked as the first
+    /// (since 2026-11-28; it was checked as the first only when Marathon was first put on with nothing checked): it cannot be taken out, Clear leaves it, and another one selected takes its place.
     /// </summary>
     public partial class MarathonPicker : SettingsItem<string>
     {
@@ -62,8 +62,10 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             [Resolved(CanBeNull = true)]
             private IBindable<WorkingBeatmap>? selectedMap { get; set; }
 
-            // (the Marathon settings whose list has been started so: a list cleared later stays clear)
-            private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Bindable<string>, object> started = new System.Runtime.CompilerServices.ConditionalWeakTable<Bindable<string>, object>();
+            // (the map selected in song select is locked as the first map - 2026-11-28, "Selected song is locked and is first": it cannot be taken out, Clear and Random leave it, and when another map
+            // is selected that one takes its place; it was checked as the first only once, when Marathon was put on with nothing checked)
+            private IBindable<WorkingBeatmap>? selectedCopy;
+            private string? lockedHash;
 
             private readonly OsuTextBox search;
             private readonly SpriteText info;
@@ -173,7 +175,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                     Origin = Anchor.TopRight,
                     Y = 38,
                     Text = "Clear",
-                    Action = () => current.Value = string.Empty,
+                    Action = () => current.Value = lockedHash ?? string.Empty, // (but the map selected in song select)
                 };
 
                 var random = new RoundedButton
@@ -248,17 +250,10 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
             {
                 base.LoadComplete();
 
-                // (Marathon just put on, with nothing checked: the map selected in song select is its first map - once; what is cleared later stays clear)
-                var settings = current.Current;
-
-                if (!started.TryGetValue(settings, out _))
-                {
-                    started.Add(settings, new object());
-                    string? selected = selectedMap?.Value?.BeatmapInfo?.MD5Hash;
-
-                    if (string.IsNullOrEmpty(settings.Value) && !string.IsNullOrEmpty(selected) && selectedMap?.Value is not DummyWorkingBeatmap)
-                        settings.Value = selected;
-                }
+                // (the map selected in song select: locked as the first, now and whenever another is selected)
+                selectedCopy = selectedMap?.GetBoundCopy();
+                applyLock();
+                selectedCopy?.BindValueChanged(_ => applyLock());
 
                 current.BindValueChanged(_ => rebuild());
                 search.Current.BindValueChanged(_ =>
@@ -369,8 +364,39 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 }, cancel.Token);
             }
 
+            /// <summary>The MD5 of the map selected in song select (none for the empty one).</summary>
+            private string? selectedHash => selectedCopy?.Value is { } map && map is not DummyWorkingBeatmap && !string.IsNullOrEmpty(map.BeatmapInfo?.MD5Hash) ? map.BeatmapInfo.MD5Hash : null;
+
+            /// <summary>Puts the map selected in song select first (once only); the one locked before, if another is selected now, leaves its first place.</summary>
+            private void applyLock()
+            {
+                string? selected = selectedHash;
+                var maps = DanmakusuModMarathon.MapsOf(current.Value).ToList();
+
+                if (lockedHash != null && lockedHash != selected && maps.Count > 0 && maps[0] == lockedHash)
+                    maps.RemoveAt(0);
+
+                lockedHash = selected;
+
+                if (lockedHash != null)
+                {
+                    maps.RemoveAll(md5 => md5 == lockedHash);
+                    maps.Insert(0, lockedHash);
+                }
+
+                string value = DanmakusuModMarathon.ValueOf(maps);
+
+                if (value != current.Value)
+                    current.Value = value;
+                else
+                    rebuild();
+            }
+
             private void toggle(BeatmapInfo beatmap)
             {
+                if (beatmap.MD5Hash == lockedHash)
+                    return; // (the map selected in song select stays the first)
+
                 var chosen = DanmakusuModMarathon.MapsOf(current.Value).ToList();
 
                 if (!chosen.Remove(beatmap.MD5Hash))
@@ -393,7 +419,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 for (int i = 0; i < chosen.Length; i++)
                 {
                     if (byHash.TryGetValue(chosen[i], out var beatmap))
-                        rows.Add(new Row(beatmap, i, toggle));
+                        rows.Add(new Row(beatmap, i, toggle, chosen[i] == lockedHash));
                     else if (library != null)
                     {
                         string gone = chosen[i];
@@ -433,7 +459,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 private readonly bool chosen;
                 private readonly SpriteText name;
 
-                public Row(BeatmapInfo beatmap, int order, Action<BeatmapInfo> toggle)
+                public Row(BeatmapInfo beatmap, int order, Action<BeatmapInfo> toggle, bool locked = false)
                 {
                     this.beatmap = beatmap;
                     this.toggle = toggle;
@@ -482,7 +508,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                         },
                         name = new SpriteText
                         {
-                            Text = $"{beatmap.Metadata.Artist} - {beatmap.Metadata.Title} [{beatmap.DifficultyName}]",
+                            Text = (locked ? "(selected, locked) " : string.Empty) + $"{beatmap.Metadata.Artist} - {beatmap.Metadata.Title} [{beatmap.DifficultyName}]",
                             Font = FontUsage.Default.With(size: 15),
                             Anchor = Anchor.CentreLeft,
                             Origin = Anchor.CentreLeft,

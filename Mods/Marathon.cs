@@ -20,14 +20,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 {
     /// <summary>
     /// Marathon (2026-11-27): several maps played back to back. The maps are checked in its settings (<see cref="MarathonPicker"/>), in the order they will be played; their MD5s are the value, so a score
-    /// keeps them. Starting a map in song select starts the first of them (whichever map was selected), and when one has been played to its end the next one starts by itself at once
+    /// keeps them. The map selected in song select is always the first (since 2026-11-28: the first of the list was started whichever map was selected), and when one has been played to its end the next one starts by itself at once
     /// (<see cref="MarathonRun"/>). The bosses of a boss selection mod are the marathon's: the most there can be is what all its maps have room for, and each map has its share of them, in order. Quitting a map, or failing it and leaving, ends the marathon; a replay never goes on to the next map.
     /// </summary>
     public class DanmakusuModMarathon : Mod, IApplicableToPlayer
     {
         public override string Name => "Marathon";
         public override string Acronym => "MR";
-        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. Starting any map starts the first; each next one starts as soon as the one before is over, with the bullets and beams it left on the screen.";
+        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. The map selected in song select is always the first; each next one starts as soon as the one before is over, with the bullets and beams it left on the screen.";
 
         [Obsolete("Score multipliers are not used any more (the base member is obsolete); kept because the base class asks for it.")]
         public override double ScoreMultiplier => 1;
@@ -267,6 +267,17 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 {
                     stop();
                     return;
+                }
+
+                // (the map selected - the one started - is the first, whatever the list says: 2026-11-28, "Selected song is locked and is first"; the setting is put so too, so the bosses' shares go by it)
+                if (__instance.Beatmap.Value is { } chosenMap && chosenMap is not DummyWorkingBeatmap && !string.IsNullOrEmpty(chosenMap.BeatmapInfo?.MD5Hash))
+                {
+                    string first = chosenMap.BeatmapInfo.MD5Hash;
+                    list = new[] { first }.Concat(list.Where(md5 => md5 != first)).ToArray();
+                    string value = DanmakusuModMarathon.ValueOf(list);
+
+                    if (marathon != null && marathon.Maps.Value != value)
+                        marathon.Maps.Value = value;
                 }
 
                 maps = list;
