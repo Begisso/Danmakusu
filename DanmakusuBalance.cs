@@ -5044,7 +5044,7 @@ namespace osu.Game.Rulesets.Danmakusu
         // length), its legs so long (two joints, times its width), stroking so far (degrees) once every so many circle radii it goes, so many waves along its body; its path sways so far (times its width)
         // every so long a stretch (times its length); it turns at the player at most so many degrees a beat for so many beats, then goes straight on and away)
         public const float MOMOYO_BLOCK_CIRCLES = 1f;
-        public const double MOMOYO_THROW_EVERY_BEATS = 0.25;
+        public const double MOMOYO_THROW_EVERY_BEATS = 0.5; // (0.25 for a while on 2026-11-28, "twice frequency", then "half the block throwing frequency"; 0.5 before)
         public const double MOMOYO_THROW_BEATS = 2;
         public const int MOMOYO_LAYERS = 2;
         public const float MOMOYO_CENTIPEDE_CIRCLES = 16f;
