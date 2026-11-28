@@ -20,6 +20,21 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         public readonly float Turn;
         public readonly float Spin;
 
+        /// <summary>
+        /// While it can be on any screen (up to <see cref="Asteroids.SCREEN_HALF"/> round the middle of the playfield, its hit circle too): nothing bounces off it before or after, for a bounce is only
+        /// on the screen (2026-11-28: twice as many rocks, and every bullet looked at all of them, most of them still far outside - 7.7 ms a frame for 2.8).
+        /// </summary>
+        public readonly double OnFrom, OnTo;
+
+        /// <summary>The latest <see cref="OnTo"/> of this one and every one born before it: every rock before the first whose this is past a moment is off every screen then (a search starts there).</summary>
+        public readonly double OnToSoFar;
+
+        public Asteroid(in Asteroid other, double onToSoFar)
+        {
+            this = other;
+            OnToSoFar = onToSoFar;
+        }
+
         public Asteroid(double born, double gone, Vector2 from, Vector2 velocity, float size, float hit, int picture, float turn, float spin)
         {
             Born = born;
@@ -31,6 +46,35 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
             Picture = picture;
             Turn = turn;
             Spin = spin;
+
+            // (when its path is within the box round the middle, its hit circle reaching in: a slab on each axis)
+            double inside = 0, outside = gone - born;
+            Vector2 middle = new Vector2(256f, 192f), half = Asteroids.SCREEN_HALF + new Vector2(hit);
+
+            for (int axis = 0; axis < 2; axis++)
+            {
+                float p = axis == 0 ? from.X - middle.X : from.Y - middle.Y, w = axis == 0 ? velocity.X : velocity.Y, h = axis == 0 ? half.X : half.Y;
+
+                if (MathF.Abs(w) < 1e-9f)
+                {
+                    if (MathF.Abs(p) > h)
+                        outside = -1; // (never in)
+
+                    continue;
+                }
+
+                double a = (-h - p) / w, b = (h - p) / w;
+                inside = Math.Max(inside, Math.Min(a, b));
+                outside = Math.Min(outside, Math.Max(a, b));
+            }
+
+            if (outside <= inside)
+                OnFrom = OnTo = born;
+            else
+            {
+                OnFrom = born + inside;
+                OnTo = born + outside;
+            }
         }
 
         /// <summary>Where its middle is at <paramref name="t"/>.</summary>
@@ -52,6 +96,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// <summary>How far out each rock's hit circle reaches (a circle of the rock's own area), as a share of its picture's longer side (Tools/Bake `rocks` prints them; StageLayer has the pictures).</summary>
         public static readonly float[] HIT_SHARES = { 0.435f, 0.442f, 0.402f, 0.448f, 0.457f, 0.431f, 0.411f, 0.452f, 0.440f, 0.453f, 0.406f, 0.421f, 0.427f, 0.429f };
 
+        /// <summary>Half of the biggest screen there can be round the middle of the playfield (px: about 2.5 to 1, a little taller than a screen is) - bounces are only on the screen, so a rock outside this is passed over.</summary>
+        public static readonly Vector2 SCREEN_HALF = new Vector2(600f, 290f);
+
         /// <summary>How far from the middle of the playfield they come in (px): out of every screen up to 21:9.</summary>
         private const float start_distance = 720f;
 
@@ -62,7 +109,7 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         {
             double beat = Math.Max(period.BeatLength, 1);
             float slowest = period.CircleRadius * DanmakusuBalance.RIKAKO_ROCK_SPEED_LEAST / (float)beat;
-            return 2f * (start_distance + period.CircleRadius * DanmakusuBalance.RIKAKO_ROCK_MOST_CIRCLES) / Math.Max(slowest, 1e-4f);
+            return 2f * (start_distance + period.CircleRadius * DanmakusuBalance.RIKAKO_ROCK_MOST_CIRCLES * DanmakusuBalance.RIKAKO_ROCK_BIG) / Math.Max(slowest, 1e-4f);
         }
 
         /// <summary>Rikako's asteroids in <paramref name="period"/>, in the order they are born (made once per period and kept).</summary>
@@ -101,6 +148,11 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 // (which rock: the next ones are never the same as the one before - a step of 1..rocks-1 from it, by the hash)
                 int picture = (k * 5 + (int)(u(1) * rocks)) % rocks;
                 float size = circle * (DanmakusuBalance.RIKAKO_ROCK_LEAST_CIRCLES + (DanmakusuBalance.RIKAKO_ROCK_MOST_CIRCLES - DanmakusuBalance.RIKAKO_ROCK_LEAST_CIRCLES) * u(2));
+
+                // (every third one twice as big: 2026-11-28, "Every third one is 2x size")
+                if (k % DanmakusuBalance.RIKAKO_ROCK_BIG_EVERY == DanmakusuBalance.RIKAKO_ROCK_BIG_EVERY - 1)
+                    size *= DanmakusuBalance.RIKAKO_ROCK_BIG;
+
                 float hit = size * HIT_SHARES[picture];
 
                 // (in from a place of its own round the middle, through a place of its own near the middle - so from any side, any way across)
@@ -115,6 +167,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                 float spin = (u(7) < 0.5f ? -1f : 1f) * DanmakusuBalance.RIKAKO_ROCK_SPIN_DEGREES * (0.4f + 0.6f * u(8)) * MathF.PI / 180f / (float)beat;
 
                 list.Add(new Asteroid(born, gone, start, way * speed, size, hit, picture, u(9) * MathF.Tau, spin));
+            }
+
+            // (the latest end on a screen so far, for the search of the ops)
+            double soFar = double.NegativeInfinity;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                soFar = Math.Max(soFar, list[i].OnTo);
+                list[i] = new Asteroid(list[i], soFar);
             }
 
             return list.ToArray();
@@ -141,8 +202,9 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
         /// </summary>
         public static double Enters(in Asteroid rock, Vector2 position, Vector2 v, double now, double limit)
         {
-            double from = Math.Max(now, rock.Born);
-            double until = Math.Min(now + limit, rock.Gone);
+            // (only while it can be on a screen: a bounce is only on the screen)
+            double from = Math.Max(now, Math.Max(rock.Born, rock.OnFrom));
+            double until = Math.Min(now + limit, Math.Min(rock.Gone, rock.OnTo));
 
             if (until <= from)
                 return double.PositiveInfinity;

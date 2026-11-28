@@ -12,9 +12,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // Elis (2026-11-27): every ELIS_EVERY_BEATS of her section (from when she shoots) she flashes red for ELIS_WARN_BEATS, then turns into a big bat (a Koakuma bat ELIS_BAT_CIRCLES circle radii across
         // the wing, red) and for ELIS_FLY_BEATS flies at the player as fast as Koakuma's bats fly, turning as they do (BatAct.steer). The bat hurts like a slider body (ELIS_HIT_CIRCLES), and every bullet
         // of a ring she flies through (within ELIS_RECORD_CIRCLES of her middle: her magic circle) is taken into it, ELIS_RECORD_MOST at most. Then she stops where she is and is herself again, and for
-        // ELIS_SHOOT_BEATS her magic circle shoots what it took, one after the other evenly, all the same way - the way from her to the player as she stops, so that they fly side by side, spread across her
-        // circle - ELIS_SHOT_SPEED times as fast as each flew and ELIS_SHOT_SIZE times as big, red, each drawing a beam behind it as long as ELIS_TRACE_BEATS of its flight that hurts like one. Then she
-        // glides back to where bosses stand. Her flight is worked out step by step (the player is where they are then); a seek back clears it (what was in the air then is gone).
+        // ELIS_SHOOT_BEATS her magic circle shoots what it took, one after the other evenly, all the same way - the way from her to the player as she stops - ELIS_SHOT_SPEED times as fast as each flew
+        // and ELIS_SHOT_SIZE times as big, red, each drawing a beam behind it as long as ELIS_TRACE_BEATS of its flight that hurts like one. Her flight is worked out step by step (the player is where
+        // they are then); a seek back clears it (what was in the air then is gone).
+        // Since 2026-11-28 ("recorded bullets shoot evenly from entire magic circle, not just line. Also she stays on big bat's final position then shoots from here. Recorded bullets traces are 1 beat
+        // long"): the shots come out of points evenly round the edge of her whole circle (a line across it, side by side, before); she stays where her flight ended until her next one (she glided back to
+        // where bosses stand after her shots); the traces are a beat long (four).
         // ======================================================================================================================================================
 
         private sealed class BigBatAct : StageAct
@@ -176,12 +179,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 return flight.Trail[^1] + flight.Velocity * (float)Math.Max(past, 0);
             }
 
+            /// <summary>
+            /// Where she is: along her flight, then where it ended - and there she stays (2026-11-28, "she stays on big bat's final position then shoots from here"): while she shoots, and after that
+            /// until her next flight begins from there (its flash too); after her last one, until her shots are over. She glided back to where bosses stand after her shots before.
+            /// </summary>
             public override bool BossAt(BulletField f, double now, out Vector2 position)
             {
                 position = default;
                 int k = cycleAt(now);
 
-                if (k < 0 || now < flyStart(k) || now > shootEnd(k) || f.failed)
+                // (in a flash she is still where the flight before it ended)
+                if (k >= 0 && now < flyStart(k))
+                    k--;
+
+                if (k < 0 || now < flyStart(k) || f.failed || (k == cycles.Length - 1 && now > shootEnd(k)))
                     return false;
 
                 var flight = flightOf(f, k);
@@ -238,9 +249,11 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             {
                 var taken = flight.Taken[i];
                 var stored = taken.Stored;
-                Vector2 across = new Vector2(-flight.Way.Y, flight.Way.X);
-                float slot = (i * 0.618034f) % 1f * 2f - 1f;
-                Vector2 from = flight.Stop + across * (slot * DanmakusuBalance.MAGIC_CIRCLE_RADIUS * 0.85f);
+
+                // (out of the edge of her whole magic circle, evenly round it, one after the other - 2026-11-28, "recorded bullets shoot evenly from entire magic circle, not just line": they came out
+                // of a line across it, side by side)
+                float angle = MathF.Atan2(flight.Way.Y, flight.Way.X) + i * MathF.Tau / Math.Max(flight.Taken.Count, 1);
+                Vector2 from = flight.Stop + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (DanmakusuBalance.MAGIC_CIRCLE_RADIUS * 0.85f);
                 Vector2 velocity = flight.Way * (Math.Max(taken.Speed, stageBulletSpeed(Period) * 0.5f) * DanmakusuBalance.ELIS_SHOT_SPEED);
                 double life = f.stageLife(velocity);
 

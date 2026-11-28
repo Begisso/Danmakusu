@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
     {
         public override string Name => "Marathon";
         public override string Acronym => "MR";
-        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. The map selected in song select is always the first; each next one starts as soon as the one before is over, with the bullets and beams it left on the screen.";
+        public override LocalisableString Description => "Play several maps back to back: check them in the list, in the order you will play them. The map selected in song select is always the first; each next one starts as soon as the one before is over.";
 
         [Obsolete("Score multipliers are not used any more (the base member is obsolete); kept because the base class asks for it.")]
         public override double ScoreMultiplier => 1;
@@ -86,11 +86,6 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         private static bool due;
         private static bool starting;
 
-        // (the field of the map played now, and the bullets the map before left on the screen - 2026-11-28, "transfer remaining bullets on the screen to next map": BulletField.Carry.cs)
-        private static WeakReference<UI.BulletField>? playing;
-        private static UI.CarriedBullet[]? carried;
-        private static UI.CarriedBeam[]? carriedBeams; // (2026-11-28, "carry beams to the next map too")
-        private static int carriedFrom = -1;
 
         private const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
@@ -177,14 +172,8 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
 
             due = position + 1 < maps.Length;
 
-            // (what is on the screen now goes on to the next map)
-            if (due && playing != null && playing.TryGetTarget(out var field))
-            {
-                carried = field.CarryOff();
-                carriedBeams = field.CarryOffBeams(); // (and the beams: 2026-11-28)
-                carriedFrom = position;
-                Logger.Log($"Danmakusu: Marathon: {carried.Length} bullets and {carriedBeams.Length} beams go on to the next map");
-            }
+            // (what was on the screen went on to the next map from earlier on 2026-11-28 - "transfer remaining bullets on the screen to next map", the beams too - until later that day, "remove marathon
+            // carry over bullets": every map starts clear again)
 
             if (!due)
             {
@@ -197,29 +186,14 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
         {
             running = false;
             due = false;
-            carried = null;
-            carriedBeams = null;
-            carriedFrom = -1;
         }
 
         /// <summary>
-        /// The field of a map has been made (<paramref name="md5"/>): when it is a map of the marathon going on, it is the one whose bullets go on to the next map, and it starts with what the map
-        /// before it left on the screen (2026-11-28; a map played again starts with them again).
+        /// The field of a map has been made (<paramref name="md5"/>). (It started with what the map before it left on the screen from earlier on 2026-11-28 until later that day, "remove marathon carry
+        /// over bullets": nothing is handed on now. BulletField.CarryOff and CarryIn stay - Minoriko records the screen with the one, the bench's carry tool uses both.)
         /// </summary>
         public static void Joined(UI.BulletField field, string? md5)
         {
-            int index = IndexOf(md5);
-
-            if (index < 0)
-                return;
-
-            playing = new WeakReference<UI.BulletField>(field);
-
-            if (carried != null && carriedFrom >= 0 && index > carriedFrom)
-            {
-                field.CarryIn(carried, carriedBeams);
-                Logger.Log($"Danmakusu: Marathon map {index + 1} starts with {carried.Length} bullets and {carriedBeams?.Length ?? 0} beams of the map before");
-            }
         }
 
         private static DanmakusuModMarathon? marathonOf(SongSelect songSelect) => songSelect.Mods.Value?.OfType<DanmakusuModMarathon>().FirstOrDefault();
@@ -283,9 +257,6 @@ namespace osu.Game.Rulesets.Danmakusu.Mods
                 maps = list;
                 position = 0;
                 due = false;
-                carried = null;
-                carriedBeams = null;
-                carriedFrom = -1;
                 starting = true;
 
                 try

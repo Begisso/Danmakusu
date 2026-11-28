@@ -27,11 +27,15 @@ namespace osu.Game.Rulesets.Danmakusu.UI
         // (Its head turns at where the player really is, step by step in Update; asked about the time to come, its head goes on straight as it goes then.)
         // ======================================================================================================================================================
 
+        // (2026-11-28, "blocks should be built on playfield walls, not on centre. Again - from playfield EDGES": the grid is over the whole screen - its edges, sides and corners - and made again when the
+        // screen is known or changes. It was made on her first frame only: when the screen was not known yet it lay over the osu! playfield, the middle of a wide screen, and the blocks were built round
+        // that from the first time on.)
+
         private sealed class MiningAct : StageAct
         {
             private sealed class Block
             {
-                public int Cell;
+                public int Rank; // (its place in the order the cells are filled in: its cell is order[Rank], so it keeps its place along the walls when the grid is made anew for another screen)
                 public double Thrown, Lands;
                 public Vector2 From; // (where she was as she threw it)
                 public double GoneAt = double.PositiveInfinity;
@@ -79,11 +83,12 @@ namespace osu.Game.Rulesets.Danmakusu.UI
             private readonly List<Crawler> crawlers = new List<Crawler>();
             private int nextThrow, nextCrawl;
 
-            // (the grid: made once the screen is known)
+            // (the grid over the whole screen, made again whenever the screen is other than it was made for: 2026-11-28 - it was made once, on her first frame, and if the screen was not known yet then, it
+            // was made over the osu! playfield, which on a wide screen is its middle: the blocks lay round the middle of the screen, not along its edges)
             private int columns, rows;
-            private Vector2 cellSize, gridMin;
+            private Vector2 cellSize, gridMin, gridLow, gridHigh;
             private int[] order = Array.Empty<int>();
-            private int[] lying = Array.Empty<int>(); // (which block is in each cell, -1: none)
+            private int[] lying = Array.Empty<int>(); // (which block is at each place of the order, -1: none)
 
             public MiningAct(BossPeriod period)
             {
@@ -140,16 +145,16 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 ClearBullets();
             }
 
-            private void makeGrid(BulletField f)
+            private void makeGrid(BulletField f, double now)
             {
+                gridLow = f.stageMin;
+                gridHigh = f.stageMax;
                 Vector2 size = f.stageMax - f.stageMin;
                 float side = Math.Max(f.circleRadius * 2f * DanmakusuBalance.MOMOYO_BLOCK_CIRCLES, 4f);
                 columns = Math.Max((int)(size.X / side), 1);
                 rows = Math.Max((int)(size.Y / side), 1);
                 cellSize = new Vector2(size.X / columns, size.Y / rows);
                 gridMin = f.stageMin;
-                lying = new int[columns * rows];
-                Array.Fill(lying, -1);
 
                 var cells = new List<(int Layer, float Key, int Cell)>();
 
@@ -166,16 +171,35 @@ namespace osu.Game.Rulesets.Danmakusu.UI
 
                 cells.Sort((a, b) => a.Layer != b.Layer ? a.Layer.CompareTo(b.Layer) : a.Key.CompareTo(b.Key));
                 order = cells.ConvertAll(c => c.Cell).ToArray();
+
+                // (the blocks there are keep their places in the order; one whose place this grid has not is gone)
+                lying = new int[order.Length];
+                Array.Fill(lying, -1);
+
+                for (int k = 0; k < blocks.Count; k++)
+                {
+                    var block = blocks[k];
+
+                    if (block.GoneAt <= now)
+                        continue;
+
+                    if (block.Rank < order.Length)
+                        lying[block.Rank] = k;
+                    else
+                        block.GoneAt = now;
+                }
             }
 
             private Vector2 cellCentre(int cell) => gridMin + new Vector2((cell % columns + 0.5f) * cellSize.X, (cell / columns + 0.5f) * cellSize.Y);
+
+            private Vector2 rankCentre(int rank) => cellCentre(order[Math.Min(rank, order.Length - 1)]);
 
             private static bool lies(Block block, double t) => t >= block.Lands && t < block.GoneAt;
 
             /// <summary>Where a block is at <paramref name="t"/>, how big and turned how far (degrees): flying from her, turning and growing to its size as it lands; then in its cell. False before it is thrown or once it is gone.</summary>
             private bool blockAt(Block block, double t, out Vector2 place, out Vector2 size, out float degrees)
             {
-                place = cellCentre(block.Cell);
+                place = rankCentre(block.Rank);
                 size = cellSize;
                 degrees = 0f;
 
@@ -198,29 +222,20 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                 if (f.failed)
                     return;
 
-                if (order.Length == 0)
-                    makeGrid(f);
+                if (order.Length == 0 || Vector2.Distance(gridLow, f.stageMin) > 1f || Vector2.Distance(gridHigh, f.stageMax) > 1f)
+                    makeGrid(f, now);
 
                 // her throws: into the first free cell, along the walls first
                 while (nextThrow < throws.Length && throws[nextThrow] <= now)
                 {
                     double t = throws[nextThrow++];
-                    int cell = -1;
+                    int rank = Array.IndexOf(lying, -1);
 
-                    foreach (int c in order)
-                    {
-                        if (lying[c] < 0)
-                        {
-                            cell = c;
-                            break;
-                        }
-                    }
-
-                    if (cell < 0)
+                    if (rank < 0)
                         continue; // (every cell is full)
 
-                    lying[cell] = blocks.Count;
-                    blocks.Add(new Block { Cell = cell, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = f.bossPositionOf(Period) });
+                    lying[rank] = blocks.Count;
+                    blocks.Add(new Block { Rank = rank, Thrown = t, Lands = t + beat * DanmakusuBalance.MOMOYO_THROW_BEATS, From = f.bossPositionOf(Period) });
                 }
 
                 // the centipedes: from behind the wall at her back, at where the player is
@@ -263,13 +278,13 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                         if (!lies(block, now))
                             continue;
 
-                        Vector2 at = cellCentre(block.Cell);
+                        Vector2 at = rankCentre(block.Rank);
 
                         if (Vector2.Distance(at, pose.Middle) > pose.Reach + reach || !touches(pose, at, reach * 0.9f, false))
                             continue;
 
                         block.GoneAt = now;
-                        lying[block.Cell] = -1;
+                        lying[block.Rank] = -1;
                         burst(f, at, now);
                     }
 
@@ -603,7 +618,7 @@ namespace osu.Game.Rulesets.Danmakusu.UI
                     foreach (var block in blocks)
                     {
                         if (lies(block, t))
-                            f.stageBack.Add(StageTexture.MomoyoStone, cellCentre(block.Cell), cellSize, 0f, fade, Color4.White);
+                            f.stageBack.Add(StageTexture.MomoyoStone, rankCentre(block.Rank), cellSize, 0f, fade, Color4.White);
                     }
 
                     foreach (var block in blocks)

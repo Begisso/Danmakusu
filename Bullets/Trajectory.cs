@@ -1005,15 +1005,15 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
                         step(ref position, ref v, acc, ref now, from);
                         var rocks = op.Rocks;
 
-                        // (the rocks that can be there between now and then: born by then, and not before the longest any is there)
+        // (the rocks that can be on a screen between now and then: from the first whose latest end on a screen so far is still to come - every one before it is off every screen by now, 2026-11-28 -
+                        // up to those born by then)
                         int lo = 0, hi = rocks.Length;
-                        double earliest = from - op.RocksLongest;
 
                         while (lo < hi)
                         {
                             int mid = (lo + hi) / 2;
 
-                            if (rocks[mid].Born < earliest)
+                            if (rocks[mid].OnToSoFar <= from)
                                 lo = mid + 1;
                             else
                                 hi = mid;
@@ -1028,8 +1028,8 @@ namespace osu.Game.Rulesets.Danmakusu.Bullets
 
                             for (int r = lo; r < rocks.Length && rocks[r].Born <= until; r++)
                             {
-                                if (r == last || rocks[r].Gone <= now)
-                                    continue;
+                                if (r == last || rocks[r].Gone <= now || rocks[r].OnTo <= now || rocks[r].OnFrom >= until)
+                                    continue; // (gone, or not on any screen while it flies: 2026-11-28)
 
                                 double enters = Asteroids.Enters(rocks[r], position, v, now, until - now);
 

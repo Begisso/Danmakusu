@@ -4852,7 +4852,12 @@ namespace osu.Game.Rulesets.Danmakusu
         /// Rikako Asakura: an asteroid every this many beats, from this many beats before her section on; this many to this many circle radii on its picture's longer side, flying this many to this many
         /// circle radii a beat, turning at most this many degrees a beat; a bullet bounces off them this many times at most (see Bullets/Asteroids.cs).
         /// </summary>
-        public const double RIKAKO_ROCK_EVERY_BEATS = 1; // (2 until 2026-11-27: "asteroids count doubled")
+        public const double RIKAKO_ROCK_EVERY_BEATS = 0.5; // (1 until 2026-11-28, "double the asteroids amount"; 2 until 2026-11-27: "asteroids count doubled")
+
+        /// <summary>Rikako (2026-11-28, "Every third one is 2x size"): every this many-th asteroid is this many times as big (its hit circle too).</summary>
+        public const int RIKAKO_ROCK_BIG_EVERY = 3;
+
+        public const float RIKAKO_ROCK_BIG = 2f;
 
         public const double RIKAKO_ROCK_FILL_BEATS = 32; // (16 until 2026-11-26: they fly half as fast, and take twice as long to fill the screen)
         public const float RIKAKO_ROCK_LEAST_CIRCLES = 0.625f; // (2.5 until 2026-11-26: "all asteroids sizes and speeds are halved"; 1.25 until 2026-11-27, "size halved")
@@ -4949,7 +4954,7 @@ namespace osu.Game.Rulesets.Danmakusu
         public const int ELIS_RECORD_MOST = 128;
         public const float ELIS_SHOT_SPEED = 2f;
         public const float ELIS_SHOT_SIZE = 2f;
-        public const double ELIS_TRACE_BEATS = 4;
+        public const double ELIS_TRACE_BEATS = 1; // (4 until 2026-11-28, "Recorded bullets traces are 1 beat long")
         public const float ELIS_TRACE_WIDTH = 0.3f;
 
         // Sariel (2026-11-27): rings of so many bats every so many beats of her attacks, so much slower than Koakuma's, living so many beats, so many at once at most, each shooting every so many beats; every so many-th bullet out of the top or bottom comes in at the other side so many times; her last word dims the screen so much over so many beats, and aims everything so many beats after her section
